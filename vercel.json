@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/", "destination": "/api/health" },
     { "source": "/health", "destination": "/api/health" },
     { "source": "/oauth/meta/start", "destination": "/api/oauth/meta/start" },
     { "source": "/oauth/meta/callback", "destination": "/api/oauth/meta/callback" }
