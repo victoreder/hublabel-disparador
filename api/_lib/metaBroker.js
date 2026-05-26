@@ -14,6 +14,14 @@ function getConfig() {
   const ALLOWED_RETURN_ORIGINS = (process.env.ALLOWED_RETURN_ORIGINS || "")
     .split(",")
     .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => {
+      try {
+        return new URL(value).origin;
+      } catch {
+        return null;
+      }
+    })
     .filter(Boolean);
 
   if (!FACEBOOK_APP_ID || !FACEBOOK_APP_SECRET || !STATE_SECRET) {
