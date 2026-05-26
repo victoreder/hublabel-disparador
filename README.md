@@ -1,0 +1,68 @@
+# HubLabel Meta OAuth Broker
+
+Broker OAuth centralizado para usar uma unica `redirect_uri` da Meta:
+
+- `https://auth.hublabel.com.br/oauth/meta/callback`
+
+## Objetivo
+
+Servir como intermediario entre whitelabels e Meta/Facebook, sem banco e sem tenant, com validacao minima de seguranca:
+
+- `return_origin` com allowlist
+- `state` assinado e com expiracao
+- `client_secret` apenas no backend
+
+## Rotas
+
+- `GET /oauth/meta/start?return_origin=https://cliente.com`
+  - valida `return_origin`
+  - assina `state`
+  - redireciona para o OAuth da Meta
+  - por padrao usa `postMessage`; opcional `&return_mode=redirect`
+
+- `GET /oauth/meta/callback`
+  - valida `state`
+  - troca `code` por `access_token`
+  - `post_message` (padrao): retorna HTML que envia `postMessage` para o whitelabel e fecha popup
+  - `redirect`: redireciona para `https://seu-whitelabel.com/oauth/meta/complete?...`
+
+- `GET /health`
+  - status basico
+
+## Configuracao
+
+1. Copie `.env.example` para `.env`
+2. Preencha os valores reais
+
+## Executar
+
+```bash
+npm install
+npm run start
+```
+
+## Exemplo no whitelabel
+
+```html
+<script>
+  function conectarFacebook() {
+    const returnOrigin = encodeURIComponent(window.location.origin);
+    const url =
+      "https://auth.hublabel.com.br/oauth/meta/start?return_origin=" +
+      returnOrigin;
+    window.open(url, "meta_oauth", "width=600,height=700");
+  }
+
+  window.addEventListener("message", (event) => {
+    if (event.origin !== "https://auth.hublabel.com.br") return;
+    if (event.data?.type === "META_OAUTH_OK") {
+      // Envie para o backend do whitelabel salvar de forma segura
+      console.log("Token recebido:", event.data.access_token);
+      return;
+    }
+    if (event.data?.type === "META_OAUTH_ERROR") {
+      console.error("Falha no OAuth:", event.data);
+    }
+  });
+</script>
+```
