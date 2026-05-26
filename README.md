@@ -29,6 +29,14 @@ Servir como intermediario entre whitelabels e Meta/Facebook, sem banco e sem ten
 - `GET /health`
   - status basico
 
+## Deploy na Vercel
+
+Esse projeto usa Vercel Functions em `api/*` e um `vercel.json` com rewrites para manter as URLs:
+
+- `/health` -> `/api/health`
+- `/oauth/meta/start` -> `/api/oauth/meta/start`
+- `/oauth/meta/callback` -> `/api/oauth/meta/callback`
+
 ## Configuracao
 
 1. Copie `.env.example` para `.env`
