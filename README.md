@@ -31,29 +31,14 @@ Servir como intermediario entre whitelabels e Meta/Facebook, sem banco e sem ten
 
 ## Deploy na Vercel
 
-Esse projeto usa Vercel Functions em `api/*`, arquivos estáticos em `public/` e `vercel.json` com rotas:
+App Express unico (`index.js` + `app.js`):
 
-- `/health` -> `/api/health`
-- `/oauth/meta/start` -> `/api/oauth/meta/start`
-- `/oauth/meta/callback` -> `/api/oauth/meta/callback`
-- demais URLs -> arquivos em `public/` (home, termos, privacidade)
+- rotas OAuth e `/health` no Express
+- paginas HTML/CSS em `public/` (home, termos, privacidade)
 
-Para desenvolvimento local: `npm install` e `npm run dev` (usa `dev-server.js`).
+Local: `npm install` e `npm run dev`
 
-Na Vercel (Settings → General → Build & Development):
-
-- **Framework Preset:** Other
-- **Build Command:** (vazio)
-- **Output Directory:** (vazio) — nao preencha `public` aqui
-- **Root Directory:** (vazio)
-
-A home e as paginas legais ficam em `public/` (mesmo padrao):
-
-- `public/index.html` → `/`
-- `public/politica-de-privacidade/index.html` → `/politica-de-privacidade`
-- `public/termos-de-uso/index.html` → `/termos-de-uso`
-
-**Importante:** se o site mostrar codigo `.js` na tela ou der *No entrypoint found*, o projeto esta em modo **Web Service**. Desative isso e use deploy padrao (Functions + arquivos estaticos). Nao deve existir `index.js` na raiz.
+Producao (Vercel Web Service): entrypoint `index.js`
 
 ## Páginas públicas
 
@@ -73,7 +58,7 @@ Use as URLs de política e termos no cadastro do app na Meta (Privacy Policy URL
 
 ```bash
 npm install
-npm run start
+npm run dev
 ```
 
 ## Exemplo no whitelabel
