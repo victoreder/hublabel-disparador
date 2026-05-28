@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Termos de Uso | HubLabel Auth</title>
+  <meta name="description" content="Termos de Uso do serviço de autenticação OAuth HubLabel (auth.hublabel.com.br)." />
+  <link rel="stylesheet" href="/_assets/legal.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">HubLabel</div>
+      <h1>Termos de Uso</h1>
+      <p class="meta">
+        Versão: 26/05/2026 · Domínio: <a href="https://auth.hublabel.com.br">auth.hublabel.com.br</a>
+      </p>
+    </header>
+
+    <main class="card">
+      <p>
+        Estes Termos de Uso (“Termos”) regulam o acesso e a utilização do serviço de autenticação
+        centralizada com a Meta (Facebook/WhatsApp) disponibilizado pela <strong>HubLabel</strong> em
+        <strong>auth.hublabel.com.br</strong> (“Serviço de Auth”).
+      </p>
+      <p>
+        <strong>Ao utilizar o Serviço de Auth, você declara ter lido, compreendido e aceito estes Termos.</strong>
+      </p>
+      <p>
+        Estes Termos devem ser lidos em conjunto com a
+        <a href="/politica-de-privacidade">Política de Privacidade</a>.
+      </p>
+
+      <nav class="toc">
+        <h2>Sumário</h2>
+        <ul>
+          <li><a href="#definicoes">1. Definições</a></li>
+          <li><a href="#objeto">2. Objeto do serviço</a></li>
+          <li><a href="#elegibilidade">3. Elegibilidade e cadastro</a></li>
+          <li><a href="#uso">4. Regras de uso</a></li>
+          <li><a href="#meta">5. Relação com a Meta e terceiros</a></li>
+          <li><a href="#responsabilidades">6. Responsabilidades</a></li>
+          <li><a href="#limitacao">7. Limitação de responsabilidade</a></li>
+          <li><a href="#privacidade">8. Privacidade e dados</a></li>
+          <li><a href="#disponibilidade">9. Disponibilidade e alterações</a></li>
+          <li><a href="#gerais">10. Disposições gerais</a></li>
+          <li><a href="#foro">11. Foro e legislação</a></li>
+        </ul>
+      </nav>
+
+      <h2 id="definicoes">1. Definições</h2>
+      <ul>
+        <li><strong>HubLabel:</strong> responsável pela operação do Serviço de Auth.</li>
+        <li><strong>Usuário:</strong> pessoa que inicia o fluxo de conexão com a Meta.</li>
+        <li><strong>Aplicativo parceiro (whitelabel):</strong> sistema de terceiro que integra o Serviço de Auth.</li>
+        <li><strong>Meta:</strong> Meta Platforms, Inc. e empresas do grupo (Facebook, Instagram, WhatsApp).</li>
+        <li><strong>Token de acesso:</strong> credencial técnica emitida pela Meta para uso de APIs autorizadas.</li>
+      </ul>
+
+      <h2 id="objeto">2. Objeto do serviço</h2>
+      <p>
+        O Serviço de Auth tem como finalidade intermediar tecnicamente o fluxo OAuth com a Meta,
+        permitindo que aplicativos parceiros utilizem uma única configuração de redirecionamento
+        (<code>redirect_uri</code>) centralizada em <code>auth.hublabel.com.br</code>.
+      </p>
+      <p>O Serviço de Auth:</p>
+      <ul>
+        <li>inicia e valida o fluxo de autorização;</li>
+        <li>recebe o retorno da Meta no callback autorizado;</li>
+        <li>realiza a troca de código por token no servidor;</li>
+        <li>devolve o resultado ao aplicativo parceiro por mecanismo seguro definido na integração.</li>
+      </ul>
+      <p>
+        O Serviço de Auth <strong>não substitui</strong> o aplicativo parceiro, nem garante por si só
+        envio de mensagens, gestão de atendimento ou funcionalidades de CRM.
+      </p>
+
+      <h2 id="elegibilidade">3. Elegibilidade e cadastro</h2>
+      <ul>
+        <li>o Usuário deve possuir capacidade civil para contratar e autorizar integrações;</li>
+        <li>deve possuir conta válida na Meta e permissões necessárias no ativo comercial vinculado;</li>
+        <li>o aplicativo parceiro deve estar previamente autorizado na configuração de segurança do Serviço de Auth.</li>
+      </ul>
+
+      <h2 id="uso">4. Regras de uso</h2>
+      <p>É vedado, entre outras condutas:</p>
+      <ul>
+        <li>utilizar o Serviço de Auth para fins ilícitos, fraudulentos ou que violem políticas da Meta;</li>
+        <li>tentar burlar validações de origem, estado (<code>state</code>) ou escopos autorizados;</li>
+        <li>compartilhar indevidamente tokens, segredos de aplicação ou credenciais de terceiros;</li>
+        <li>realizar engenharia reversa, sobrecarga intencional (abuso) ou exploração de vulnerabilidades;</li>
+        <li>usar o serviço para spam, phishing, envio massivo não consentido ou práticas de opt-out violadas.</li>
+      </ul>
+      <p>
+        A HubLabel poderá suspender ou bloquear acessos em caso de suspeita de abuso, risco de
+        segurança, violação destes Termos ou exigência de compliance da Meta.
+      </p>
+
+      <h2 id="meta">5. Relação com a Meta e terceiros</h2>
+      <p>
+        O Usuário reconhece que o Serviço de Auth depende de plataformas de terceiros (Meta/WhatsApp)
+        e que está sujeito aos termos e políticas dessas plataformas, incluindo:
+      </p>
+      <ul>
+        <li><a href="https://www.facebook.com/terms.php" target="_blank" rel="noopener noreferrer">Termos do Facebook</a></li>
+        <li><a href="https://www.whatsapp.com/legal/business-terms/" target="_blank" rel="noopener noreferrer">Termos comerciais do WhatsApp</a></li>
+        <li><a href="https://developers.facebook.com/terms/" target="_blank" rel="noopener noreferrer">Termos da Meta for Developers</a></li>
+      </ul>
+      <p>
+        Indisponibilidades, mudanças de API, revisões de permissões, bloqueios de conta/número ou
+        restrições de compliance impostas pela Meta não constituem, por si só, falha imputável à HubLabel.
+      </p>
+
+      <h2 id="responsabilidades">6. Responsabilidades</h2>
+      <h3>6.1. Da HubLabel</h3>
+      <ul>
+        <li>manter o Serviço de Auth disponível de forma razoável, observadas limitações técnicas e de terceiros;</li>
+        <li>aplicar medidas de segurança compatíveis com a natureza do serviço;</li>
+        <li>tratar dados pessoais conforme a Política de Privacidade.</li>
+      </ul>
+
+      <h3>6.2. Do Usuário e do aplicativo parceiro</h3>
+      <ul>
+        <li>utilizar tokens apenas para finalidades autorizadas e com base legal adequada;</li>
+        <li>manter política de privacidade própria quando aplicável;</li>
+        <li>garantir consentimentos e obrigações legais perante titulares de dados atendidos;</li>
+        <li>proteger credenciais, ambientes e integrações após o retorno do OAuth.</li>
+      </ul>
+
+      <h2 id="limitacao">7. Limitação de responsabilidade</h2>
+      <p>
+        Na extensão máxima permitida pela legislação aplicável, a HubLabel não será responsável por:
+      </p>
+      <ul>
+        <li>danos indiretos, lucros cessantes, perda de chance ou danos morais decorrentes do uso do serviço;</li>
+        <li>falhas causadas por infraestrutura de terceiros, incluindo Meta, provedores de nuvem e internet;</li>
+        <li>uso indevido de tokens pelo aplicativo parceiro, Usuário ou terceiros autorizados pelo Usuário;</li>
+        <li>conteúdo, mensagens e bases de dados tratadas fora do escopo do Serviço de Auth.</li>
+      </ul>
+
+      <h2 id="privacidade">8. Privacidade e dados</h2>
+      <p>
+        O tratamento de dados pessoais no Serviço de Auth é regido pela
+        <a href="/politica-de-privacidade">Política de Privacidade</a>.
+      </p>
+      <p>
+        Após a conclusão do fluxo OAuth, o armazenamento e uso do token no aplicativo parceiro são de
+        responsabilidade desse aplicativo, salvo disposição contratual específica entre as partes.
+      </p>
+
+      <h2 id="disponibilidade">9. Disponibilidade e alterações</h2>
+      <p>
+        A HubLabel poderá alterar, suspender ou descontinuar funcionalidades do Serviço de Auth para
+        manutenção, segurança, compliance ou evolução técnica, mediante comunicação razoável quando aplicável.
+      </p>
+      <p>
+        Estes Termos podem ser atualizados a qualquer tempo. A versão vigente será publicada nesta URL.
+        O uso continuado após a publicação de alterações implica aceite da nova versão.
+      </p>
+
+      <h2 id="gerais">10. Disposições gerais</h2>
+      <ul>
+        <li>a tolerância quanto a descumprimentos não implica renúncia de direitos;</li>
+        <li>a nulidade de uma cláusula não afeta as demais;</li>
+        <li>comunicações poderão ocorrer por e-mail cadastrado, aviso no serviço ou canais oficiais;</li>
+        <li>estes Termos não criam vínculo societário, trabalhista ou de representação entre Usuário e HubLabel.</li>
+      </ul>
+
+      <h2 id="foro">11. Foro e legislação</h2>
+      <p>
+        Estes Termos são regidos pelas leis da República Federativa do Brasil.
+      </p>
+      <p>
+        Fica eleito o foro da comarca do domicílio da HubLabel, salvo disposição legal em contrário
+        em relações de consumo, com renúncia a qualquer outro, por mais privilegiado que seja.
+      </p>
+
+      <div class="notice">
+        <strong>Dados cadastrais da prestadora:</strong> razão social, CNPJ e endereço devem constar
+        nos contratos e cadastros oficiais. Para solicitar a versão com dados societários completos,
+        contate <a href="mailto:suporte@hublabel.com.br">suporte@hublabel.com.br</a>.
+      </div>
+
+      <p>
+        Versão vigente em:
+        <a href="https://auth.hublabel.com.br/termos-de-uso">https://auth.hublabel.com.br/termos-de-uso</a>
+      </p>
+    </main>
+
+    <footer>
+      <p>
+        <a href="/politica-de-privacidade">Política de Privacidade</a> ·
+        <a href="/health">Status do serviço</a>
+      </p>
+      <p>© HubLabel — Todos os direitos reservados.</p>
+    </footer>
+  </div>
+</body>
+</html>

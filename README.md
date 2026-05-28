@@ -37,6 +37,15 @@ Esse projeto usa Vercel Functions em `api/*` e um `vercel.json` com rewrites par
 - `/oauth/meta/start` -> `/api/oauth/meta/start`
 - `/oauth/meta/callback` -> `/api/oauth/meta/callback`
 
+## Páginas legais (Meta App)
+
+Publicadas em `public/`:
+
+- Política de Privacidade: `https://auth.hublabel.com.br/politica-de-privacidade`
+- Termos de Uso: `https://auth.hublabel.com.br/termos-de-uso`
+
+Use essas URLs no cadastro do app na Meta (Privacy Policy URL e Terms of Service URL).
+
 ## Configuracao
 
 1. Copie `.env.example` para `.env`

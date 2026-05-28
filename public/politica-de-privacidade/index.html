@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Política de Privacidade | HubLabel Auth</title>
+  <meta name="description" content="Política de Privacidade do serviço de autenticação OAuth HubLabel (auth.hublabel.com.br)." />
+  <link rel="stylesheet" href="/_assets/legal.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">HubLabel</div>
+      <h1>Política de Privacidade</h1>
+      <p class="meta">
+        Versão: 26/05/2026 · Domínio: <a href="https://auth.hublabel.com.br">auth.hublabel.com.br</a>
+      </p>
+    </header>
+
+    <main class="card">
+      <p>
+        Esta Política de Privacidade descreve como a <strong>HubLabel</strong> trata dados pessoais
+        no serviço de autenticação centralizada com a Meta (Facebook/WhatsApp), disponível em
+        <strong>auth.hublabel.com.br</strong> (“Serviço de Auth”).
+      </p>
+      <p>
+        O Serviço de Auth funciona como intermediário técnico: o usuário inicia a conexão em um
+        aplicativo parceiro (whitelabel) e é redirecionado para login/autorização na Meta; após a
+        autorização, o token é devolvido ao aplicativo de origem para armazenamento e uso conforme
+        as regras daquele aplicativo.
+      </p>
+      <p>
+        Esta Política integra os <a href="/termos-de-uso">Termos de Uso</a> do Serviço de Auth.
+      </p>
+
+      <nav class="toc">
+        <h2>Sumário</h2>
+        <ul>
+          <li><a href="#definicoes">1. Definições</a></li>
+          <li><a href="#aplicacao">2. A quem se aplica</a></li>
+          <li><a href="#dados">3. Dados que tratamos</a></li>
+          <li><a href="#finalidades">4. Finalidades</a></li>
+          <li><a href="#bases">5. Bases legais (LGPD)</a></li>
+          <li><a href="#compartilhamento">6. Compartilhamento</a></li>
+          <li><a href="#retencao">7. Retenção</a></li>
+          <li><a href="#seguranca">8. Segurança</a></li>
+          <li><a href="#direitos">9. Direitos do titular</a></li>
+          <li><a href="#cookies">10. Cookies e tecnologias similares</a></li>
+          <li><a href="#transferencia">11. Transferência internacional</a></li>
+          <li><a href="#contato">12. Contato e Encarregado</a></li>
+          <li><a href="#alteracoes">13. Alterações</a></li>
+        </ul>
+      </nav>
+
+      <h2 id="definicoes">1. Definições</h2>
+      <ul>
+        <li><strong>Titular:</strong> pessoa natural a quem se referem os dados pessoais.</li>
+        <li><strong>Aplicativo parceiro (whitelabel):</strong> sistema de terceiro que utiliza o Serviço de Auth para conectar contas Meta.</li>
+        <li><strong>Meta / Facebook:</strong> Meta Platforms, Inc. e empresas do grupo, provedora das APIs e do fluxo OAuth.</li>
+        <li><strong>LGPD:</strong> Lei nº 13.709/2018.</li>
+        <li><strong>Controlador / Operador:</strong> conceitos da LGPD para quem decide ou executa o tratamento em nome do controlador.</li>
+      </ul>
+
+      <h2 id="aplicacao">2. A quem se aplica</h2>
+      <p>Esta Política se aplica a:</p>
+      <ul>
+        <li>usuários que iniciam conexão com a Meta por meio do Serviço de Auth;</li>
+        <li>representantes de empresas que operam aplicativos parceiros integrados ao Serviço de Auth.</li>
+      </ul>
+      <p>
+        Dados tratados diretamente pelo aplicativo parceiro (após o retorno da autenticação) são de
+        responsabilidade desse aplicativo, que deve possuir política própria de privacidade.
+      </p>
+
+      <h2 id="dados">3. Dados que tratamos</h2>
+      <h3>3.1. Dados fornecidos indiretamente no fluxo OAuth</h3>
+      <ul>
+        <li>origem de retorno autorizada (<code>return_origin</code>);</li>
+        <li>parâmetros técnicos de sessão do fluxo (<code>state</code> assinado, nonce, expiração);</li>
+        <li>código de autorização OAuth recebido da Meta (temporário, para troca de token);</li>
+        <li>token de acesso e metadados retornados pela Meta (tipo, validade), quando aplicável.</li>
+      </ul>
+
+      <h3>3.2. Dados coletados automaticamente</h3>
+      <ul>
+        <li>endereço IP, data/hora da requisição, user-agent, URL acessada e status de resposta;</li>
+        <li>registros de erro e diagnóstico de infraestrutura (hospedagem e CDN).</li>
+      </ul>
+
+      <h3>3.3. Dados que não coletamos neste serviço</h3>
+      <ul>
+        <li>conteúdo de mensagens de WhatsApp, contatos, conversas ou mídias;</li>
+        <li>senha da conta Meta/Facebook do usuário (autenticação ocorre diretamente na Meta).</li>
+      </ul>
+
+      <h2 id="finalidades">4. Finalidades do tratamento</h2>
+      <ul>
+        <li>executar o fluxo de autenticação/autorização OAuth com a Meta;</li>
+        <li>validar segurança do retorno ao aplicativo parceiro autorizado;</li>
+        <li>prevenir abuso, fraude e uso indevido do Serviço de Auth;</li>
+        <li>manter estabilidade, auditoria técnica e suporte operacional;</li>
+        <li>cumprir obrigações legais e regulatórias aplicáveis.</li>
+      </ul>
+
+      <h2 id="bases">5. Bases legais (LGPD)</h2>
+      <ul>
+        <li><strong>Execução de contrato</strong> (art. 7º, V): operação do Serviço de Auth solicitado pelo aplicativo parceiro/usuário.</li>
+        <li><strong>Legítimo interesse</strong> (art. 7º, IX): segurança, prevenção a fraude e continuidade operacional.</li>
+        <li><strong>Obrigação legal</strong> (art. 7º, II): retenção de logs conforme Marco Civil da Internet, quando aplicável.</li>
+        <li><strong>Consentimento</strong> (art. 7º, I): quando exigido para cookies não essenciais, conforme banner/ferramentas utilizadas.</li>
+      </ul>
+
+      <h2 id="compartilhamento">6. Compartilhamento</h2>
+      <p>Podemos compartilhar dados apenas quando necessário, incluindo com:</p>
+      <ul>
+        <li><strong>Meta Platforms / WhatsApp:</strong> para autenticação, autorização e troca de token OAuth;</li>
+        <li><strong>Provedores de infraestrutura:</strong> hospedagem, CDN, monitoramento e segurança (ex.: Vercel);</li>
+        <li><strong>Autoridades públicas:</strong> mediante ordem legal válida.</li>
+      </ul>
+      <p>
+        Não vendemos dados pessoais. O aplicativo parceiro que recebe o token após o fluxo passa a
+        tratar esses dados conforme sua própria política.
+      </p>
+
+      <h2 id="retencao">7. Retenção</h2>
+      <ul>
+        <li>dados temporários do fluxo OAuth (<code>state</code>, código): pelo tempo mínimo necessário à conclusão do processo;</li>
+        <li>logs técnicos: por prazo compatível com segurança, auditoria e obrigações legais (incluindo, quando aplicável, mínimo de 6 meses para registros de conexão);</li>
+        <li>dados mantidos pelo aplicativo parceiro: regidos pela política desse aplicativo.</li>
+      </ul>
+
+      <h2 id="seguranca">8. Segurança</h2>
+      <p>
+        Adotamos medidas técnicas e organizacionais proporcionais ao risco, incluindo uso de HTTPS,
+        validação de origem autorizada, assinatura e expiração de <code>state</code>, e restrição de
+        segredos de aplicação ao ambiente servidor.
+      </p>
+      <p>
+        Nenhum sistema é 100% seguro. Em caso de incidente relevante, adotaremos medidas de contenção
+        e comunicação conforme a legislação aplicável.
+      </p>
+
+      <h2 id="direitos">9. Direitos do titular</h2>
+      <p>Nos termos da LGPD, você pode solicitar:</p>
+      <ul>
+        <li>confirmação e acesso aos dados;</li>
+        <li>correção de dados incompletos, inexatos ou desatualizados;</li>
+        <li>anonimização, bloqueio ou eliminação de dados desnecessários;</li>
+        <li>portabilidade, quando aplicável;</li>
+        <li>informação sobre compartilhamentos;</li>
+        <li>revogação de consentimento, quando essa for a base legal;</li>
+        <li>revisão de decisões automatizadas, quando aplicável.</li>
+      </ul>
+      <p>
+        Para dados tratados pelo aplicativo parceiro após o retorno do OAuth, as solicitações devem
+        ser direcionadas também a esse aplicativo.
+      </p>
+
+      <h2 id="cookies">10. Cookies e tecnologias similares</h2>
+      <p>
+        O Serviço de Auth pode utilizar cookies estritamente necessários para funcionamento e
+        segurança. Cookies analíticos ou de marketing, se utilizados, dependerão de consentimento
+        quando exigido pela legislação.
+      </p>
+
+      <h2 id="transferencia">11. Transferência internacional</h2>
+      <p>
+        Por depender de provedores como Meta e infraestrutura em nuvem, seus dados podem ser
+        processados fora do Brasil, inclusive nos Estados Unidos e União Europeia, com salvaguardas
+        contratuais e medidas de segurança compatíveis com a LGPD.
+      </p>
+
+      <h2 id="contato">12. Contato e Encarregado</h2>
+      <p>Para exercer direitos ou esclarecer dúvidas sobre privacidade:</p>
+      <ul>
+        <li><strong>E-mail de privacidade:</strong> <a href="mailto:privacidade@hublabel.com.br">privacidade@hublabel.com.br</a></li>
+        <li><strong>E-mail de suporte:</strong> <a href="mailto:suporte@hublabel.com.br">suporte@hublabel.com.br</a></li>
+      </ul>
+
+      <div class="notice">
+        <strong>Dados cadastrais da controladora:</strong> razão social, CNPJ e endereço devem ser
+        informados no cadastro do app Meta e mantidos atualizados nesta página. Se precisar da
+        versão com dados societários completos, entre em contato pelo e-mail acima.
+      </div>
+
+      <h2 id="alteracoes">13. Alterações</h2>
+      <p>
+        Podemos atualizar esta Política a qualquer momento. A versão vigente será publicada nesta
+        URL. Alterações relevantes poderão ser comunicadas por meios razoáveis (site, e-mail ou
+        aplicativo parceiro).
+      </p>
+      <p>
+        Versão vigente em:
+        <a href="https://auth.hublabel.com.br/politica-de-privacidade">https://auth.hublabel.com.br/politica-de-privacidade</a>
+      </p>
+    </main>
+
+    <footer>
+      <p>
+        <a href="/termos-de-uso">Termos de Uso</a> ·
+        <a href="/health">Status do serviço</a>
+      </p>
+      <p>© HubLabel — Todos os direitos reservados.</p>
+    </footer>
+  </div>
+</body>
+</html>
