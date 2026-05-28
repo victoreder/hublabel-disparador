@@ -1,10 +1,8 @@
-const dotenv = require("dotenv");
+require("dotenv").config();
 
-dotenv.config();
-
-const app = require("./app")();
+const createApp = require("./app");
 const port = Number(process.env.PORT || 3000);
 
-app.listen(port, () => {
-  console.log(`OAuth broker online em http://localhost:${port}`);
+createApp().listen(port, () => {
+  console.log(`OAuth broker local em http://localhost:${port}`);
 });
