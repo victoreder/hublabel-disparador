@@ -1,13 +1,7 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "installCommand": "npm install --omit=dev || true",
-  "buildCommand": "",
-  "outputDirectory": "",
   "rewrites": [
     { "source": "/health", "destination": "/api/health" },
     { "source": "/oauth/meta/start", "destination": "/api/oauth/meta/start" },
-    { "source": "/oauth/meta/callback", "destination": "/api/oauth/meta/callback" },
-    { "source": "/", "destination": "/api/home" }
+    { "source": "/oauth/meta/callback", "destination": "/api/oauth/meta/callback" }
   ]
 }

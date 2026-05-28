@@ -43,12 +43,17 @@ Para desenvolvimento local: `npm install` e `npm run dev` (usa `dev-server.js`).
 Na Vercel (Settings → General → Build & Development):
 
 - **Framework Preset:** Other
-- **Root Directory:** (vazio)
 - **Build Command:** (vazio)
-- **Output Directory:** (vazio) — nao use `public` aqui
-- **Install Command:** (vazio, ou deixe o padrao)
+- **Output Directory:** (vazio) — nao preencha `public` aqui
+- **Root Directory:** (vazio)
 
-Se aparecer **No entrypoint found**, o projeto pode estar como **Web Service**. Troque para deploy padrao (Functions + static) ou mantenha o `index.js` na raiz deste repo.
+A home e as paginas legais ficam em `public/` (mesmo padrao):
+
+- `public/index.html` → `/`
+- `public/politica-de-privacidade/index.html` → `/politica-de-privacidade`
+- `public/termos-de-uso/index.html` → `/termos-de-uso`
+
+**Importante:** se o site mostrar codigo `.js` na tela ou der *No entrypoint found*, o projeto esta em modo **Web Service**. Desative isso e use deploy padrao (Functions + arquivos estaticos). Nao deve existir `index.js` na raiz.
 
 ## Páginas públicas
 
