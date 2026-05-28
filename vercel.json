@@ -1,7 +1,8 @@
 {
-  "rewrites": [
-    { "source": "/health", "destination": "/api/health" },
-    { "source": "/oauth/meta/start", "destination": "/api/oauth/meta/start" },
-    { "source": "/oauth/meta/callback", "destination": "/api/oauth/meta/callback" }
+  "routes": [
+    { "src": "/health", "dest": "/api/health" },
+    { "src": "/oauth/meta/start", "dest": "/api/oauth/meta/start" },
+    { "src": "/oauth/meta/callback", "dest": "/api/oauth/meta/callback" },
+    { "handle": "filesystem" }
   ]
 }

@@ -31,11 +31,14 @@ Servir como intermediario entre whitelabels e Meta/Facebook, sem banco e sem ten
 
 ## Deploy na Vercel
 
-Esse projeto usa Vercel Functions em `api/*` e um `vercel.json` com rewrites para manter as URLs:
+Esse projeto usa Vercel Functions em `api/*`, arquivos estáticos em `public/` e `vercel.json` com rotas:
 
 - `/health` -> `/api/health`
 - `/oauth/meta/start` -> `/api/oauth/meta/start`
 - `/oauth/meta/callback` -> `/api/oauth/meta/callback`
+- demais URLs -> arquivos em `public/` (home, termos, privacidade)
+
+Para desenvolvimento local com Express: `npm run dev` (usa `dev-server.js`).
 
 ## Páginas públicas
 
