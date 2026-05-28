@@ -4,7 +4,7 @@ const {
   signState,
   isAllowedOrigin,
   normalizeOrigin
-} = require("../../_lib/metaBroker");
+} = require("../../../lib/metaBroker");
 
 module.exports = function handler(req, res) {
   const {

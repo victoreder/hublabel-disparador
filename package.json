@@ -4,13 +4,12 @@
   "private": true,
   "description": "Broker OAuth centralizado para Meta/Facebook.",
   "scripts": {
-    "start": "node dev-server.js",
-    "dev": "node --watch dev-server.js"
+    "dev": "node dev-server.js"
   },
   "engines": {
     "node": ">=18.17.0"
   },
-  "dependencies": {
+  "devDependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.19.2"
   }

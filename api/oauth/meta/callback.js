@@ -3,7 +3,7 @@ const {
   verifyState,
   isAllowedOrigin,
   renderDonePage
-} = require("../../_lib/metaBroker");
+} = require("../../../lib/metaBroker");
 
 module.exports = async function handler(req, res) {
   const {

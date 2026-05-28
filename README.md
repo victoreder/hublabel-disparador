@@ -38,7 +38,9 @@ Esse projeto usa Vercel Functions em `api/*`, arquivos estáticos em `public/` e
 - `/oauth/meta/callback` -> `/api/oauth/meta/callback`
 - demais URLs -> arquivos em `public/` (home, termos, privacidade)
 
-Para desenvolvimento local com Express: `npm run dev` (usa `dev-server.js`).
+Para desenvolvimento local: `npm install` e `npm run dev` (usa `dev-server.js`).
+
+Na Vercel, use **Framework Preset: Other**, sem Build Command e sem Output Directory customizado.
 
 ## Páginas públicas
 
