@@ -187,7 +187,21 @@ function createApp() {
     }
   });
 
-  app.use(express.static(path.join(__dirname, "public"), { index: "index.html" }));
+  const publicDir = path.join(__dirname, "public");
+
+  app.get("/", (_, res) => {
+    res.sendFile(path.join(publicDir, "index.html"));
+  });
+
+  app.get("/politica-de-privacidade", (_, res) => {
+    res.sendFile(path.join(publicDir, "politica-de-privacidade", "index.html"));
+  });
+
+  app.get("/termos-de-uso", (_, res) => {
+    res.sendFile(path.join(publicDir, "termos-de-uso", "index.html"));
+  });
+
+  app.use(express.static(publicDir));
 
   return app;
 }
