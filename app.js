@@ -7,7 +7,8 @@ const {
   verifyState,
   isAllowedOrigin,
   normalizeOrigin,
-  renderDonePage
+  renderDonePage,
+  buildMetaOnboardUrl
 } = require("./lib/metaBroker");
 
 function createApp() {
@@ -23,7 +24,8 @@ function createApp() {
       FACEBOOK_APP_ID,
       REDIRECT_URI,
       STATE_SECRET,
-      OAUTH_SCOPES,
+      META_CONFIG_ID,
+      META_ONBOARD_EXTRAS,
       STATE_TTL_SECONDS,
       ALLOWED_RETURN_ORIGINS
     } = getConfig();
@@ -54,16 +56,15 @@ function createApp() {
       STATE_SECRET
     );
 
-    const params = new URLSearchParams({
-      client_id: FACEBOOK_APP_ID,
-      redirect_uri: REDIRECT_URI,
+    const onboardUrl = buildMetaOnboardUrl({
+      appId: FACEBOOK_APP_ID,
+      configId: META_CONFIG_ID,
+      redirectUri: REDIRECT_URI,
       state,
-      response_type: "code",
-      scope: OAUTH_SCOPES
+      extras: META_ONBOARD_EXTRAS
     });
 
-    const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?${params.toString()}`;
-    return res.redirect(oauthUrl);
+    return res.redirect(onboardUrl);
   });
 
   app.get("/oauth/meta/callback", async (req, res) => {

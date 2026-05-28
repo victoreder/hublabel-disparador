@@ -3,15 +3,17 @@ const {
   getConfig,
   signState,
   isAllowedOrigin,
-  normalizeOrigin
-} = require("../../lib/metaBroker");
+  normalizeOrigin,
+  buildMetaOnboardUrl
+} = require("../../../lib/metaBroker");
 
 module.exports = function handler(req, res) {
   const {
     FACEBOOK_APP_ID,
     REDIRECT_URI,
     STATE_SECRET,
-    OAUTH_SCOPES,
+    META_CONFIG_ID,
+    META_ONBOARD_EXTRAS,
     STATE_TTL_SECONDS,
     ALLOWED_RETURN_ORIGINS
   } = getConfig();
@@ -46,16 +48,15 @@ module.exports = function handler(req, res) {
     STATE_SECRET
   );
 
-  const params = new URLSearchParams({
-    client_id: FACEBOOK_APP_ID,
-    redirect_uri: REDIRECT_URI,
+  const onboardUrl = buildMetaOnboardUrl({
+    appId: FACEBOOK_APP_ID,
+    configId: META_CONFIG_ID,
+    redirectUri: REDIRECT_URI,
     state,
-    response_type: "code",
-    scope: OAUTH_SCOPES
+    extras: META_ONBOARD_EXTRAS
   });
 
-  const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?${params.toString()}`;
   res.statusCode = 302;
-  res.setHeader("Location", oauthUrl);
+  res.setHeader("Location", onboardUrl);
   res.end();
 };
