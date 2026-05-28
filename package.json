@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "node dev-server.js"
   },
-  "devDependencies": {
-    "dotenv": "^16.4.5",
+  "dependencies": {
     "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.5"
   }
 }

@@ -31,22 +31,17 @@ Servir como intermediario entre whitelabels e Meta/Facebook, sem banco e sem ten
 
 ## Deploy na Vercel
 
-Arquitetura recomendada:
+Um unico app Express em `app.js`, exportado por `index.js` como funcao serverless (`@vercel/node`).
 
-- **Paginas HTML** em `public/` (estatico)
-- **OAuth e health** em `api/*` (serverless)
-- **`vercel.json`** com rotas explicitas
-
-**Nao use** modo Web Service / Node server na Vercel.
+**Nao use** modo Web Service / Node server com `listen()` na Vercel.
 
 Em **Settings → General → Build & Development**:
 
-1. Framework Preset: **Other**
-2. Build Command: **vazio**
-3. Output Directory: **vazio**
-4. Se existir **Node.js Server** ou **Web Service**: **desative**
+- Framework Preset: **Other**
+- Build Command: **vazio**
+- Output Directory: **vazio**
 
-Local: `npm install` e `npm run dev` (Express via `dev-server.js` + `app.js`).
+Local: `npm install` e `npm run dev`.
 
 ## Páginas públicas
 
