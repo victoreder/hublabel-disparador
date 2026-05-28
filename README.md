@@ -40,7 +40,15 @@ Esse projeto usa Vercel Functions em `api/*`, arquivos estáticos em `public/` e
 
 Para desenvolvimento local: `npm install` e `npm run dev` (usa `dev-server.js`).
 
-Na Vercel, use **Framework Preset: Other**, sem Build Command e sem Output Directory customizado.
+Na Vercel (Settings → General → Build & Development):
+
+- **Framework Preset:** Other
+- **Root Directory:** (vazio)
+- **Build Command:** (vazio)
+- **Output Directory:** (vazio) — nao use `public` aqui
+- **Install Command:** (vazio, ou deixe o padrao)
+
+Se aparecer **No entrypoint found**, o projeto pode estar como **Web Service**. Troque para deploy padrao (Functions + static) ou mantenha o `index.js` na raiz deste repo.
 
 ## Páginas públicas
 
