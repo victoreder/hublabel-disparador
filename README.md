@@ -6,81 +6,76 @@ Broker OAuth centralizado para usar uma unica `redirect_uri` da Meta:
 
 ## Objetivo
 
-Servir como intermediario entre whitelabels e Meta/Facebook, sem banco e sem tenant, com validacao minima de seguranca:
+Intermediario entre whitelabels e Meta/WhatsApp:
 
-- `return_origin` com allowlist
-- `state` assinado e com expiracao
+- `return_origin` identifica o whitelabel (qualquer dominio http/https se allowlist vazia)
+- `state` assinado com HMAC + expiracao
 - `client_secret` apenas no backend
+- token longo (~60d) + WABA/phone enviados via POST ao backend do whitelabel
+
+## Modos OAuth
+
+| Modo | Env | Quando usar |
+|------|-----|-------------|
+| **embedded** (padrao) | `META_OAUTH_MODE=embedded` | Multi-whitelabel, App Review WhatsApp, Tech Provider |
+| **classic** | `META_OAUTH_MODE=classic` | OAuth `dialog/oauth` + scopes (apos permissoes aprovadas) |
+
+Para App Review de WhatsApp multi-tenant, use **embedded**.
 
 ## Rotas
 
 - `GET /oauth/meta/start?return_origin=https://cliente.com`
   - valida `return_origin`
   - assina `state`
-  - redireciona para o OAuth da Meta
-  - por padrao usa `postMessage`; opcional `&return_mode=redirect`
+  - redireciona para Meta (embedded ou classic)
 
 - `GET /oauth/meta/callback`
   - valida `state`
-  - troca `code` por `access_token`
-  - `post_message` (padrao): retorna HTML que envia `postMessage` para o whitelabel e fecha popup
-  - `redirect`: redireciona para `https://seu-whitelabel.com/oauth/meta/complete?...`
+  - troca `code` -> token curto -> **token longo**
+  - busca `business_id`, `waba_id`, `phone_number_id`
+  - **POST** para `{return_origin}/api/meta/conectar` (configuravel)
+  - fecha guia com `postMessage` (sem token no browser)
 
 - `GET /health`
-  - status basico
 
-## Deploy na Vercel
+## Contrato POST whitelabel
 
-Um unico app Express em `app.js`, exportado por `index.js` como funcao serverless (`@vercel/node`).
+O broker envia para `{return_origin}{META_WHITELABEL_CONNECT_PATH}` (padrao `/api/meta/conectar`):
 
-**Nao use** modo Web Service / Node server com `listen()` na Vercel.
-
-Em **Settings → General → Build & Development**:
-
-- Framework Preset: **Other**
-- Build Command: **vazio**
-- Output Directory: **vazio**
-
-Local: `npm install` e `npm run dev`.
-
-## Páginas públicas
-
-- Home: `https://auth.hublabel.com.br/`
-- Política de Privacidade: `https://auth.hublabel.com.br/politica-de-privacidade`
-- Termos de Uso: `https://auth.hublabel.com.br/termos-de-uso`
-- Health (API): `https://auth.hublabel.com.br/health`
-
-Use as URLs de política e termos no cadastro do app na Meta (Privacy Policy URL e Terms of Service URL).
-
-## Configuracao
-
-1. Copie `.env.example` para `.env`
-2. Preencha os valores reais
-
-## Executar
-
-```bash
-npm install
-npm run dev
+```json
+{
+  "access_token": "...",
+  "expires_in": 5184000,
+  "business_id": "123",
+  "waba_id": "456",
+  "phone_number_id": "789"
+}
 ```
 
-## Exemplo no whitelabel
+Header de assinatura:
+
+```
+X-HubLabel-Signature: HMAC-SHA256 hex do body JSON usando STATE_SECRET
+```
+
+O whitelabel deve validar a assinatura, salvar no banco e responder `200`.
+
+## Exemplo no whitelabel (nova guia)
 
 ```html
 <script>
-  function conectarFacebook() {
+  function conectarWhatsApp() {
     const returnOrigin = encodeURIComponent(window.location.origin);
     const url =
       "https://auth.hublabel.com.br/oauth/meta/start?return_origin=" +
       returnOrigin;
-    window.open(url, "meta_oauth", "width=600,height=700");
+    window.open(url, "_blank");
   }
 
   window.addEventListener("message", (event) => {
     if (event.origin !== "https://auth.hublabel.com.br") return;
     if (event.data?.type === "META_OAUTH_OK") {
-      // Envie para o backend do whitelabel salvar de forma segura
-      console.log("Token recebido:", event.data.access_token);
+      location.reload();
       return;
     }
     if (event.data?.type === "META_OAUTH_ERROR") {
@@ -89,3 +84,31 @@ npm run dev
   });
 </script>
 ```
+
+## App Review Meta (WhatsApp)
+
+Cadastre no app Meta:
+
+- Redirect URI: `https://auth.hublabel.com.br/oauth/meta/callback`
+- Privacy Policy: `https://auth.hublabel.com.br/politica-de-privacidade`
+- Terms: `https://auth.hublabel.com.br/termos-de-uso`
+
+Permissoes tipicas:
+
+- `whatsapp_business_management`
+- `whatsapp_business_messaging`
+- `business_management`
+
+Grave screencast: whitelabel abre auth -> Meta onboarding -> callback -> mensagem recebida/enviada.
+
+## Deploy na Vercel
+
+App Express em `app.js`, exportado por `index.js`.
+
+Local: `npm install` e `npm run dev`.
+
+## Configuracao
+
+1. Copie `.env.example` para `.env`
+2. Preencha `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `STATE_SECRET`
+3. `ALLOWED_RETURN_ORIGINS` vazio = aceita qualquer whitelabel (http/https)

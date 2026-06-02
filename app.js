@@ -8,7 +8,12 @@ const {
   isAllowedOrigin,
   normalizeOrigin,
   renderDonePage,
-  buildMetaOnboardUrl
+  buildMetaOnboardUrl,
+  buildClassicOAuthUrl,
+  exchangeCodeForToken,
+  exchangeLongLivedToken,
+  fetchWhatsAppAssets,
+  notifyWhitelabel
 } = require("./lib/metaBroker");
 
 function createApp() {
@@ -24,8 +29,10 @@ function createApp() {
       FACEBOOK_APP_ID,
       REDIRECT_URI,
       STATE_SECRET,
+      OAUTH_SCOPES,
       META_CONFIG_ID,
       META_ONBOARD_EXTRAS,
+      META_OAUTH_MODE,
       STATE_TTL_SECONDS,
       ALLOWED_RETURN_ORIGINS
     } = getConfig();
@@ -36,19 +43,15 @@ function createApp() {
       !isAllowedOrigin(returnOrigin, ALLOWED_RETURN_ORIGINS)
     ) {
       return res.status(400).json({
-        error:
-          "return_origin invalido. Configure na allowlist ALLOWED_RETURN_ORIGINS."
+        error: "return_origin invalido."
       });
     }
 
     const now = Math.floor(Date.now() / 1000);
-    const returnMode =
-      req.query.return_mode === "redirect" ? "redirect" : "post_message";
     const normalizedOrigin = normalizeOrigin(returnOrigin);
     const state = signState(
       {
         return_origin: normalizedOrigin,
-        return_mode: returnMode,
         nonce: crypto.randomBytes(16).toString("hex"),
         iat: now,
         exp: now + STATE_TTL_SECONDS
@@ -56,15 +59,24 @@ function createApp() {
       STATE_SECRET
     );
 
-    const onboardUrl = buildMetaOnboardUrl({
-      appId: FACEBOOK_APP_ID,
-      configId: META_CONFIG_ID,
-      redirectUri: REDIRECT_URI,
-      state,
-      extras: META_ONBOARD_EXTRAS
-    });
+    const authUrl =
+      META_OAUTH_MODE === "classic"
+        ? buildClassicOAuthUrl({
+            appId: FACEBOOK_APP_ID,
+            redirectUri: REDIRECT_URI,
+            state,
+            scopes: OAUTH_SCOPES,
+            configId: META_CONFIG_ID
+          })
+        : buildMetaOnboardUrl({
+            appId: FACEBOOK_APP_ID,
+            configId: META_CONFIG_ID,
+            redirectUri: REDIRECT_URI,
+            state,
+            extras: META_ONBOARD_EXTRAS
+          });
 
-    return res.redirect(onboardUrl);
+    return res.redirect(authUrl);
   });
 
   app.get("/oauth/meta/callback", async (req, res) => {
@@ -73,10 +85,19 @@ function createApp() {
       FACEBOOK_APP_SECRET,
       REDIRECT_URI,
       STATE_SECRET,
+      WHITELABEL_CONNECT_PATH,
       ALLOWED_RETURN_ORIGINS
     } = getConfig();
 
-    const { code, state, error, error_description: errorDescription } = req.query;
+    const {
+      code,
+      state,
+      error,
+      error_description: errorDescription,
+      waba_id: wabaIdHint,
+      phone_number_id: phoneNumberIdHint,
+      business_id: businessIdHint
+    } = req.query;
 
     if (typeof state !== "string") {
       return res.status(400).send(
@@ -130,59 +151,70 @@ function createApp() {
     }
 
     try {
-      const tokenParams = new URLSearchParams({
-        client_id: FACEBOOK_APP_ID,
-        client_secret: FACEBOOK_APP_SECRET,
-        redirect_uri: REDIRECT_URI,
+      const shortToken = await exchangeCodeForToken({
+        appId: FACEBOOK_APP_ID,
+        appSecret: FACEBOOK_APP_SECRET,
+        redirectUri: REDIRECT_URI,
         code
       });
 
-      const tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?${tokenParams.toString()}`;
-      const tokenResponse = await fetch(tokenUrl, { method: "GET" });
-      const tokenData = await tokenResponse.json();
+      const longToken = await exchangeLongLivedToken({
+        appId: FACEBOOK_APP_ID,
+        appSecret: FACEBOOK_APP_SECRET,
+        shortLivedToken: shortToken.access_token
+      });
 
-      if (!tokenResponse.ok || tokenData.error) {
-        return res.status(400).send(
+      const assets = await fetchWhatsAppAssets(longToken.access_token, {
+        waba_id: typeof wabaIdHint === "string" ? wabaIdHint : null,
+        phone_number_id:
+          typeof phoneNumberIdHint === "string" ? phoneNumberIdHint : null,
+        business_id: typeof businessIdHint === "string" ? businessIdHint : null
+      });
+
+      const payload = {
+        access_token: longToken.access_token,
+        expires_in: longToken.expires_in || null,
+        business_id: assets.business_id,
+        waba_id: assets.waba_id,
+        phone_number_id: assets.phone_number_id
+      };
+
+      const notifyResult = await notifyWhitelabel({
+        returnOrigin,
+        connectPath: WHITELABEL_CONNECT_PATH,
+        payload,
+        stateSecret: STATE_SECRET
+      });
+
+      if (!notifyResult.ok) {
+        return res.status(502).send(
           renderDonePage({
             origin: returnOrigin,
             ok: false,
             data: {
-              reason: "token_exchange_failed",
-              error: tokenData?.error?.message || "Falha na troca de token"
+              reason: "whitelabel_notify_failed",
+              status: notifyResult.status
             }
           })
         );
-      }
-
-      if (parsedState.return_mode === "redirect") {
-        const redirectUrl = new URL("/oauth/meta/complete", returnOrigin);
-        redirectUrl.searchParams.set("status", "ok");
-        redirectUrl.searchParams.set("access_token", tokenData.access_token || "");
-        redirectUrl.searchParams.set("token_type", tokenData.token_type || "");
-        redirectUrl.searchParams.set(
-          "expires_in",
-          String(tokenData.expires_in || "")
-        );
-        return res.redirect(redirectUrl.toString());
       }
 
       return res.send(
         renderDonePage({
           origin: returnOrigin,
           ok: true,
-          data: {
-            access_token: tokenData.access_token,
-            token_type: tokenData.token_type,
-            expires_in: tokenData.expires_in
-          }
+          data: { reason: "connected" }
         })
       );
-    } catch {
+    } catch (err) {
       return res.status(500).send(
         renderDonePage({
           origin: returnOrigin,
           ok: false,
-          data: { reason: "internal_error" }
+          data: {
+            reason: "internal_error",
+            error: err instanceof Error ? err.message : "Erro desconhecido"
+          }
         })
       );
     }
