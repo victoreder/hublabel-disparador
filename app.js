@@ -9,6 +9,7 @@ const {
   normalizeOrigin,
   renderDonePage,
   buildMetaOnboardUrl,
+  buildEmbeddedOAuthUrl,
   buildClassicOAuthUrl,
   exchangeCodeForToken,
   exchangeLongLivedToken,
@@ -33,6 +34,7 @@ function createApp() {
       META_CONFIG_ID,
       META_ONBOARD_EXTRAS,
       META_OAUTH_MODE,
+      META_OAUTH_DISPLAY,
       STATE_TTL_SECONDS,
       ALLOWED_RETURN_ORIGINS,
       DEFAULT_RETURN_PATH
@@ -69,22 +71,36 @@ function createApp() {
       STATE_SECRET
     );
 
-    const authUrl =
-      META_OAUTH_MODE === "classic"
-        ? buildClassicOAuthUrl({
-            appId: FACEBOOK_APP_ID,
-            redirectUri: REDIRECT_URI,
-            state,
-            scopes: OAUTH_SCOPES,
-            configId: META_CONFIG_ID
-          })
-        : buildMetaOnboardUrl({
-            appId: FACEBOOK_APP_ID,
-            configId: META_CONFIG_ID,
-            redirectUri: REDIRECT_URI,
-            state,
-            extras: META_ONBOARD_EXTRAS
-          });
+    const authUrl = (() => {
+      if (META_OAUTH_MODE === "classic") {
+        return buildClassicOAuthUrl({
+          appId: FACEBOOK_APP_ID,
+          redirectUri: REDIRECT_URI,
+          state,
+          scopes: OAUTH_SCOPES,
+          configId: META_CONFIG_ID
+        });
+      }
+
+      if (META_OAUTH_MODE === "onboard") {
+        return buildMetaOnboardUrl({
+          appId: FACEBOOK_APP_ID,
+          configId: META_CONFIG_ID,
+          redirectUri: REDIRECT_URI,
+          state,
+          extras: META_ONBOARD_EXTRAS
+        });
+      }
+
+      return buildEmbeddedOAuthUrl({
+        appId: FACEBOOK_APP_ID,
+        configId: META_CONFIG_ID,
+        redirectUri: REDIRECT_URI,
+        state,
+        extras: META_ONBOARD_EXTRAS,
+        display: META_OAUTH_DISPLAY
+      });
+    })();
 
     return res.redirect(authUrl);
   });
