@@ -6,7 +6,8 @@ const {
   signState,
   verifyState,
   isAllowedOrigin,
-  normalizeOrigin,
+  parseReturnOrigin,
+  resolvePathWithBase,
   renderDonePage,
   renderEmbeddedSignupPage,
   buildMetaOnboardUrl,
@@ -56,10 +57,11 @@ function createApp() {
       WHITELABEL_CONNECT_PATH
     } = config;
 
-    const returnOrigin = req.query.return_origin;
+    const returnOriginInput = req.query.return_origin;
+    const parsedReturn = parseReturnOrigin(returnOriginInput);
     if (
-      typeof returnOrigin !== "string" ||
-      !isAllowedOrigin(returnOrigin, ALLOWED_RETURN_ORIGINS)
+      !parsedReturn ||
+      !isAllowedOrigin(returnOriginInput, ALLOWED_RETURN_ORIGINS)
     ) {
       return res.status(400).json({
         error: "return_origin invalido."
@@ -68,23 +70,29 @@ function createApp() {
 
     const returnMode =
       req.query.return_mode === "post_message" ? "post_message" : "redirect";
-    const returnPath =
-      typeof req.query.return_path === "string" &&
-      req.query.return_path.startsWith("/")
-        ? req.query.return_path
-        : DEFAULT_RETURN_PATH;
+    const returnPath = resolvePathWithBase(
+      parsedReturn.basePath,
+      req.query.return_path,
+      DEFAULT_RETURN_PATH
+    );
+
+    const defaultConnectPath = resolvePathWithBase(
+      parsedReturn.basePath,
+      null,
+      WHITELABEL_CONNECT_PATH
+    );
 
     const connectPath = resolveConnectPath({
       returnPath,
       connectPath: normalizeConnectPath(req.query.connect_path, null),
-      defaultConnectPath: WHITELABEL_CONNECT_PATH
+      defaultConnectPath
     });
 
     const now = Math.floor(Date.now() / 1000);
-    const normalizedOrigin = normalizeOrigin(returnOrigin);
     const state = signState(
       {
-        return_origin: normalizedOrigin,
+        return_origin: parsedReturn.origin,
+        return_base_path: parsedReturn.basePath,
         return_mode: returnMode,
         return_path: returnPath,
         connect_path: connectPath,
