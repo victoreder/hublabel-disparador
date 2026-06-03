@@ -15,7 +15,9 @@ const {
   buildClassicOAuthUrl,
   completeMetaConnection,
   buildReturnUrl,
-  getDonePageOptions
+  getDonePageOptions,
+  resolveConnectPath,
+  normalizeConnectPath
 } = require("./lib/metaBroker");
 
 function createApp() {
@@ -50,7 +52,8 @@ function createApp() {
       META_SDK_VERSION,
       STATE_TTL_SECONDS,
       ALLOWED_RETURN_ORIGINS,
-      DEFAULT_RETURN_PATH
+      DEFAULT_RETURN_PATH,
+      WHITELABEL_CONNECT_PATH
     } = config;
 
     const returnOrigin = req.query.return_origin;
@@ -71,6 +74,12 @@ function createApp() {
         ? req.query.return_path
         : DEFAULT_RETURN_PATH;
 
+    const connectPath = resolveConnectPath({
+      returnPath,
+      connectPath: normalizeConnectPath(req.query.connect_path, null),
+      defaultConnectPath: WHITELABEL_CONNECT_PATH
+    });
+
     const now = Math.floor(Date.now() / 1000);
     const normalizedOrigin = normalizeOrigin(returnOrigin);
     const state = signState(
@@ -78,6 +87,7 @@ function createApp() {
         return_origin: normalizedOrigin,
         return_mode: returnMode,
         return_path: returnPath,
+        connect_path: connectPath,
         nonce: crypto.randomBytes(16).toString("hex"),
         iat: now,
         exp: now + STATE_TTL_SECONDS
