@@ -47,11 +47,20 @@ function createApp() {
       });
     }
 
+    const returnMode =
+      req.query.return_mode === "post_message" ? "post_message" : "redirect";
+    const returnPath =
+      typeof req.query.return_path === "string" && req.query.return_path.startsWith("/")
+        ? req.query.return_path
+        : "/";
+
     const now = Math.floor(Date.now() / 1000);
     const normalizedOrigin = normalizeOrigin(returnOrigin);
     const state = signState(
       {
         return_origin: normalizedOrigin,
+        return_mode: returnMode,
+        return_path: returnPath,
         nonce: crypto.randomBytes(16).toString("hex"),
         iat: now,
         exp: now + STATE_TTL_SECONDS
@@ -124,6 +133,11 @@ function createApp() {
     }
 
     const returnOrigin = parsedState.return_origin;
+    const donePageOptions = {
+      returnMode: parsedState.return_mode === "post_message" ? "post_message" : "redirect",
+      returnPath:
+        typeof parsedState.return_path === "string" ? parsedState.return_path : "/"
+    };
 
     if (typeof error === "string") {
       return res.status(400).send(
@@ -135,7 +149,8 @@ function createApp() {
             error,
             error_description:
               typeof errorDescription === "string" ? errorDescription : ""
-          }
+          },
+          ...donePageOptions
         })
       );
     }
@@ -145,7 +160,8 @@ function createApp() {
         renderDonePage({
           origin: returnOrigin,
           ok: false,
-          data: { reason: "missing_code" }
+          data: { reason: "missing_code" },
+          ...donePageOptions
         })
       );
     }
@@ -194,7 +210,8 @@ function createApp() {
             data: {
               reason: "whitelabel_notify_failed",
               status: notifyResult.status
-            }
+            },
+            ...donePageOptions
           })
         );
       }
@@ -203,7 +220,8 @@ function createApp() {
         renderDonePage({
           origin: returnOrigin,
           ok: true,
-          data: { reason: "connected" }
+          data: { reason: "connected" },
+          ...donePageOptions
         })
       );
     } catch (err) {
@@ -214,7 +232,8 @@ function createApp() {
           data: {
             reason: "internal_error",
             error: err instanceof Error ? err.message : "Erro desconhecido"
-          }
+          },
+          ...donePageOptions
         })
       );
     }
