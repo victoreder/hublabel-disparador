@@ -33,14 +33,14 @@ Para App Review de WhatsApp multi-tenant, use **embedded**.
   - valida `state`
   - troca `code` -> token curto -> **token longo**
   - busca `business_id`, `waba_id`, `phone_number_id`
-  - **POST** para `{return_origin}/api/meta/conectar` (configuravel)
-  - fecha guia com `postMessage` (sem token no browser)
+- **POST** para `{return_origin}/token-apioficial` (configuravel)
+- Redireciona para `{return_origin}/conexoes-api?meta_oauth=ok|erro`
 
 - `GET /health`
 
 ## Contrato POST whitelabel
 
-O broker envia para `{return_origin}{META_WHITELABEL_CONNECT_PATH}` (padrao `/api/meta/conectar`):
+O broker envia para `{return_origin}/token-apioficial` (padrao):
 
 ```json
 {
@@ -60,28 +60,26 @@ X-HubLabel-Signature: HMAC-SHA256 hex do body JSON usando STATE_SECRET
 
 O whitelabel deve validar a assinatura, salvar no banco e responder `200`.
 
-## Exemplo no whitelabel (nova guia)
+## Exemplo no whitelabel (mesma janela)
 
 ```html
 <script>
   function conectarWhatsApp() {
     const returnOrigin = encodeURIComponent(window.location.origin);
-    const url =
+    window.location.href =
       "https://auth.hublabel.com.br/oauth/meta/start?return_origin=" +
       returnOrigin;
-    window.open(url, "_blank");
   }
 
-  window.addEventListener("message", (event) => {
-    if (event.origin !== "https://auth.hublabel.com.br") return;
-    if (event.data?.type === "META_OAUTH_OK") {
-      location.reload();
-      return;
-    }
-    if (event.data?.type === "META_OAUTH_ERROR") {
-      console.error("Falha no OAuth:", event.data);
-    }
-  });
+  // Em /conexoes-api, ao carregar:
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("meta_oauth") === "ok") {
+    // sucesso — dados ja foram POSTados em /token-apioficial
+    history.replaceState({}, "", "/conexoes-api");
+  }
+  if (params.get("meta_oauth") === "erro") {
+    console.error("OAuth falhou:", params.get("meta_oauth_reason"));
+  }
 </script>
 ```
 

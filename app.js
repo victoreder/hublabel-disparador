@@ -34,7 +34,8 @@ function createApp() {
       META_ONBOARD_EXTRAS,
       META_OAUTH_MODE,
       STATE_TTL_SECONDS,
-      ALLOWED_RETURN_ORIGINS
+      ALLOWED_RETURN_ORIGINS,
+      DEFAULT_RETURN_PATH
     } = getConfig();
 
     const returnOrigin = req.query.return_origin;
@@ -52,7 +53,7 @@ function createApp() {
     const returnPath =
       typeof req.query.return_path === "string" && req.query.return_path.startsWith("/")
         ? req.query.return_path
-        : "/";
+        : DEFAULT_RETURN_PATH;
 
     const now = Math.floor(Date.now() / 1000);
     const normalizedOrigin = normalizeOrigin(returnOrigin);
@@ -95,7 +96,8 @@ function createApp() {
       REDIRECT_URI,
       STATE_SECRET,
       WHITELABEL_CONNECT_PATH,
-      ALLOWED_RETURN_ORIGINS
+      ALLOWED_RETURN_ORIGINS,
+      DEFAULT_RETURN_PATH
     } = getConfig();
 
     const {
@@ -136,7 +138,9 @@ function createApp() {
     const donePageOptions = {
       returnMode: parsedState.return_mode === "post_message" ? "post_message" : "redirect",
       returnPath:
-        typeof parsedState.return_path === "string" ? parsedState.return_path : "/"
+        typeof parsedState.return_path === "string"
+          ? parsedState.return_path
+          : DEFAULT_RETURN_PATH
     };
 
     if (typeof error === "string") {
