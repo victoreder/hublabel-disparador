@@ -8,25 +8,36 @@ const {
   isAllowedOrigin,
   normalizeOrigin,
   renderDonePage,
+  renderEmbeddedSignupPage,
   buildMetaOnboardUrl,
   buildEmbeddedOAuthUrl,
   buildHostedEmbeddedOAuthUrl,
   buildClassicOAuthUrl,
-  exchangeCodeForToken,
-  exchangeLongLivedToken,
-  fetchWhatsAppAssets,
-  notifyWhitelabel
+  completeMetaConnection,
+  buildReturnUrl,
+  getDonePageOptions
 } = require("./lib/metaBroker");
 
 function createApp() {
   const app = express();
   app.disable("x-powered-by");
+  app.use(express.json({ limit: "32kb" }));
 
   app.get("/health", (_, res) => {
-    res.json({ ok: true, service: "meta-oauth-broker" });
+    const { META_OAUTH_MODE } = getConfig();
+    res.json({ ok: true, service: "meta-oauth-broker", oauth_mode: META_OAUTH_MODE });
   });
 
   app.get("/oauth/meta/start", (req, res) => {
+    let config;
+    try {
+      config = getConfig();
+    } catch (err) {
+      return res.status(500).json({
+        error: err instanceof Error ? err.message : "Configuracao invalida."
+      });
+    }
+
     const {
       FACEBOOK_APP_ID,
       REDIRECT_URI,
@@ -36,10 +47,11 @@ function createApp() {
       META_ONBOARD_EXTRAS,
       META_OAUTH_MODE,
       META_OAUTH_DISPLAY,
+      META_SDK_VERSION,
       STATE_TTL_SECONDS,
       ALLOWED_RETURN_ORIGINS,
       DEFAULT_RETURN_PATH
-    } = getConfig();
+    } = config;
 
     const returnOrigin = req.query.return_origin;
     if (
@@ -54,7 +66,8 @@ function createApp() {
     const returnMode =
       req.query.return_mode === "post_message" ? "post_message" : "redirect";
     const returnPath =
-      typeof req.query.return_path === "string" && req.query.return_path.startsWith("/")
+      typeof req.query.return_path === "string" &&
+      req.query.return_path.startsWith("/")
         ? req.query.return_path
         : DEFAULT_RETURN_PATH;
 
@@ -71,6 +84,23 @@ function createApp() {
       },
       STATE_SECRET
     );
+
+    if (META_OAUTH_MODE === "sdk") {
+      const proto =
+        req.headers["x-forwarded-proto"] === "https" ? "https" : req.protocol;
+      const host = req.get("host") || "auth.hublabel.com.br";
+      const completeUrl = `${proto}://${host}/oauth/meta/complete`;
+
+      return res.send(
+        renderEmbeddedSignupPage({
+          appId: FACEBOOK_APP_ID,
+          configId: META_CONFIG_ID,
+          state,
+          sdkVersion: META_SDK_VERSION,
+          completeUrl
+        })
+      );
+    }
 
     const authUrl = (() => {
       if (META_OAUTH_MODE === "classic") {
@@ -116,16 +146,111 @@ function createApp() {
     return res.redirect(authUrl);
   });
 
+  app.post("/oauth/meta/complete", async (req, res) => {
+    let config;
+    try {
+      config = getConfig();
+    } catch (err) {
+      return res.status(500).json({
+        error: err instanceof Error ? err.message : "Configuracao invalida."
+      });
+    }
+
+    const { STATE_SECRET, ALLOWED_RETURN_ORIGINS, DEFAULT_RETURN_PATH } = config;
+    const { code, state, session } = req.body || {};
+
+    if (typeof state !== "string") {
+      return res.status(400).json({ error: "state obrigatorio." });
+    }
+
+    const parsedState = verifyState(state, STATE_SECRET);
+    if (
+      !parsedState ||
+      !isAllowedOrigin(parsedState.return_origin, ALLOWED_RETURN_ORIGINS)
+    ) {
+      return res.status(400).json({ error: "state invalido ou expirado." });
+    }
+
+    const returnPath =
+      typeof parsedState.return_path === "string"
+        ? parsedState.return_path
+        : DEFAULT_RETURN_PATH;
+
+    if (typeof code !== "string" || !code) {
+      const redirect = buildReturnUrl(parsedState.return_origin, returnPath, false, {
+        reason: "missing_code"
+      });
+      return res.status(400).json({ error: "code obrigatorio.", redirect });
+    }
+
+    const sessionHints =
+      session && typeof session === "object"
+        ? {
+            waba_id:
+              typeof session.waba_id === "string" ? session.waba_id : null,
+            phone_number_id:
+              typeof session.phone_number_id === "string"
+                ? session.phone_number_id
+                : null,
+            business_id:
+              typeof session.business_id === "string"
+                ? session.business_id
+                : null
+          }
+        : {};
+
+    try {
+      const result = await completeMetaConnection({
+        code,
+        parsedState,
+        sessionHints,
+        config,
+        tokenExchangeRedirectUri: ""
+      });
+
+      if (!result.ok) {
+        const redirect = buildReturnUrl(
+          result.returnOrigin,
+          result.donePageOptions.returnPath,
+          false,
+          result.error
+        );
+        return res.status(502).json({ error: result.error.reason, redirect });
+      }
+
+      const redirect = buildReturnUrl(
+        result.returnOrigin,
+        result.donePageOptions.returnPath,
+        true,
+        { reason: "connected" }
+      );
+      return res.json({ ok: true, redirect });
+    } catch (err) {
+      const redirect = buildReturnUrl(parsedState.return_origin, returnPath, false, {
+        reason: "internal_error",
+        error: err instanceof Error ? err.message : "Erro desconhecido"
+      });
+      return res.status(500).json({
+        error: err instanceof Error ? err.message : "Erro desconhecido",
+        redirect
+      });
+    }
+  });
+
   app.get("/oauth/meta/callback", async (req, res) => {
+    let config;
+    try {
+      config = getConfig();
+    } catch (err) {
+      return res.status(500).send("Configuracao invalida.");
+    }
+
     const {
-      FACEBOOK_APP_ID,
-      FACEBOOK_APP_SECRET,
       REDIRECT_URI,
       STATE_SECRET,
-      WHITELABEL_CONNECT_PATH,
       ALLOWED_RETURN_ORIGINS,
       DEFAULT_RETURN_PATH
-    } = getConfig();
+    } = config;
 
     const {
       code,
@@ -161,14 +286,8 @@ function createApp() {
       );
     }
 
+    const donePageOptions = getDonePageOptions(parsedState, DEFAULT_RETURN_PATH);
     const returnOrigin = parsedState.return_origin;
-    const donePageOptions = {
-      returnMode: parsedState.return_mode === "post_message" ? "post_message" : "redirect",
-      returnPath:
-        typeof parsedState.return_path === "string"
-          ? parsedState.return_path
-          : DEFAULT_RETURN_PATH
-    };
 
     if (typeof error === "string") {
       return res.status(400).send(
@@ -198,50 +317,25 @@ function createApp() {
     }
 
     try {
-      const shortToken = await exchangeCodeForToken({
-        appId: FACEBOOK_APP_ID,
-        appSecret: FACEBOOK_APP_SECRET,
-        redirectUri: REDIRECT_URI,
-        code
+      const result = await completeMetaConnection({
+        code,
+        parsedState,
+        sessionHints: {
+          waba_id: typeof wabaIdHint === "string" ? wabaIdHint : null,
+          phone_number_id:
+            typeof phoneNumberIdHint === "string" ? phoneNumberIdHint : null,
+          business_id: typeof businessIdHint === "string" ? businessIdHint : null
+        },
+        config,
+        tokenExchangeRedirectUri: REDIRECT_URI
       });
 
-      const longToken = await exchangeLongLivedToken({
-        appId: FACEBOOK_APP_ID,
-        appSecret: FACEBOOK_APP_SECRET,
-        shortLivedToken: shortToken.access_token
-      });
-
-      const assets = await fetchWhatsAppAssets(longToken.access_token, {
-        waba_id: typeof wabaIdHint === "string" ? wabaIdHint : null,
-        phone_number_id:
-          typeof phoneNumberIdHint === "string" ? phoneNumberIdHint : null,
-        business_id: typeof businessIdHint === "string" ? businessIdHint : null
-      });
-
-      const payload = {
-        access_token: longToken.access_token,
-        expires_in: longToken.expires_in || null,
-        business_id: assets.business_id,
-        waba_id: assets.waba_id,
-        phone_number_id: assets.phone_number_id
-      };
-
-      const notifyResult = await notifyWhitelabel({
-        returnOrigin,
-        connectPath: WHITELABEL_CONNECT_PATH,
-        payload,
-        stateSecret: STATE_SECRET
-      });
-
-      if (!notifyResult.ok) {
+      if (!result.ok) {
         return res.status(502).send(
           renderDonePage({
             origin: returnOrigin,
             ok: false,
-            data: {
-              reason: "whitelabel_notify_failed",
-              status: notifyResult.status
-            },
+            data: result.error,
             ...donePageOptions
           })
         );

@@ -15,21 +15,25 @@ Intermediario entre whitelabels e Meta/WhatsApp:
 
 ## Modos OAuth
 
-| Modo | Env | Quando usar |
-|------|-----|-------------|
-| **embedded** (padrao) | `META_OAUTH_MODE=embedded` | Multi-whitelabel, App Review WhatsApp, Tech Provider |
-| **classic** | `META_OAUTH_MODE=classic` | OAuth `dialog/oauth` + scopes (apos permissoes aprovadas) |
+| Modo | Env | Comportamento |
+|------|-----|---------------|
+| **sdk** (padrao) | `META_OAUTH_MODE=sdk` | Pagina no auth com FB SDK + `FB.login` + `WA_EMBEDDED_SIGNUP` |
+| **embedded** | `META_OAUTH_MODE=embedded` | Redirect `dialog/oauth` direto |
+| **classic** | `META_OAUTH_MODE=classic` | OAuth com scopes |
 
-Para App Review de WhatsApp multi-tenant, use **embedded**.
+Para App Review de WhatsApp multi-tenant, use **sdk** (padrao).
 
 ## Rotas
 
 - `GET /oauth/meta/start?return_origin=https://cliente.com`
-  - valida `return_origin`
-  - assina `state`
-  - redireciona para Meta (embedded ou classic)
+  - modo **sdk**: pagina com FB SDK, `FB.login` e listener `WA_EMBEDDED_SIGNUP`
+  - outros modos: redirect HTTP para Meta
 
-- `GET /oauth/meta/callback`
+- `POST /oauth/meta/complete` (modo sdk)
+  - recebe `code` + `session` (waba_id, phone_number_id, business_id)
+  - troca token, POST whitelabel, retorna `{ redirect }`
+
+- `GET /oauth/meta/callback` (fallback redirect)
   - valida `state`
   - troca `code` -> token curto -> **token longo**
   - busca `business_id`, `waba_id`, `phone_number_id`
