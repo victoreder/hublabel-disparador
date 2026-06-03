@@ -10,6 +10,7 @@ const {
   renderDonePage,
   buildMetaOnboardUrl,
   buildEmbeddedOAuthUrl,
+  buildHostedEmbeddedOAuthUrl,
   buildClassicOAuthUrl,
   exchangeCodeForToken,
   exchangeLongLivedToken,
@@ -92,12 +93,22 @@ function createApp() {
         });
       }
 
+      if (META_OAUTH_MODE === "hosted") {
+        return buildHostedEmbeddedOAuthUrl({
+          appId: FACEBOOK_APP_ID,
+          configId: META_CONFIG_ID,
+          redirectUri: REDIRECT_URI,
+          state,
+          extras: META_ONBOARD_EXTRAS,
+          display: META_OAUTH_DISPLAY
+        });
+      }
+
       return buildEmbeddedOAuthUrl({
         appId: FACEBOOK_APP_ID,
         configId: META_CONFIG_ID,
         redirectUri: REDIRECT_URI,
         state,
-        extras: META_ONBOARD_EXTRAS,
         display: META_OAUTH_DISPLAY
       });
     })();
