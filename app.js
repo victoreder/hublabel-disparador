@@ -18,7 +18,8 @@ const {
   buildReturnUrl,
   getDonePageOptions,
   resolveConnectPath,
-  normalizeConnectPath
+  normalizeConnectPath,
+  buildInboundWebhookUrl
 } = require("./lib/metaBroker");
 
 function createApp() {
@@ -54,7 +55,9 @@ function createApp() {
       STATE_TTL_SECONDS,
       ALLOWED_RETURN_ORIGINS,
       DEFAULT_RETURN_PATH,
-      WHITELABEL_CONNECT_PATH
+      WHITELABEL_CONNECT_PATH,
+      WEBHOOK_BACK_PREFIX,
+      WEBHOOK_EVENTS_PATH
     } = config;
 
     const returnOriginInput = req.query.return_origin;
@@ -88,6 +91,18 @@ function createApp() {
       defaultConnectPath
     });
 
+    let inboundWebhookUrl;
+    try {
+      inboundWebhookUrl = buildInboundWebhookUrl(parsedReturn, {
+        WEBHOOK_BACK_PREFIX,
+        WEBHOOK_EVENTS_PATH
+      });
+    } catch (err) {
+      return res.status(400).json({
+        error: err instanceof Error ? err.message : "URL de webhook invalida."
+      });
+    }
+
     const now = Math.floor(Date.now() / 1000);
     const state = signState(
       {
@@ -96,6 +111,7 @@ function createApp() {
         return_mode: returnMode,
         return_path: returnPath,
         connect_path: connectPath,
+        inbound_webhook_url: inboundWebhookUrl,
         nonce: crypto.randomBytes(16).toString("hex"),
         iat: now,
         exp: now + STATE_TTL_SECONDS
