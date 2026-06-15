@@ -1,0 +1,12 @@
+services:
+  disparador-meta:
+    build: .
+    container_name: hublabel-disparador-meta
+    restart: unless-stopped
+    ports:
+      - "3080:3080"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3080

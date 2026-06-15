@@ -1,0 +1,197 @@
+import { config } from './config.js';
+import { logger } from './logger.js';
+import { MetaApiError, sendTemplateMessage, sendWithRetries } from './meta.js';
+import { normalizePhone } from './phone.js';
+import { buildMetaTemplateMessage, buildTemplateComponents } from './template.js';
+import {
+  claimDetail,
+  fetchConexao,
+  fetchContato,
+  fetchDisparo,
+  fetchActiveDisparoIds,
+  fetchPendingDetails,
+  fetchTemplateMeta,
+  isDisparoInactive,
+  isDisparoScheduledForFuture,
+  markDetailFailed,
+  markDetailSent,
+  releaseDetail,
+} from './supabase.js';
+
+export function createWorker() {
+  let running = false;
+  let stopped = false;
+  let loopPromise = null;
+
+  const stats = {
+    processed: 0,
+    sent: 0,
+    failed: 0,
+    skipped: 0,
+    lastActivityAt: null,
+    lastError: null,
+  };
+
+  async function start() {
+    if (running) return;
+    running = true;
+    stopped = false;
+    logger.info('Worker iniciado', {
+      sendIntervalMs: config.sendIntervalMs,
+      pollIdleMs: config.pollIdleMs,
+      maxRetries: config.maxRetries,
+      metaGraphApiVersion: config.metaGraphApiVersion,
+    });
+    loopPromise = runLoop();
+  }
+
+  async function stop() {
+    stopped = true;
+    if (loopPromise) await loopPromise;
+    running = false;
+    logger.info('Worker parado');
+  }
+
+  function getStats() {
+    return { ...stats, running };
+  }
+
+  async function runLoop() {
+    while (!stopped) {
+      try {
+        const didWork = await processNext();
+        stats.lastActivityAt = new Date().toISOString();
+        if (!didWork) {
+          await sleep(config.pollIdleMs);
+        }
+      } catch (error) {
+        stats.lastError = error.message;
+        logger.error('Erro no loop do worker', { message: error.message, stack: error.stack });
+        await sleep(config.pollIdleMs);
+      }
+    }
+  }
+
+  async function processNext() {
+    const disparoIds = await fetchActiveDisparoIds();
+    if (!disparoIds.length) return false;
+
+    const candidates = await fetchPendingDetails(disparoIds, 1);
+    if (!candidates.length) return false;
+
+    const candidate = candidates[0];
+    if (stopped) return true;
+
+    const claimed = await claimDetail(candidate.id);
+    if (!claimed) return false;
+
+    await processClaimedDetail(claimed);
+    await sleep(config.sendIntervalMs);
+    return true;
+  }
+
+  async function processClaimedDetail(detail) {
+    stats.processed += 1;
+
+    try {
+      const disparo = await fetchDisparo(detail.idDisparo);
+      if (!disparo || isDisparoInactive(disparo.StatusDisparo) || isDisparoScheduledForFuture(disparo.DataAgendamento)) {
+        await releaseDetail(detail.id);
+        stats.skipped += 1;
+        logger.info('Detalhe liberado — disparo pausado, cancelado ou agendado', {
+          detailId: detail.id,
+          disparoId: detail.idDisparo,
+        });
+        return;
+      }
+
+      const result = await sendDetail(detail);
+
+      await markDetailSent(detail.id, {
+        statusHttp: result.status,
+        respostaHttp: result.body,
+      });
+
+      stats.sent += 1;
+      logger.info('Mensagem enviada', {
+        detailId: detail.id,
+        disparoId: detail.idDisparo,
+        metaMessageId: result.body?.messages?.[0]?.id ?? null,
+      });
+    } catch (error) {
+      stats.failed += 1;
+      stats.lastError = error.message;
+
+      const statusHttp = error instanceof MetaApiError ? error.status : null;
+      const respostaHttp = error instanceof MetaApiError ? error.body : null;
+
+      await markDetailFailed(detail.id, {
+        statusHttp,
+        mensagemErro: error.message,
+        respostaHttp,
+      });
+
+      logger.error('Falha ao enviar mensagem', {
+        detailId: detail.id,
+        disparoId: detail.idDisparo,
+        message: error.message,
+        statusHttp,
+      });
+    }
+  }
+
+  return { start, stop, getStats };
+}
+
+async function sendDetail(detail) {
+  if (!detail.idConexao) {
+    throw new Error('Detalhe sem idConexao');
+  }
+
+  const templateId = Number.parseInt(String(detail.Mensagem ?? '').trim(), 10);
+  if (!Number.isFinite(templateId)) {
+    throw new Error(`Mensagem deve conter o id numérico do template (recebido: ${detail.Mensagem})`);
+  }
+
+  const [conexao, contato, template] = await Promise.all([
+    fetchConexao(detail.idConexao),
+    fetchContato(detail.idContato),
+    fetchTemplateMeta(templateId),
+  ]);
+
+  if (!conexao) throw new Error(`Conexão ${detail.idConexao} não encontrada`);
+  if (!conexao.apiOficial) throw new Error(`Conexão ${detail.idConexao} não é API Oficial`);
+  if (!conexao.access_token || !conexao.phone_number_id) {
+    throw new Error(`Conexão ${detail.idConexao} sem access_token ou phone_number_id`);
+  }
+
+  if (!contato) throw new Error(`Contato ${detail.idContato} não encontrado`);
+
+  const phone = normalizePhone(contato.telefone);
+  if (!phone) throw new Error(`Telefone inválido para contato ${detail.idContato}`);
+
+  if (!template) throw new Error(`Template ${templateId} não encontrado em SAAS_Templates_Meta`);
+  if (!template.nome) throw new Error(`Template ${templateId} sem nome`);
+
+  const components = buildTemplateComponents(detail.Payload, detail.KeyRedis);
+  const metaPayload = buildMetaTemplateMessage({
+    phone,
+    templateName: template.nome,
+    language: template.idioma,
+    components,
+  });
+
+  return sendWithRetries(
+    () =>
+      sendTemplateMessage({
+        phoneNumberId: conexao.phone_number_id,
+        accessToken: conexao.access_token,
+        payload: metaPayload,
+      }),
+    { maxRetries: config.maxRetries },
+  );
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
