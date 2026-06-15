@@ -178,17 +178,19 @@ async function sendDetail(detail) {
 
   if (!contato) throw new Error(`Contato ${detail.idContato} não encontrado`);
 
-  const phoneCandidates = getPhoneCandidatesForMeta(contato.telefone);
+  const { candidates: phoneCandidates, resolution: phoneResolution } = getPhoneCandidatesForMeta(
+    contato.telefone,
+  );
   if (!phoneCandidates.length) {
     throw new Error(`Telefone inválido para contato ${detail.idContato}`);
   }
 
-  const phoneOriginal = normalizePhone(contato.telefone);
-  if (phoneCandidates[0] !== phoneOriginal) {
-    logger.info('Telefone BR normalizado (nono dígito)', {
+  if (phoneResolution && phoneResolution.phone !== phoneResolution.original) {
+    logger.info('Telefone BR ajustado antes do envio', {
       contatoId: detail.idContato,
-      original: phoneOriginal,
-      normalizado: phoneCandidates[0],
+      original: phoneResolution.original,
+      enviando: phoneResolution.phone,
+      acao: phoneResolution.action,
     });
   }
 
@@ -246,7 +248,7 @@ async function sendDetail(detail) {
       return {
         ...result,
         phoneUsed: phone,
-        phoneOriginal,
+        phoneOriginal: phoneResolution?.original ?? normalizePhone(contato.telefone),
         phoneVariantIndex: i,
       };
     } catch (error) {

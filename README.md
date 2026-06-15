@@ -58,11 +58,17 @@ Mídia do header: URL em `KeyRedis` do detalhe (por contato/campanha).
 
 ### Telefone BR (nono dígito)
 
-Números `55 + DDD + 8 dígitos` são normalizados automaticamente para incluir o **9** antes do envio.
+O worker escolhe **um** formato antes de enviar (não dispara com e sem 9):
 
-Ex.: `554884549300` → envia como `5548984549300`.
+| Tipo | Exemplo cadastro | Envia como |
+|------|------------------|------------|
+| Celular sem 9 | `554884549300` | `5548984549300` |
+| Fixo | `554840423710` | `554840423710` |
+| Fixo com 9 a mais | `5548940423710` | `554840423710` (remove o 9) |
 
-Se a Meta rejeitar o número, o worker tenta a variante alternativa (com/sem 9).
+Fixo = número local (após DDD) começa com **2, 3, 4 ou 5**.
+
+Só tenta a variante alternativa se a **Meta rejeitar** o número (erro 400), nunca quando retorna sucesso.
 
 ## Rodar local
 
