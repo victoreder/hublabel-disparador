@@ -7,7 +7,8 @@ Worker Node.js que consome a fila `SAAS_Detalhes_Disparos` e envia mensagens via
 - Processa apenas conexões com `apiOficial = true`
 - Envia **templates** (texto, mídia, botões)
 - Ignora `dataEnvio` do detalhe — dispara o mais rápido possível
-- Respeita apenas `DataAgendamento` do disparo para **início** da campanha
+- Respeita apenas `DataAgendamento` do disparo para **início** da campanha (janela de 24h)
+- `StatusDisparo`, `TipoDisparo` e status inativos: comparação **case insensitive**
 - Para imediatamente se `StatusDisparo` for `Pausado`, `Cancelado` ou `Finalizado`
 - Processa apenas disparos com `TipoDisparo = apioficial`
 - Intervalo padrão de **2 segundos** entre envios (`SEND_INTERVAL_MS`)

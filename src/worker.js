@@ -97,7 +97,7 @@ export function createWorker() {
       if (!isDisparoEligible(disparo)) {
         await releaseDetail(detail.id);
         stats.skipped += 1;
-        logger.info('Detalhe liberado — disparo inativo, finalizado, não é apioficial ou agendado', {
+        logger.info('Detalhe liberado — disparo inativo, expirado, não é apioficial ou agendado no futuro', {
           detailId: detail.id,
           disparoId: detail.idDisparo,
           tipoDisparo: disparo?.TipoDisparo ?? null,

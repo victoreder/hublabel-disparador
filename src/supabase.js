@@ -80,7 +80,9 @@ function mapSupabaseError(error, context) {
 }
 
 const INACTIVE_DISPARO = new Set(['pausado', 'cancelado', 'finalizado']);
+const AGENDAMENTO_TOLERANCIA_MS = 24 * 60 * 60 * 1000;
 
+/** StatusDisparo e TipoDisparo: comparação case insensitive */
 export function isDisparoInactive(statusDisparo) {
   return INACTIVE_DISPARO.has(String(statusDisparo || '').toLowerCase());
 }
@@ -89,17 +91,24 @@ export function isDisparoApiOficial(tipoDisparo) {
   return String(tipoDisparo || '').toLowerCase() === 'apioficial';
 }
 
+export function isDisparoScheduledForFuture(dataAgendamento) {
+  if (!dataAgendamento) return false;
+  return new Date(dataAgendamento).getTime() > Date.now();
+}
+
+/** Ignora se DataAgendamento passou há mais de 1 dia */
+export function isDisparoAgendamentoExpirado(dataAgendamento) {
+  if (!dataAgendamento) return false;
+  return new Date(dataAgendamento).getTime() < Date.now() - AGENDAMENTO_TOLERANCIA_MS;
+}
+
 export function isDisparoEligible(disparo) {
   if (!disparo) return false;
   if (!isDisparoApiOficial(disparo.TipoDisparo)) return false;
   if (isDisparoInactive(disparo.StatusDisparo)) return false;
   if (isDisparoScheduledForFuture(disparo.DataAgendamento)) return false;
+  if (isDisparoAgendamentoExpirado(disparo.DataAgendamento)) return false;
   return true;
-}
-
-export function isDisparoScheduledForFuture(dataAgendamento) {
-  if (!dataAgendamento) return false;
-  return new Date(dataAgendamento).getTime() > Date.now();
 }
 
 export async function fetchActiveDisparoIds() {
