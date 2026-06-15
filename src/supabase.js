@@ -79,10 +79,22 @@ function mapSupabaseError(error, context) {
   return new Error(`${context}: ${error.message}`);
 }
 
-const INACTIVE_DISPARO = new Set(['pausado', 'cancelado']);
+const INACTIVE_DISPARO = new Set(['pausado', 'cancelado', 'finalizado']);
 
 export function isDisparoInactive(statusDisparo) {
   return INACTIVE_DISPARO.has(String(statusDisparo || '').toLowerCase());
+}
+
+export function isDisparoApiOficial(tipoDisparo) {
+  return String(tipoDisparo || '').toLowerCase() === 'apioficial';
+}
+
+export function isDisparoEligible(disparo) {
+  if (!disparo) return false;
+  if (!isDisparoApiOficial(disparo.TipoDisparo)) return false;
+  if (isDisparoInactive(disparo.StatusDisparo)) return false;
+  if (isDisparoScheduledForFuture(disparo.DataAgendamento)) return false;
+  return true;
 }
 
 export function isDisparoScheduledForFuture(dataAgendamento) {
@@ -93,17 +105,11 @@ export function isDisparoScheduledForFuture(dataAgendamento) {
 export async function fetchActiveDisparoIds() {
   const { data, error } = await supabase
     .from('SAAS_Disparos')
-    .select('id, StatusDisparo, DataAgendamento');
+    .select('id, StatusDisparo, TipoDisparo, DataAgendamento');
 
   if (error) throw mapSupabaseError(error, 'Erro ao buscar disparos ativos');
 
-  return (data ?? [])
-    .filter(
-      (disparo) =>
-        !isDisparoInactive(disparo.StatusDisparo) &&
-        !isDisparoScheduledForFuture(disparo.DataAgendamento),
-    )
-    .map((disparo) => disparo.id);
+  return (data ?? []).filter(isDisparoEligible).map((disparo) => disparo.id);
 }
 
 export async function fetchPendingDetails(disparoIds, limit = 1) {
@@ -124,7 +130,7 @@ export async function fetchPendingDetails(disparoIds, limit = 1) {
 export async function fetchDisparo(idDisparo) {
   const { data, error } = await supabase
     .from('SAAS_Disparos')
-    .select('id, StatusDisparo, DataAgendamento')
+    .select('id, StatusDisparo, TipoDisparo, DataAgendamento')
     .eq('id', idDisparo)
     .maybeSingle();
 

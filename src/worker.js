@@ -11,8 +11,7 @@ import {
   fetchActiveDisparoIds,
   fetchPendingDetails,
   fetchTemplateMeta,
-  isDisparoInactive,
-  isDisparoScheduledForFuture,
+  isDisparoEligible,
   markDetailFailed,
   markDetailSent,
   releaseDetail,
@@ -95,12 +94,14 @@ export function createWorker() {
 
     try {
       const disparo = await fetchDisparo(detail.idDisparo);
-      if (!disparo || isDisparoInactive(disparo.StatusDisparo) || isDisparoScheduledForFuture(disparo.DataAgendamento)) {
+      if (!isDisparoEligible(disparo)) {
         await releaseDetail(detail.id);
         stats.skipped += 1;
-        logger.info('Detalhe liberado — disparo pausado, cancelado ou agendado', {
+        logger.info('Detalhe liberado — disparo inativo, finalizado, não é apioficial ou agendado', {
           detailId: detail.id,
           disparoId: detail.idDisparo,
+          tipoDisparo: disparo?.TipoDisparo ?? null,
+          statusDisparo: disparo?.StatusDisparo ?? null,
         });
         return;
       }
