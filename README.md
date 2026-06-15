@@ -56,6 +56,14 @@ Fonte: `componentes.variaveisCampos` (prioridade) ou coluna `variaveisCampos`.
 
 Mídia do header: URL em `KeyRedis` do detalhe (por contato/campanha).
 
+### Telefone BR (nono dígito)
+
+Números `55 + DDD + 8 dígitos` são normalizados automaticamente para incluir o **9** antes do envio.
+
+Ex.: `554884549300` → envia como `5548984549300`.
+
+Se a Meta rejeitar o número, o worker tenta a variante alternativa (com/sem 9).
+
 ## Rodar local
 
 ```bash

@@ -3,6 +3,36 @@ import { logger } from './logger.js';
 
 const TRANSIENT_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 
+/** Erros Meta que indicam telefone inválido / sem WhatsApp — tentar variante BR. */
+const RECIPIENT_ERROR_CODES = new Set([
+  131008, // Required parameter invalid (phone)
+  131009, // Parameter invalid
+  131026, // Message undeliverable
+  131030, // Recipient not in allowed list
+  131051, // Unsupported / invalid phone
+  133010, // Phone number not valid
+  133015, // Phone number not valid
+  135000, // Generic user error (sometimes phone)
+]);
+
+export function isRecipientPhoneError(error) {
+  if (!(error instanceof MetaApiError)) return false;
+
+  const code = error.body?.error?.code;
+  if (code != null && RECIPIENT_ERROR_CODES.has(Number(code))) {
+    return true;
+  }
+
+  const text = String(error.message || '').toLowerCase();
+  return (
+    text.includes('phone number') ||
+    text.includes('recipient') ||
+    text.includes('not a valid whatsapp') ||
+    text.includes('undeliverable') ||
+    text.includes('invalid user')
+  );
+}
+
 export class MetaApiError extends Error {
   constructor(message, { status, body, retryable = false } = {}) {
     super(message);

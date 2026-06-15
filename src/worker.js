@@ -1,7 +1,7 @@
 import { config } from './config.js';
 import { logger } from './logger.js';
-import { MetaApiError, sendTemplateMessage, sendWithRetries } from './meta.js';
-import { normalizePhone } from './phone.js';
+import { MetaApiError, isRecipientPhoneError, sendTemplateMessage, sendWithRetries } from './meta.js';
+import { formatPhoneForLog, getPhoneCandidatesForMeta, normalizePhone } from './phone.js';
 import { buildMetaTemplateMessage, buildTemplateComponents } from './template.js';
 import { resolveTemplatePayload, parseTemplateComponentes, extractVariableIndexes } from './resolvePayload.js';
 import {
@@ -113,7 +113,11 @@ export function createWorker() {
 
       await markDetailSent(detail.id, {
         statusHttp: result.status,
-        respostaHttp: result.body,
+        respostaHttp: {
+          ...result.body,
+          _phoneUsed: result.phoneUsed,
+          _phoneOriginal: result.phoneOriginal,
+        },
       });
 
       stats.sent += 1;
@@ -121,6 +125,7 @@ export function createWorker() {
         detailId: detail.id,
         disparoId: detail.idDisparo,
         metaMessageId: result.body?.messages?.[0]?.id ?? null,
+        telefone: formatPhoneForLog(result.phoneUsed),
       });
     } catch (error) {
       stats.failed += 1;
@@ -173,8 +178,19 @@ async function sendDetail(detail) {
 
   if (!contato) throw new Error(`Contato ${detail.idContato} não encontrado`);
 
-  const phone = normalizePhone(contato.telefone);
-  if (!phone) throw new Error(`Telefone inválido para contato ${detail.idContato}`);
+  const phoneCandidates = getPhoneCandidatesForMeta(contato.telefone);
+  if (!phoneCandidates.length) {
+    throw new Error(`Telefone inválido para contato ${detail.idContato}`);
+  }
+
+  const phoneOriginal = normalizePhone(contato.telefone);
+  if (phoneCandidates[0] !== phoneOriginal) {
+    logger.info('Telefone BR normalizado (nono dígito)', {
+      contatoId: detail.idContato,
+      original: phoneOriginal,
+      normalizado: phoneCandidates[0],
+    });
+  }
 
   if (!template) throw new Error(`Template ${templateId} não encontrado em SAAS_Templates_Meta`);
   if (!template.nome) throw new Error(`Template ${templateId} sem nome`);
@@ -197,22 +213,59 @@ async function sendDetail(detail) {
   }
 
   const components = buildTemplateComponents(payload, detail.KeyRedis);
-  const metaPayload = buildMetaTemplateMessage({
-    phone,
-    templateName: template.nome,
-    language: template.idioma,
-    components,
-  });
 
-  return sendWithRetries(
-    () =>
-      sendTemplateMessage({
-        phoneNumberId: conexao.phone_number_id,
-        accessToken: conexao.access_token,
-        payload: metaPayload,
-      }),
-    { maxRetries: config.maxRetries },
-  );
+  let lastError;
+  for (let i = 0; i < phoneCandidates.length; i += 1) {
+    const phone = phoneCandidates[i];
+    const metaPayload = buildMetaTemplateMessage({
+      phone,
+      templateName: template.nome,
+      language: template.idioma,
+      components,
+    });
+
+    try {
+      const result = await sendWithRetries(
+        () =>
+          sendTemplateMessage({
+            phoneNumberId: conexao.phone_number_id,
+            accessToken: conexao.access_token,
+            payload: metaPayload,
+          }),
+        { maxRetries: config.maxRetries },
+      );
+
+      if (i > 0) {
+        logger.info('Enviado com variante alternativa de telefone', {
+          detailId: detail.id,
+          tentativa: phoneCandidates[0],
+          usado: phone,
+        });
+      }
+
+      return {
+        ...result,
+        phoneUsed: phone,
+        phoneOriginal,
+        phoneVariantIndex: i,
+      };
+    } catch (error) {
+      lastError = error;
+      const hasAlternate = i < phoneCandidates.length - 1;
+      if (hasAlternate && isRecipientPhoneError(error)) {
+        logger.warn('Falha no telefone, tentando variante BR (nono dígito)', {
+          detailId: detail.id,
+          telefone: formatPhoneForLog(phone),
+          message: error.message,
+          proximo: formatPhoneForLog(phoneCandidates[i + 1]),
+        });
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw lastError ?? new Error('Falha ao enviar: nenhuma variante de telefone funcionou');
 }
 
 function sleep(ms) {
