@@ -2,6 +2,7 @@ import express from 'express';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { validateSupabaseConnection } from './supabase.js';
+import { createWorker } from './worker.js';
 
 const app = express();
 const worker = createWorker();
