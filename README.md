@@ -60,7 +60,46 @@ npm start
 
 Health: `http://localhost:3080/health`
 
-## Docker
+## Imagem Docker (pública)
+
+```
+ghcr.io/victoreder/hublabel-disparador:latest
+```
+
+Atualizada automaticamente a cada push na `main`.
+
+### Portainer (sem chave GitHub)
+
+Com repositório e **package** públicos no GHCR, o cliente só precisa:
+
+| Campo | Valor |
+|--------|--------|
+| **Image** | `ghcr.io/victoreder/hublabel-disparador:latest` |
+| **Port** | `3080:3080` |
+| **Restart** | Unless stopped |
+
+**Env** (cada cliente usa o **próprio** Supabase):
+
+```
+SUPABASE_URL=https://projeto-do-cliente.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=service_role_do_cliente
+META_GRAPH_API_VERSION=v25.0
+PORT=3080
+SEND_INTERVAL_MS=2000
+POLL_IDLE_MS=2000
+MAX_RETRIES=3
+```
+
+Não é necessário registry/token GitHub para puxar a imagem pública.
+
+### Tornar público (admin HubLabel)
+
+1. GitHub → repo **hublabel-disparador** → Settings → Danger zone → **Change visibility** → Public
+2. GitHub → **Packages** → `hublabel-disparador` → Package settings → **Change visibility** → Public
+
+> Repositório público **não** torna o package público automaticamente. Os dois precisam ser públicos.
+
+## Docker (build local)
 
 ```bash
 docker build -t hublabel-disparador-meta .
@@ -71,16 +110,6 @@ Ou com compose:
 
 ```bash
 docker compose up -d --build
-```
-
-## GitHub (repo separado)
-
-```bash
-cd disparador-meta
-git init
-git add .
-git commit -m "feat: disparador WhatsApp API Oficial"
-gh repo create hublabel-disparador-meta --private --source=. --push
 ```
 
 ## Retentativas
