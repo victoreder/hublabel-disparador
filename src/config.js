@@ -6,6 +6,13 @@ function required(name) {
   return value.trim();
 }
 
+function detectSupabaseKeyType(key) {
+  if (key.startsWith('eyJ')) return 'legacy_jwt';
+  if (key.startsWith('sb_secret_')) return 'sb_secret';
+  if (key.startsWith('sb_publishable_')) return 'sb_publishable';
+  return 'unknown';
+}
+
 function optionalInt(name, fallback) {
   const raw = process.env[name];
   if (raw == null || raw === '') return fallback;
@@ -16,9 +23,13 @@ function optionalInt(name, fallback) {
   return parsed;
 }
 
+const supabaseServiceRoleKey = required('SUPABASE_SERVICE_ROLE_KEY');
+const supabaseKeyType = detectSupabaseKeyType(supabaseServiceRoleKey);
+
 export const config = {
-  supabaseUrl: required('SUPABASE_URL'),
-  supabaseServiceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY'),
+  supabaseUrl: required('SUPABASE_URL').replace(/\/$/, ''),
+  supabaseServiceRoleKey,
+  supabaseKeyType,
   metaGraphApiVersion: process.env.META_GRAPH_API_VERSION?.trim() || 'v25.0',
   port: optionalInt('PORT', 3080),
   sendIntervalMs: optionalInt('SEND_INTERVAL_MS', 2000),

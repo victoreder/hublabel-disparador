@@ -2,6 +2,28 @@ import { createClient } from '@supabase/supabase-js';
 import ws from 'ws';
 import { config } from './config.js';
 
+/**
+ * Chaves novas do Supabase (sb_secret_*) não são JWT.
+ * Se forem enviadas em Authorization: Bearer, o PostgREST retorna "Invalid API key".
+ * Legacy service_role (eyJ...) continua usando Bearer normalmente.
+ */
+function createSupabaseFetch() {
+  const { supabaseServiceRoleKey: key, supabaseKeyType: keyType } = config;
+
+  return async (input, init = {}) => {
+    const headers = new Headers(init.headers ?? {});
+    headers.set('apikey', key);
+
+    if (keyType === 'legacy_jwt') {
+      headers.set('Authorization', `Bearer ${key}`);
+    } else {
+      headers.delete('Authorization');
+    }
+
+    return fetch(input, { ...init, headers });
+  };
+}
+
 export const supabase = createClient(config.supabaseUrl, config.supabaseServiceRoleKey, {
   auth: {
     autoRefreshToken: false,
@@ -10,16 +32,35 @@ export const supabase = createClient(config.supabaseUrl, config.supabaseServiceR
   realtime: {
     transport: ws,
   },
+  global: {
+    fetch: createSupabaseFetch(),
+  },
 });
 
+export function getSupabaseKeyInfo() {
+  return {
+    keyType: config.supabaseKeyType,
+    url: config.supabaseUrl.replace(/^(https:\/\/)([^.]+).*/, '$1$2***'),
+  };
+}
+
 export async function validateSupabaseConnection() {
+  if (config.supabaseKeyType === 'sb_publishable') {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY parece ser publishable (sb_publishable_). Use a secret key (sb_secret_) ou a service_role legada (eyJ...).',
+    );
+  }
+
   const { error } = await supabase.from('SAAS_Disparos').select('id').limit(1);
 
   if (!error) return;
 
-  if (String(error.message).toLowerCase().includes('invalid api key')) {
+  const message = String(error.message).toLowerCase();
+
+  if (message.includes('invalid api key') || message.includes('invalid jwt')) {
     throw new Error(
-      'SUPABASE_SERVICE_ROLE_KEY inválida. Use a chave service_role (secret) do MESMO projeto do SUPABASE_URL. Não use a anon key.',
+      'Falha de autenticação no Supabase. Confira SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY do mesmo projeto. ' +
+        'Aceito: service_role legada (eyJ...) ou secret key nova (sb_secret_...).',
     );
   }
 
@@ -27,11 +68,14 @@ export async function validateSupabaseConnection() {
 }
 
 function mapSupabaseError(error, context) {
-  if (String(error.message).toLowerCase().includes('invalid api key')) {
+  const message = String(error.message).toLowerCase();
+
+  if (message.includes('invalid api key') || message.includes('invalid jwt')) {
     return new Error(
-      `${context}: chave Supabase inválida. Confira SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (service_role, não anon).`,
+      `${context}: autenticação Supabase inválida. Verifique URL + service_role (eyJ...) ou sb_secret_...`,
     );
   }
+
   return new Error(`${context}: ${error.message}`);
 }
 
@@ -73,7 +117,7 @@ export async function fetchPendingDetails(disparoIds, limit = 1) {
     .order('id', { ascending: true })
     .limit(limit);
 
-  if (error) throw new Error(`Erro ao buscar detalhes pending: ${error.message}`);
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar detalhes pending');
   return data ?? [];
 }
 
@@ -84,7 +128,7 @@ export async function fetchDisparo(idDisparo) {
     .eq('id', idDisparo)
     .maybeSingle();
 
-  if (error) throw new Error(`Erro ao buscar disparo ${idDisparo}: ${error.message}`);
+  if (error) throw mapSupabaseError(error, `Erro ao buscar disparo ${idDisparo}`);
   return data;
 }
 
@@ -97,7 +141,7 @@ export async function claimDetail(detailId) {
     .select('id, idDisparo, idContato, Mensagem, idConexao, Status, Payload, KeyRedis')
     .maybeSingle();
 
-  if (error) throw new Error(`Erro ao claim do detalhe ${detailId}: ${error.message}`);
+  if (error) throw mapSupabaseError(error, `Erro ao claim do detalhe ${detailId}`);
   return data;
 }
 
@@ -108,7 +152,7 @@ export async function releaseDetail(detailId) {
     .eq('id', detailId)
     .eq('Status', 'processing');
 
-  if (error) throw new Error(`Erro ao liberar detalhe ${detailId}: ${error.message}`);
+  if (error) throw mapSupabaseError(error, `Erro ao liberar detalhe ${detailId}`);
 }
 
 export async function fetchConexao(idConexao) {
@@ -118,7 +162,7 @@ export async function fetchConexao(idConexao) {
     .eq('id', idConexao)
     .maybeSingle();
 
-  if (error) throw new Error(`Erro ao buscar conexão ${idConexao}: ${error.message}`);
+  if (error) throw mapSupabaseError(error, `Erro ao buscar conexão ${idConexao}`);
   return data;
 }
 
@@ -129,7 +173,7 @@ export async function fetchContato(idContato) {
     .eq('id', idContato)
     .maybeSingle();
 
-  if (error) throw new Error(`Erro ao buscar contato ${idContato}: ${error.message}`);
+  if (error) throw mapSupabaseError(error, `Erro ao buscar contato ${idContato}`);
   return data;
 }
 
@@ -140,7 +184,7 @@ export async function fetchTemplateMeta(templateId) {
     .eq('id', templateId)
     .maybeSingle();
 
-  if (error) throw new Error(`Erro ao buscar template ${templateId}: ${error.message}`);
+  if (error) throw mapSupabaseError(error, `Erro ao buscar template ${templateId}`);
   return data;
 }
 
@@ -156,7 +200,7 @@ export async function markDetailSent(detailId, { statusHttp, respostaHttp }) {
     })
     .eq('id', detailId);
 
-  if (error) throw new Error(`Erro ao marcar detalhe ${detailId} como sent: ${error.message}`);
+  if (error) throw mapSupabaseError(error, `Erro ao marcar detalhe ${detailId} como sent`);
 }
 
 export async function markDetailFailed(detailId, { statusHttp, mensagemErro, respostaHttp }) {
@@ -171,5 +215,5 @@ export async function markDetailFailed(detailId, { statusHttp, mensagemErro, res
     })
     .eq('id', detailId);
 
-  if (error) throw new Error(`Erro ao marcar detalhe ${detailId} como failed: ${error.message}`);
+  if (error) throw mapSupabaseError(error, `Erro ao marcar detalhe ${detailId} como failed`);
 }

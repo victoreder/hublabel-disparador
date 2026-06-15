@@ -1,0 +1,50 @@
+version: "3.7"
+services:
+
+## --------------------------- HUBLABEL DISPARADOR META --------------------------- ##
+
+  disparador-meta:
+    image: ghcr.io/victoreder/hublabel-disparador:latest
+
+    environment:
+      SUPABASE_URL: https://SEU-PROJETO.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_SUA_SERVICE_ROLE_KEY
+      META_GRAPH_API_VERSION: v25.0
+      PORT: "3080"
+      SEND_INTERVAL_MS: "2000"
+      POLL_IDLE_MS: "2000"
+      MAX_RETRIES: "3"
+      NODE_ENV: production
+
+    networks:
+      - RedeVictor
+
+    ## Descomente para expor o health check fora da rede
+    #ports:
+    #  - 3080:3080
+
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+      restart_policy:
+        condition: any
+        delay: 5s
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+## --------------------------- HUBLABEL DISPARADOR META --------------------------- ##
+
+networks:
+  RedeVictor:
+    external: true
+    name: RedeVictor

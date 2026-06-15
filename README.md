@@ -16,7 +16,7 @@ Worker Node.js que consome a fila `SAAS_Detalhes_Disparos` e envia mensagens via
 | Variável | Obrigatória | Padrão | Descrição |
 |----------|-------------|--------|-----------|
 | `SUPABASE_URL` | Sim | — | URL do projeto Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | Sim | — | Service role (bypass RLS) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sim | — | **service_role** legada (`eyJ...`) ou **secret key** nova (`sb_secret_...`) |
 | `META_GRAPH_API_VERSION` | Não | `v25.0` | Versão da Graph API |
 | `PORT` | Não | `3080` | Porta do `/health` |
 | `SEND_INTERVAL_MS` | Não | `2000` | Pausa entre envios |
