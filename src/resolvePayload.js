@@ -1,5 +1,6 @@
 /**
- * Resolve Payload do detalhe usando variaveisCampos do template + dados do contato.
+ * Resolve variáveis do template a partir de variaveisCampos + dados do contato.
+ * Fonte: SAAS_Templates_Meta.componentes.variaveisCampos ou coluna variaveisCampos.
  */
 
 export function parseTemplateComponentes(raw) {
@@ -40,18 +41,6 @@ export function extractVariableIndexes(text) {
   const matches = [...String(text ?? '').matchAll(/\{\{(\d+)\}\}/g)];
   const indexes = matches.map((m) => Number.parseInt(m[1], 10)).filter(Number.isFinite);
   return [...new Set(indexes)].sort((a, b) => a - b);
-}
-
-function normalizePayload(raw) {
-  if (raw == null) return {};
-  if (typeof raw === 'string') {
-    try {
-      return JSON.parse(raw) || {};
-    } catch {
-      return {};
-    }
-  }
-  return typeof raw === 'object' ? raw : {};
 }
 
 function getComponentText(component) {
@@ -142,8 +131,15 @@ function resolveButtons(variaveisCampos, components, resolveField) {
     .filter(Boolean);
 }
 
+export function getTemplateVariaveisCampos(templateComponentes, templateVariaveisCampos) {
+  const parsed = parseTemplateComponentes(templateComponentes);
+  return {
+    ...parseVariaveisCampos(templateVariaveisCampos),
+    ...parseVariaveisCampos(parsed.variaveisCampos),
+  };
+}
+
 export function resolveTemplatePayload({
-  detailPayload,
   templateComponentes,
   templateVariaveisCampos,
   contato,
@@ -151,12 +147,9 @@ export function resolveTemplatePayload({
   camposPersonalizados = [],
 }) {
   const parsed = parseTemplateComponentes(templateComponentes);
-  const variaveisCampos = {
-    ...parseVariaveisCampos(templateVariaveisCampos),
-    ...parseVariaveisCampos(parsed.variaveisCampos),
-  };
-
+  const variaveisCampos = getTemplateVariaveisCampos(templateComponentes, templateVariaveisCampos);
   const components = parsed.components;
+
   const resolveField = buildFieldResolver({
     contato,
     valoresPorCampo: new Map(
@@ -176,21 +169,15 @@ export function resolveTemplatePayload({
     buttons: resolveButtons(variaveisCampos, components, resolveField),
   };
 
-  const headerType = String(headerComponent?.format || headerComponent?.type || '').toLowerCase();
+  const headerFormat = String(headerComponent?.format || '').toLowerCase();
   if (headerIndexes.length > 0 && variaveisCampos.header) {
     const headerText = resolveMappedParams(variaveisCampos.header, headerIndexes, resolveField);
     if (headerText[0]) {
       resolved.header = { type: 'text', text: headerText[0] };
     }
-  } else if (['image', 'video', 'document'].includes(headerType)) {
-    resolved.header = { type: headerType };
+  } else if (['image', 'video', 'document'].includes(headerFormat)) {
+    resolved.header = { type: headerFormat };
   }
 
-  const manual = normalizePayload(detailPayload);
-
-  return {
-    body: Array.isArray(manual.body) && manual.body.length > 0 ? manual.body : resolved.body,
-    header: manual.header || resolved.header,
-    buttons: Array.isArray(manual.buttons) && manual.buttons.length > 0 ? manual.buttons : resolved.buttons,
-  };
+  return resolved;
 }

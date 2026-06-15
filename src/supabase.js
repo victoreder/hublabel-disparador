@@ -126,7 +126,7 @@ export async function fetchPendingDetails(disparoIds, limit = 1) {
 
   const { data, error } = await supabase
     .from('SAAS_Detalhes_Disparos')
-    .select('id, idDisparo, idContato, Mensagem, idConexao, Status, Payload, KeyRedis')
+    .select('id, idDisparo, idContato, Mensagem, idConexao, Status, KeyRedis')
     .eq('Status', 'pending')
     .in('idDisparo', disparoIds)
     .order('id', { ascending: true })
@@ -153,7 +153,7 @@ export async function claimDetail(detailId) {
     .update({ Status: 'processing' })
     .eq('id', detailId)
     .eq('Status', 'pending')
-    .select('id, idDisparo, idContato, Mensagem, idConexao, Status, Payload, KeyRedis')
+    .select('id, idDisparo, idContato, Mensagem, idConexao, Status, KeyRedis')
     .maybeSingle();
 
   if (error) throw mapSupabaseError(error, `Erro ao claim do detalhe ${detailId}`);

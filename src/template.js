@@ -1,16 +1,10 @@
 /**
- * Converte Payload do detalhe + KeyRedis em components da Meta.
- *
- * Payload esperado:
- * {
- *   "body": ["João", "R$ 99,90"],
- *   "header": { "type": "image", "link": "https://..." },
- *   "buttons": [{ "type": "url", "index": 0, "payload": "https://..." }]
- * }
+ * Converte variáveis resolvidas + KeyRedis em components da Meta.
+ * Variáveis vêm de SAAS_Templates_Meta.variaveisCampos (não do Payload do detalhe).
  */
-export function buildTemplateComponents(payload, mediaUrl) {
+export function buildTemplateComponents(resolved, mediaUrl) {
   const components = [];
-  const data = payload && typeof payload === 'object' ? payload : {};
+  const data = resolved && typeof resolved === 'object' ? resolved : {};
 
   const headerLink = mediaUrl || data.header?.link;
   const headerType = (data.header?.type || 'image').toLowerCase();

@@ -32,23 +32,29 @@ Worker Node.js que consome a fila `SAAS_Detalhes_Disparos` e envia mensagens via
 | Coluna | Uso |
 |--------|-----|
 | `Mensagem` | ID (`SAAS_Templates_Meta.id`) |
-| `Payload` | Variáveis do template (JSON) |
-| `KeyRedis` | URL pública da mídia (header) |
+| `KeyRedis` | URL pública da mídia (header), quando o template tiver mídia |
 | `idConexao` | Conexão API Oficial |
 | `idContato` | Telefone via `SAAS_Contatos` |
 | `Status` | `pending` → `processing` → `sent` / `failed` |
 
-### Exemplo de `Payload`
+> Variáveis do template **não** vão no `Payload` do detalhe. O worker lê sempre de `SAAS_Templates_Meta`.
+
+### `SAAS_Templates_Meta` — `variaveisCampos`
+
+Fonte: `componentes.variaveisCampos` (prioridade) ou coluna `variaveisCampos`.
 
 ```json
 {
-  "body": ["João", "R$ 99,90"],
-  "header": { "type": "image", "link": "https://exemplo.com/img.jpg" },
-  "buttons": [{ "type": "url", "index": 0, "payload": "promo" }]
+  "body": { "1": 6, "2": 7 },
+  "header": { "1": 5 },
+  "buttons": [{ "index": 0, "fieldId": 8 }]
 }
 ```
 
-Se `KeyRedis` estiver preenchido, ele tem prioridade sobre `header.link` para mídia.
+- `"1": 6` → variável `{{1}}` do body usa o campo personalizado **id 6** do contato
+- Valor buscado em `SAAS_Valores_Campos_Personalizados`, com fallback por nome do campo (`nome`, `telefone`) ou `contato.nome`
+
+Mídia do header: URL em `KeyRedis` do detalhe (por contato/campanha).
 
 ## Rodar local
 

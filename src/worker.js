@@ -180,7 +180,6 @@ async function sendDetail(detail) {
   if (!template.nome) throw new Error(`Template ${templateId} sem nome`);
 
   const payload = resolveTemplatePayload({
-    detailPayload: detail.Payload,
     templateComponentes: template.componentes,
     templateVariaveisCampos: template.variaveisCampos,
     contato,
@@ -193,7 +192,7 @@ async function sendDetail(detail) {
   const requiredBodyVars = extractVariableIndexes(bodyComponent?.text || '');
   if (requiredBodyVars.length > 0 && (!payload.body || payload.body.length < requiredBodyVars.length)) {
     throw new Error(
-      `Template exige ${requiredBodyVars.length} variável(is) no body; Payload/body resolvido tem ${payload.body?.length ?? 0}`,
+      `Template exige ${requiredBodyVars.length} variável(is) no body; variaveisCampos resolveu ${payload.body?.length ?? 0}`,
     );
   }
 
