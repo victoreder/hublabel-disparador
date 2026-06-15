@@ -12,6 +12,29 @@ export const supabase = createClient(config.supabaseUrl, config.supabaseServiceR
   },
 });
 
+export async function validateSupabaseConnection() {
+  const { error } = await supabase.from('SAAS_Disparos').select('id').limit(1);
+
+  if (!error) return;
+
+  if (String(error.message).toLowerCase().includes('invalid api key')) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY inválida. Use a chave service_role (secret) do MESMO projeto do SUPABASE_URL. Não use a anon key.',
+    );
+  }
+
+  throw new Error(`Falha ao conectar no Supabase: ${error.message}`);
+}
+
+function mapSupabaseError(error, context) {
+  if (String(error.message).toLowerCase().includes('invalid api key')) {
+    return new Error(
+      `${context}: chave Supabase inválida. Confira SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (service_role, não anon).`,
+    );
+  }
+  return new Error(`${context}: ${error.message}`);
+}
+
 const INACTIVE_DISPARO = new Set(['pausado', 'cancelado']);
 
 export function isDisparoInactive(statusDisparo) {
@@ -28,7 +51,7 @@ export async function fetchActiveDisparoIds() {
     .from('SAAS_Disparos')
     .select('id, StatusDisparo, DataAgendamento');
 
-  if (error) throw new Error(`Erro ao buscar disparos ativos: ${error.message}`);
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar disparos ativos');
 
   return (data ?? [])
     .filter(

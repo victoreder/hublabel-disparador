@@ -1,7 +1,7 @@
 import express from 'express';
 import { config } from './config.js';
 import { logger } from './logger.js';
-import { createWorker } from './worker.js';
+import { validateSupabaseConnection } from './supabase.js';
 
 const app = express();
 const worker = createWorker();
@@ -22,6 +22,11 @@ app.get('/', (_req, res) => {
 });
 
 async function main() {
+  await validateSupabaseConnection();
+  logger.info('Supabase conectado', {
+    supabaseUrl: config.supabaseUrl.replace(/^(https:\/\/)([^.]+).*/, '$1$2***'),
+  });
+
   await worker.start();
 
   app.listen(config.port, () => {
