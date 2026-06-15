@@ -184,7 +184,7 @@ export async function fetchConexao(idConexao) {
 export async function fetchContato(idContato) {
   const { data, error } = await supabase
     .from('SAAS_Contatos')
-    .select('id, telefone, nome')
+    .select('id, telefone, nome, variaveis, contaId')
     .eq('id', idContato)
     .maybeSingle();
 
@@ -192,10 +192,32 @@ export async function fetchContato(idContato) {
   return data;
 }
 
+export async function fetchContatoValoresCampos(idContato) {
+  const { data, error } = await supabase
+    .from('SAAS_Valores_Campos_Personalizados')
+    .select('idCampo, valor')
+    .eq('idContato', idContato);
+
+  if (error) throw mapSupabaseError(error, `Erro ao buscar campos do contato ${idContato}`);
+  return data ?? [];
+}
+
+export async function fetchCamposPersonalizados(contaId) {
+  if (!contaId) return [];
+
+  const { data, error } = await supabase
+    .from('SAAS_Campos_Personalizados')
+    .select('id, nome, tipo')
+    .eq('contaId', contaId);
+
+  if (error) throw mapSupabaseError(error, `Erro ao buscar campos personalizados da conta ${contaId}`);
+  return data ?? [];
+}
+
 export async function fetchTemplateMeta(templateId) {
   const { data, error } = await supabase
     .from('SAAS_Templates_Meta')
-    .select('id, nome, idioma, status, conexaoId')
+    .select('id, nome, idioma, status, conexaoId, componentes, variaveisCampos')
     .eq('id', templateId)
     .maybeSingle();
 

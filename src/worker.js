@@ -3,10 +3,13 @@ import { logger } from './logger.js';
 import { MetaApiError, sendTemplateMessage, sendWithRetries } from './meta.js';
 import { normalizePhone } from './phone.js';
 import { buildMetaTemplateMessage, buildTemplateComponents } from './template.js';
+import { resolveTemplatePayload, parseTemplateComponentes, extractVariableIndexes } from './resolvePayload.js';
 import {
   claimDetail,
+  fetchCamposPersonalizados,
   fetchConexao,
   fetchContato,
+  fetchContatoValoresCampos,
   fetchDisparo,
   fetchActiveDisparoIds,
   fetchPendingDetails,
@@ -154,10 +157,12 @@ async function sendDetail(detail) {
     throw new Error(`Mensagem deve conter o id numérico do template (recebido: ${detail.Mensagem})`);
   }
 
-  const [conexao, contato, template] = await Promise.all([
+  const contato = await fetchContato(detail.idContato);
+  const [conexao, template, valoresCampos, camposPersonalizados] = await Promise.all([
     fetchConexao(detail.idConexao),
-    fetchContato(detail.idContato),
     fetchTemplateMeta(templateId),
+    fetchContatoValoresCampos(detail.idContato),
+    contato?.contaId ? fetchCamposPersonalizados(contato.contaId) : Promise.resolve([]),
   ]);
 
   if (!conexao) throw new Error(`Conexão ${detail.idConexao} não encontrada`);
@@ -174,7 +179,25 @@ async function sendDetail(detail) {
   if (!template) throw new Error(`Template ${templateId} não encontrado em SAAS_Templates_Meta`);
   if (!template.nome) throw new Error(`Template ${templateId} sem nome`);
 
-  const components = buildTemplateComponents(detail.Payload, detail.KeyRedis);
+  const payload = resolveTemplatePayload({
+    detailPayload: detail.Payload,
+    templateComponentes: template.componentes,
+    templateVariaveisCampos: template.variaveisCampos,
+    contato,
+    valoresCampos,
+    camposPersonalizados,
+  });
+
+  const { components: templateParts } = parseTemplateComponentes(template.componentes);
+  const bodyComponent = templateParts.find((c) => String(c?.type || '').toUpperCase() === 'BODY');
+  const requiredBodyVars = extractVariableIndexes(bodyComponent?.text || '');
+  if (requiredBodyVars.length > 0 && (!payload.body || payload.body.length < requiredBodyVars.length)) {
+    throw new Error(
+      `Template exige ${requiredBodyVars.length} variável(is) no body; Payload/body resolvido tem ${payload.body?.length ?? 0}`,
+    );
+  }
+
+  const components = buildTemplateComponents(payload, detail.KeyRedis);
   const metaPayload = buildMetaTemplateMessage({
     phone,
     templateName: template.nome,

@@ -23,6 +23,11 @@ export function buildTemplateComponents(payload, mediaUrl) {
         parameters: [parameter],
       });
     }
+  } else if (data.header?.type === 'text' && data.header?.text != null) {
+    components.push({
+      type: 'header',
+      parameters: [{ type: 'text', text: String(data.header.text) }],
+    });
   }
 
   if (Array.isArray(data.body) && data.body.length > 0) {
