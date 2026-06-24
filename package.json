@@ -2,12 +2,15 @@
   "name": "hublabel-disparador-meta",
   "version": "1.0.0",
   "private": true,
-  "description": "Worker de disparos WhatsApp API Oficial (Meta) via Supabase",
+  "description": "Workers de disparo WhatsApp — Meta API Oficial + Evolution",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "start:meta": "node src/index.js",
+    "start:evolution": "node src/workers/evolution.js",
+    "dev": "node --watch src/index.js",
+    "dev:evolution": "node --watch src/workers/evolution.js"
   },
   "engines": {
     "node": ">=22"

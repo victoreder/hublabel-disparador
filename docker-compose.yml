@@ -10,3 +10,15 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3080
+
+  disparador-evolution:
+    build: .
+    container_name: hublabel-disparador-evolution
+    restart: unless-stopped
+    command: ["node", "src/workers/evolution.js"]
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    healthcheck:
+      disable: true

@@ -26,6 +26,7 @@ function optionalInt(name, fallback) {
 const supabaseServiceRoleKey = required('SUPABASE_SERVICE_ROLE_KEY');
 const supabaseKeyType = detectSupabaseKeyType(supabaseServiceRoleKey);
 
+/** Config do disparador Meta (API Oficial). */
 export const config = {
   supabaseUrl: required('SUPABASE_URL').replace(/\/$/, ''),
   supabaseServiceRoleKey,
@@ -36,3 +37,14 @@ export const config = {
   pollIdleMs: optionalInt('POLL_IDLE_MS', 2000),
   maxRetries: optionalInt('MAX_RETRIES', 3),
 };
+
+/** Config do disparador Evolution (Individual + Grupos). */
+export function getEvolutionConfig() {
+  return {
+    evolutionBaseUrl: required('EVOLUTION_BASE_URL').replace(/\/+$/, ''),
+    evolutionApiKey: required('EVOLUTION_API_KEY'),
+    intervalMs: 60_000,
+    maxRetries: 3,
+    retryDelayMs: 5000,
+  };
+}

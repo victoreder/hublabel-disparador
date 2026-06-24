@@ -1,5 +1,6 @@
 import { config } from './config.js';
 import { logger } from './logger.js';
+import { buildTemplateChatPreview } from './chatMessage.js';
 import { MetaApiError, isRecipientPhoneError, sendTemplateMessage, sendWithRetries } from './meta.js';
 import { formatPhoneForLog, getPhoneCandidatesForMeta, normalizePhone } from './phone.js';
 import { buildMetaTemplateMessage, buildTemplateComponents } from './template.js';
@@ -18,6 +19,7 @@ import {
   markDetailFailed,
   markDetailSent,
   releaseDetail,
+  saveTemplateMessageToChat,
 } from './supabase.js';
 
 export function createWorker() {
@@ -120,11 +122,38 @@ export function createWorker() {
         },
       });
 
+      const metaMessageId = result.body?.messages?.[0]?.id ?? null;
+      if (metaMessageId && result.chat) {
+        try {
+          const chatResult = await saveTemplateMessageToChat({
+            conexaoId: detail.idConexao,
+            contaId: result.contaId,
+            telefone: result.phoneUsed,
+            mensagem: result.chat.mensagem,
+            tipoMensagem: result.chat.tipoMensagem,
+            metaMessageId,
+            arquivoUrl: result.chat.arquivoUrl,
+            nomeContato: result.nomeContato,
+          });
+          logger.info('Template salvo no chat', {
+            detailId: detail.id,
+            conversaId: chatResult?.conversaId ?? null,
+            mensagemId: chatResult?.mensagemId ?? null,
+            tipoMensagem: result.chat.tipoMensagem,
+          });
+        } catch (chatError) {
+          logger.warn('Disparo enviado, mas falhou ao salvar no chat', {
+            detailId: detail.id,
+            message: chatError.message,
+          });
+        }
+      }
+
       stats.sent += 1;
       logger.info('Mensagem enviada', {
         detailId: detail.id,
         disparoId: detail.idDisparo,
-        metaMessageId: result.body?.messages?.[0]?.id ?? null,
+        metaMessageId,
         telefone: formatPhoneForLog(result.phoneUsed),
       });
     } catch (error) {
@@ -178,8 +207,9 @@ async function sendDetail(detail) {
 
   if (!contato) throw new Error(`Contato ${detail.idContato} não encontrado`);
 
-  const { candidates: phoneCandidates, resolution: phoneResolution } = getPhoneCandidatesForMeta(
+  const { candidates: phoneCandidates, resolution: phoneResolution } = getPhoneCandidatesForDetail(
     contato.telefone,
+    detail.respostaHttp,
   );
   if (!phoneCandidates.length) {
     throw new Error(`Telefone inválido para contato ${detail.idContato}`);
@@ -191,6 +221,14 @@ async function sendDetail(detail) {
       original: phoneResolution.original,
       enviando: phoneResolution.phone,
       acao: phoneResolution.action,
+    });
+  }
+
+  if (phoneResolution?.action === 'webhook-retry') {
+    logger.info('Reenvio após webhook failed (131026) com telefone alternativo', {
+      detailId: detail.id,
+      telefoneAnterior: detail.respostaHttp?._phoneUsedBeforeRetry ?? null,
+      telefoneOverride: phoneResolution.phone,
     });
   }
 
@@ -215,6 +253,11 @@ async function sendDetail(detail) {
   }
 
   const components = buildTemplateComponents(payload, detail.KeyRedis);
+  const chat = buildTemplateChatPreview(template.componentes, payload, detail.KeyRedis);
+  const contaId = conexao.contaId || contato.contaId;
+  if (!contaId) {
+    throw new Error(`Conta não encontrada para conexão ${detail.idConexao} / contato ${detail.idContato}`);
+  }
 
   let lastError;
   for (let i = 0; i < phoneCandidates.length; i += 1) {
@@ -250,6 +293,9 @@ async function sendDetail(detail) {
         phoneUsed: phone,
         phoneOriginal: phoneResolution?.original ?? normalizePhone(contato.telefone),
         phoneVariantIndex: i,
+        chat,
+        contaId,
+        nomeContato: contato.nome ?? null,
       };
     } catch (error) {
       lastError = error;
@@ -268,6 +314,22 @@ async function sendDetail(detail) {
   }
 
   throw lastError ?? new Error('Falha ao enviar: nenhuma variante de telefone funcionou');
+}
+
+function getPhoneCandidatesForDetail(rawPhone, respostaHttp) {
+  const override = normalizePhone(respostaHttp?._phoneOverride);
+  if (override) {
+    return {
+      candidates: [override],
+      resolution: {
+        phone: override,
+        action: 'webhook-retry',
+        original: normalizePhone(respostaHttp?._phoneUsedBeforeRetry ?? rawPhone),
+      },
+    };
+  }
+
+  return getPhoneCandidatesForMeta(rawPhone);
 }
 
 function sleep(ms) {

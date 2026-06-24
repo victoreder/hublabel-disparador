@@ -43,14 +43,31 @@ export function extractVariableIndexes(text) {
   return [...new Set(indexes)].sort((a, b) => a - b);
 }
 
-function getComponentText(component) {
+export function getComponentText(component) {
   if (!component) return '';
   return component.text || component.example?.body_text?.[0]?.[0] || '';
 }
 
+const CAMPOS_PADRAO = new Set(['nome', 'email', 'telefone']);
+
+function normalizeCampoRef(raw) {
+  if (raw == null) return '';
+  return String(raw).trim();
+}
+
 function buildFieldResolver({ contato, valoresPorCampo, camposPorId }) {
-  return (campoId) => {
-    const id = Number(campoId);
+  return (campoRef) => {
+    const ref = normalizeCampoRef(campoRef);
+    if (!ref) return '';
+
+    const padrao = ref.toLowerCase();
+    if (CAMPOS_PADRAO.has(padrao)) {
+      if (padrao === 'nome') return String(contato?.nome ?? '');
+      if (padrao === 'email') return String(contato?.email ?? '');
+      if (padrao === 'telefone') return String(contato?.telefone ?? '');
+    }
+
+    const id = Number(ref);
     if (!Number.isFinite(id)) return '';
 
     const valorSalvo = valoresPorCampo.get(id);
@@ -66,6 +83,7 @@ function buildFieldResolver({ contato, valoresPorCampo, camposPorId }) {
       .replace(/\p{M}/gu, '');
 
     if (nomeCampo === 'nome') return String(contato?.nome ?? '');
+    if (nomeCampo === 'email') return String(contato?.email ?? '');
     if (nomeCampo === 'telefone') return String(contato?.telefone ?? '');
 
     const variaveis = contato?.variaveis && typeof contato.variaveis === 'object' ? contato.variaveis : {};
@@ -104,8 +122,8 @@ function resolveButtons(variaveisCampos, components, resolveField) {
   return buttonsMapping
     .map((item) => {
       const index = item?.index ?? item?.idx;
-      const campoId = item?.fieldId ?? item?.idCampo ?? item?.campoId;
-      if (index == null || campoId == null) return null;
+      const campoRef = item?.campoPadrao ?? item?.fieldId ?? item?.idCampo ?? item?.campoId;
+      if (index == null || campoRef == null) return null;
 
       const templateButton = templateButtons[Number(index)];
       const buttonType = String(templateButton?.type || item?.type || '').toUpperCase();
@@ -114,7 +132,7 @@ function resolveButtons(variaveisCampos, components, resolveField) {
         return {
           type: 'url',
           index: Number(index),
-          payload: resolveField(campoId),
+          payload: resolveField(campoRef),
         };
       }
 
@@ -122,7 +140,7 @@ function resolveButtons(variaveisCampos, components, resolveField) {
         return {
           type: 'quick_reply',
           index: Number(index),
-          payload: resolveField(campoId),
+          payload: resolveField(campoRef),
         };
       }
 

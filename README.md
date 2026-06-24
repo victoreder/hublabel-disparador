@@ -45,16 +45,28 @@ Fonte: `componentes.variaveisCampos` (prioridade) ou coluna `variaveisCampos`.
 
 ```json
 {
-  "body": { "1": 6, "2": 7 },
-  "header": { "1": 5 },
-  "buttons": [{ "index": 0, "fieldId": 8 }]
+  "componentes": [ /* array da Meta */ ],
+  "variaveisCampos": {
+    "body": { "1": "nome", "2": 6 },
+    "header": {},
+    "buttons": [{ "index": 0, "fieldId": "email" }]
+  }
 }
 ```
 
-- `"1": 6` → variável `{{1}}` do body usa o campo personalizado **id 6** do contato
-- Valor buscado em `SAAS_Valores_Campos_Personalizados`, com fallback por nome do campo (`nome`, `telefone`) ou `contato.nome`
+- `"1": "nome"` ou `"email"` → campo padrão de `SAAS_Contatos` (colunas `nome`, `email`)
+- `"2": 6` → campo personalizado **id 6** (`SAAS_Valores_Campos_Personalizados`)
+- Botões: `fieldId`, `campoId` ou `campoPadrao` aceitam id numérico ou `"nome"` / `"email"`
 
 Mídia do header: URL em `KeyRedis` do detalhe (por contato/campanha).
+
+### Chat (SAAS_Mensagens)
+
+Após envio com sucesso, o worker grava a mensagem no chat via `f_meta_salvar_mensagem_chat`:
+- Vincula à conversa do telefone + conexão
+- Texto: body do template com variáveis resolvidas (+ header texto e footer)
+- `arquivoUrl`: `KeyRedis` quando o template tem header de mídia
+- `tipoMensagem`: `conversation` (só texto) ou `imageMessage` / `videoMessage` / `audioMessage` / `documentMessage`
 
 ### Telefone BR (nono dígito)
 
@@ -69,6 +81,18 @@ O worker escolhe **um** formato antes de enviar (não dispara com e sem 9):
 Fixo = número local (após DDD) começa com **2, 3, 4 ou 5**.
 
 Só tenta a variante alternativa se a **Meta rejeitar** o número (erro 400), nunca quando retorna sucesso.
+
+### Retry via webhook (131026 — Message undeliverable)
+
+Quando a Meta aceita o envio (`200` + `sent`) mas depois informa **failed** no webhook (`eventsmeta` → `f_meta_processar_evento`):
+
+1. Localiza o detalhe pelo `wamid` em `respostaHttp.messages[0].id`
+2. Volta `Status` de `sent` → `pending`
+3. Grava `_phoneOverride` com o telefone alternativo (insere ou remove o 9)
+4. O disparador reenvia usando só esse número
+5. Se falhar de novo, marca `failed` definitivo (máximo **1 retry** por contato)
+
+Campos em `respostaHttp`: `_webhookPhoneRetry`, `_phoneOverride`, `_phoneUsedBeforeRetry`, `_phoneUsed` (após novo envio).
 
 ## Rodar local
 
@@ -138,3 +162,31 @@ docker compose up -d --build
 
 - **429 / 5xx / timeout**: até 3 tentativas com backoff
 - **401 / 403 / 400**: falha imediata (`failed`)
+
+---
+
+## Disparador Evolution (Individual + Grupos)
+
+Worker separado na mesma imagem — **não** mexe em `apioficial`.
+
+| Comando | Descrição |
+|---------|-----------|
+| `npm run start:evolution` | Cron a cada **1 min**, busca `dataEnvio` na janela e envia via Evolution |
+| `npm start` | Disparador Meta (acima) |
+
+### Env extra (Evolution)
+
+| Variável | Obrigatória | Descrição |
+|----------|-------------|-----------|
+| `EVOLUTION_BASE_URL` | Sim | URL base da Evolution (sem barra final) |
+| `EVOLUTION_API_KEY` | Sim | API key global enviada no header `apikey` |
+
+### Docker (Evolution)
+
+```bash
+docker run -d --name disparador-evolution --env-file .env \
+  ghcr.io/victoreder/hublabel-disparador:latest \
+  node src/workers/evolution.js
+```
+
+Ou `docker compose up -d` (sobe Meta + Evolution).

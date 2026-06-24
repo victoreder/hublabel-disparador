@@ -126,7 +126,7 @@ export async function fetchPendingDetails(disparoIds, limit = 1) {
 
   const { data, error } = await supabase
     .from('SAAS_Detalhes_Disparos')
-    .select('id, idDisparo, idContato, Mensagem, idConexao, Status, KeyRedis')
+    .select('id, idDisparo, idContato, Mensagem, idConexao, Status, KeyRedis, respostaHttp')
     .eq('Status', 'pending')
     .in('idDisparo', disparoIds)
     .order('id', { ascending: true })
@@ -153,7 +153,7 @@ export async function claimDetail(detailId) {
     .update({ Status: 'processing' })
     .eq('id', detailId)
     .eq('Status', 'pending')
-    .select('id, idDisparo, idContato, Mensagem, idConexao, Status, KeyRedis')
+    .select('id, idDisparo, idContato, Mensagem, idConexao, Status, KeyRedis, respostaHttp')
     .maybeSingle();
 
   if (error) throw mapSupabaseError(error, `Erro ao claim do detalhe ${detailId}`);
@@ -173,7 +173,7 @@ export async function releaseDetail(detailId) {
 export async function fetchConexao(idConexao) {
   const { data, error } = await supabase
     .from('SAAS_Conexões')
-    .select('id, apiOficial, access_token, phone_number_id, waba_id, NomeConexao')
+    .select('id, apiOficial, access_token, phone_number_id, waba_id, NomeConexao, contaId')
     .eq('id', idConexao)
     .maybeSingle();
 
@@ -184,7 +184,7 @@ export async function fetchConexao(idConexao) {
 export async function fetchContato(idContato) {
   const { data, error } = await supabase
     .from('SAAS_Contatos')
-    .select('id, telefone, nome, variaveis, contaId')
+    .select('id, telefone, nome, email, variaveis, contaId')
     .eq('id', idContato)
     .maybeSingle();
 
@@ -253,4 +253,40 @@ export async function markDetailFailed(detailId, { statusHttp, mensagemErro, res
     .eq('id', detailId);
 
   if (error) throw mapSupabaseError(error, `Erro ao marcar detalhe ${detailId} como failed`);
+}
+
+export async function saveTemplateMessageToChat({
+  conexaoId,
+  contaId,
+  telefone,
+  mensagem,
+  tipoMensagem,
+  metaMessageId,
+  arquivoUrl,
+  nomeContato,
+}) {
+  if (!conexaoId || !contaId || !telefone) {
+    throw new Error('conexaoId, contaId e telefone são obrigatórios para salvar no chat');
+  }
+
+  const { data, error } = await supabase.rpc('f_meta_salvar_mensagem_chat', {
+    p_conexao_id: conexaoId,
+    p_conta_id: contaId,
+    p_telefone: telefone,
+    p_mensagem: mensagem ?? null,
+    p_tipo_mensagem: tipoMensagem || 'conversation',
+    p_from_me: true,
+    p_meta_message_id: metaMessageId ?? null,
+    p_meta_status: metaMessageId ? 'sent' : null,
+    p_arquivo_url: arquivoUrl ?? null,
+    p_nome_contato: nomeContato ?? null,
+  });
+
+  if (error) throw mapSupabaseError(error, 'Erro ao salvar mensagem de template no chat');
+
+  if (data?.ok === false) {
+    throw new Error(data.error || 'f_meta_salvar_mensagem_chat retornou erro');
+  }
+
+  return data;
 }
