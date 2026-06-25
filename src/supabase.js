@@ -266,6 +266,17 @@ export async function fetchConfigApiOficial() {
   return data;
 }
 
+export async function fetchConfigIA() {
+  const { data, error } = await supabase
+    .from('SAAS_Config_IA')
+    .select('tipoIA, apikey')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar SAAS_Config_IA');
+  return data;
+}
+
 export async function processMetaEvent(evento) {
   const { data, error } = await supabase.rpc('f_meta_processar_evento', {
     p_evento: evento,

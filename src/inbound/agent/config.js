@@ -6,13 +6,19 @@ function optionalInt(name, fallback) {
   return parsed;
 }
 
-export function getAgentConfig() {
-  const openaiApiKey = process.env.OPENAI_API_KEY?.trim();
+export function getAgentConfig(configIA) {
+  const tipoIA = configIA?.tipoIA?.trim() || 'openai';
+  const openaiApiKey = configIA?.apikey?.trim();
+
+  if (tipoIA !== 'openai') {
+    throw new Error(`tipoIA "${tipoIA}" ainda não suportado em SAAS_Config_IA`);
+  }
   if (!openaiApiKey) {
-    throw new Error('Variável de ambiente obrigatória ausente: OPENAI_API_KEY');
+    throw new Error('Configure apikey em SAAS_Config_IA (id=1).');
   }
 
   return {
+    tipoIA,
     openaiApiKey,
     redisUrl: process.env.REDIS_URL?.trim() || null,
     calcularTokenUrl: process.env.CALCULAR_TOKEN_URL?.trim() || null,

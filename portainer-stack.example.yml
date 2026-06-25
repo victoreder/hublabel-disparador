@@ -94,7 +94,7 @@ services:
       S3_PUBLIC_BASE_URL: https://s32.victoreder.com.br/n8n
       S3_REGION: us-east-1
       S3_FORCE_PATH_STYLE: "true"
-      OPENAI_API_KEY: COLE_OPENAI_API_KEY
+      # apikey OpenAI em SAAS_Config_IA (Supabase)
       REDIS_URL: redis://redis:6379
       CALCULAR_TOKEN_URL: https://webhook2.victoreder.com.br/webhook/calcular-token
       NODE_ENV: production

@@ -1,5 +1,5 @@
 import { logger } from '../../logger.js';
-import { fetchAgente } from '../../supabase.js';
+import { fetchAgente, fetchConfigIA } from '../../supabase.js';
 import { getAgentConfig } from './config.js';
 import { loadChatHistory } from './memory.js';
 import { runAgentChat } from './openai.js';
@@ -14,7 +14,8 @@ import {
 import { sendAgentChunk, notifyTokenUsage } from './sendReply.js';
 
 export async function processAgentJob(job) {
-  const agentConfig = getAgentConfig();
+  const configIA = await fetchConfigIA();
+  const agentConfig = getAgentConfig(configIA);
   const agente = job.agente ?? (job.agenteId ? await fetchAgente(job.agenteId) : null);
 
   if (!agente) {
