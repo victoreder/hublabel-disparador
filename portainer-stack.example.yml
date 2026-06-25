@@ -102,25 +102,6 @@ services:
     networks:
       - RedeVictor
 
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.disparador_inbound_meta.rule=Host(`webhook2.victoreder.com.br`) && PathPrefix(`/backend/webhook-eventsmeta`)
-      - traefik.http.routers.disparador_inbound_meta.entrypoints=websecure
-      - traefik.http.routers.disparador_inbound_meta.priority=100
-      - traefik.http.routers.disparador_inbound_meta.tls.certresolver=letsencryptresolver
-      - traefik.http.routers.disparador_inbound_meta.service=disparador_inbound
-      - traefik.http.routers.disparador_inbound_evo.rule=Host(`webhook2.victoreder.com.br`) && PathPrefix(`/backend/webhook-mensagens`)
-      - traefik.http.routers.disparador_inbound_evo.entrypoints=websecure
-      - traefik.http.routers.disparador_inbound_evo.priority=100
-      - traefik.http.routers.disparador_inbound_evo.tls.certresolver=letsencryptresolver
-      - traefik.http.routers.disparador_inbound_evo.service=disparador_inbound
-      - traefik.http.routers.disparador_inbound_meta.entrypoints=websecure
-      - traefik.http.routers.disparador_inbound_meta.priority=100
-      - traefik.http.routers.disparador_inbound_meta.tls.certresolver=letsencryptresolver
-      - traefik.http.routers.disparador_inbound_meta.service=disparador_inbound
-      - traefik.http.services.disparador_inbound.loadbalancer.server.port=3090
-      - traefik.http.services.disparador_inbound.loadbalancer.passHostHeader=1
-
     deploy:
       placement:
         constraints:
@@ -132,6 +113,21 @@ services:
       restart_policy:
         condition: any
         delay: 5s
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=RedeVictor
+        - traefik.http.routers.disparador_inbound_meta.rule=Host(`webhook2.victoreder.com.br`) && PathPrefix(`/backend/webhook-eventsmeta`)
+        - traefik.http.routers.disparador_inbound_meta.entrypoints=websecure
+        - traefik.http.routers.disparador_inbound_meta.priority=100
+        - traefik.http.routers.disparador_inbound_meta.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.disparador_inbound_meta.service=disparador_inbound
+        - traefik.http.routers.disparador_inbound_evo.rule=Host(`webhook2.victoreder.com.br`) && PathPrefix(`/backend/webhook-mensagens`)
+        - traefik.http.routers.disparador_inbound_evo.entrypoints=websecure
+        - traefik.http.routers.disparador_inbound_evo.priority=100
+        - traefik.http.routers.disparador_inbound_evo.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.disparador_inbound_evo.service=disparador_inbound
+        - traefik.http.services.disparador_inbound.loadbalancer.server.port=3090
+        - traefik.http.services.disparador_inbound.loadbalancer.passHostHeader=1
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3090/health"]

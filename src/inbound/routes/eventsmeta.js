@@ -6,6 +6,10 @@ import { verifyMetaWebhook } from '../eventsmeta/verify.js';
 export function registerEventsMetaRoutes(app, { path, inboundConfig }) {
   app.get(path, async (req, res) => {
     try {
+      logger.info('GET verificação Meta eventsmeta', {
+        mode: req.query['hub.mode'],
+        hasToken: Boolean(req.query['hub.verify_token']),
+      });
       const result = await verifyMetaWebhook(req.query);
       if (result.verified) {
         return res.status(200).type('text/plain').send(result.challenge);
