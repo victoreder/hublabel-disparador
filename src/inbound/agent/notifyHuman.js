@@ -67,27 +67,32 @@ export function buildMensagemNotificacao(item, args, job) {
 
 async function sendNotificationEmail(smtpConfig, { to, subject, text }) {
   if (!smtpConfig?.smtp_host || !smtpConfig?.smtp_user || !smtpConfig?.smtp_apikey) {
-    throw new Error('SMTP não configurado em SAAS_Config_Emails (id=1)');
+    return { ok: false, error: 'SMTP não configurado em SAAS_Config_Emails (id=1)' };
   }
 
-  const transporter = nodemailer.createTransport({
-    host: smtpConfig.smtp_host,
-    port: Number(smtpConfig.smtp_port) || 587,
-    secure: Number(smtpConfig.smtp_port) === 465,
-    auth: {
-      user: smtpConfig.smtp_user,
-      pass: smtpConfig.smtp_apikey,
-    },
-  });
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpConfig.smtp_host,
+      port: Number(smtpConfig.smtp_port) || 587,
+      secure: Number(smtpConfig.smtp_port) === 465,
+      auth: {
+        user: smtpConfig.smtp_user,
+        pass: smtpConfig.smtp_apikey,
+      },
+    });
 
-  await transporter.sendMail({
-    from: smtpConfig.smtp_name
-      ? `"${smtpConfig.smtp_name}" <${smtpConfig.smtp_email || smtpConfig.smtp_user}>`
-      : smtpConfig.smtp_email || smtpConfig.smtp_user,
-    to,
-    subject,
-    text,
-  });
+    await transporter.sendMail({
+      from: smtpConfig.smtp_name
+        ? `"${smtpConfig.smtp_name}" <${smtpConfig.smtp_email || smtpConfig.smtp_user}>`
+        : smtpConfig.smtp_email || smtpConfig.smtp_user,
+      to,
+      subject,
+      text,
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
 }
 
 export async function executeNotificarHumano({ job, agente, args }) {
@@ -127,32 +132,51 @@ export async function executeNotificarHumano({ job, agente, args }) {
       await notificarHumanoWhatsapp({ job, whatsappDestino: whatsapp, mensagem });
       resultado.whatsappsEnviados.push(whatsapp);
     } catch (error) {
-      resultado.success = false;
       resultado.erros.push({ canal: 'whatsapp', destino: whatsapp, error: error.message });
-      logger.warn('Falha ao notificar WhatsApp', { whatsapp, message: error.message });
+      logger.warn('Falha ao notificar WhatsApp — ignorado, agente continua', {
+        whatsapp,
+        message: error.message,
+      });
     }
   }
 
   if (emails.length) {
-    let smtpConfig;
+    let smtpConfig = null;
     try {
       smtpConfig = await fetchConfigEmails();
     } catch (error) {
-      resultado.success = false;
+      logger.warn('Falha ao buscar SAAS_Config_Emails — e-mails ignorados, agente continua', {
+        message: error.message,
+      });
       resultado.erros.push({ canal: 'email', destino: null, error: error.message });
-      return resultado;
     }
 
-    for (const email of emails) {
-      try {
-        await sendNotificationEmail(smtpConfig, { to: email, subject: assunto, text: mensagem });
-        resultado.emailsEnviados.push(email);
-      } catch (error) {
-        resultado.success = false;
-        resultado.erros.push({ canal: 'email', destino: email, error: error.message });
-        logger.warn('Falha ao notificar e-mail', { email, message: error.message });
+    if (smtpConfig && smtpConfig.smtp_host && smtpConfig.smtp_user && smtpConfig.smtp_apikey) {
+      for (const email of emails) {
+        const envio = await sendNotificationEmail(smtpConfig, { to: email, subject: assunto, text: mensagem });
+        if (envio.ok) {
+          resultado.emailsEnviados.push(email);
+        } else {
+          resultado.erros.push({ canal: 'email', destino: email, error: envio.error });
+          logger.warn('Falha ao notificar e-mail — ignorado, agente continua', {
+            email,
+            message: envio.error,
+          });
+        }
       }
+    } else if (emails.length) {
+      const aviso = 'SMTP não configurado em SAAS_Config_Emails (id=1)';
+      resultado.erros.push({ canal: 'email', destino: null, error: aviso });
+      logger.warn(`${aviso} — e-mails ignorados, agente continua`, { emails });
     }
+  }
+
+  if (resultado.erros.length) {
+    logger.info('Notificação humana concluída com falhas parciais (agente continua)', {
+      whatsappsEnviados: resultado.whatsappsEnviados.length,
+      emailsEnviados: resultado.emailsEnviados.length,
+      erros: resultado.erros.length,
+    });
   }
 
   return resultado;

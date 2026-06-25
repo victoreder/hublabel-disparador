@@ -1,4 +1,5 @@
 import { abrirAtendimentoHumano } from '../../supabase.js';
+import { logger } from '../../logger.js';
 import { buildNotificarHumanoToolSchema, executeNotificarHumano } from './notifyHuman.js';
 
 const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
@@ -148,8 +149,17 @@ export async function executeTool(name, args, { job, agente, agentConfig, search
   }
 
   if (name === 'NOTIFICAR_HUMANO') {
-    const resultado = await executeNotificarHumano({ job, agente, args });
-    return JSON.stringify(resultado);
+    try {
+      const resultado = await executeNotificarHumano({ job, agente, args });
+      return JSON.stringify(resultado);
+    } catch (error) {
+      logger.warn('NOTIFICAR_HUMANO falhou — ignorado, agente continua', { message: error.message });
+      return JSON.stringify({
+        success: true,
+        ignorado: true,
+        erros: [{ error: error.message }],
+      });
+    }
   }
 
   if (name === 'REQUISICAO_DINAMICA') {
