@@ -10,7 +10,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ghcr.io/victoreder/hublabel-disparador
+  # GITHUB_TOKEN só publica no namespace do repo; Portainer usa esta imagem.
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
 
 jobs:
   build-and-push:

@@ -4,7 +4,7 @@ services:
 ## --------------------------- HUBLABEL DISPARADOR META --------------------------- ##
 
   disparador-meta:
-    image: ghcr.io/victoreder/hublabel-disparador:latest
+    image: ghcr.io/victoreder/hublabel-conector-api-oficial:latest
 
     environment:
       SUPABASE_URL: https://SEU-PROJETO.supabase.co
@@ -45,7 +45,7 @@ services:
 ## --------------------------- HUBLABEL DISPARADOR EVOLUTION --------------------------- ##
 
   disparador-evolution:
-    image: ghcr.io/victoreder/hublabel-disparador:latest
+    image: ghcr.io/victoreder/hublabel-conector-api-oficial:latest
     command: ["node", "src/workers/evolution.js"]
 
     environment:
@@ -76,7 +76,7 @@ services:
 ## --------------------------- HUBLABEL DISPARADOR INBOUND --------------------------- ##
 
   disparador-inbound:
-    image: ghcr.io/victoreder/hublabel-disparador:latest
+    image: ghcr.io/victoreder/hublabel-conector-api-oficial:latest
     command: ["node", "src/inbound.js"]
 
     environment:
@@ -85,6 +85,8 @@ services:
       META_GRAPH_API_VERSION: v25.0
       INBOUND_PORT: "3090"
       EVENTS_META_PATH: /backend/webhook-eventsmeta
+      EVOLUTION_WEBHOOK_PATH: /backend/webhook-mensagens
+      AGENT_POLL_MS: "500"
       S3_ENDPOINT: https://s32.victoreder.com.br
       S3_ACCESS_KEY_ID: COLE_S3_ACCESS_KEY
       S3_SECRET_ACCESS_KEY: COLE_S3_SECRET_KEY
