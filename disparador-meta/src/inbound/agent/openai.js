@@ -27,7 +27,6 @@ export async function runAgentChat({
     const body = {
       model: agente.modelo || 'gpt-4o-mini',
       messages,
-      temperature: Number(agente.criatividade ?? 0.7),
       max_tokens: maxTokens,
     };
 

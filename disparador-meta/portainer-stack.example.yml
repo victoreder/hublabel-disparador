@@ -85,7 +85,7 @@ services:
       META_GRAPH_API_VERSION: v25.0
       INBOUND_PORT: "3090"
       EVENTS_META_PATH: /backend/webhook-eventsmeta
-      EVOLUTION_WEBHOOK_PATH: /backend/webhook-mensagens
+      EVOLUTION_WEBHOOK_PATH: /webhook/agente-no-whatsapp
       AGENT_POLL_MS: "500"
       S3_ENDPOINT: https://s32.victoreder.com.br
       S3_ACCESS_KEY_ID: COLE_S3_ACCESS_KEY
@@ -94,32 +94,13 @@ services:
       S3_PUBLIC_BASE_URL: https://s32.victoreder.com.br/n8n
       S3_REGION: us-east-1
       S3_FORCE_PATH_STYLE: "true"
-      OPENAI_API_KEY: COLE_OPENAI_API_KEY
+      # apikey OpenAI em SAAS_Config_IA (Supabase)
       REDIS_URL: redis://redis:6379
       CALCULAR_TOKEN_URL: https://webhook2.victoreder.com.br/webhook/calcular-token
       NODE_ENV: production
 
     networks:
       - RedeVictor
-
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.disparador_inbound_meta.rule=Host(`webhook2.victoreder.com.br`) && PathPrefix(`/backend/webhook-eventsmeta`)
-      - traefik.http.routers.disparador_inbound_meta.entrypoints=websecure
-      - traefik.http.routers.disparador_inbound_meta.priority=100
-      - traefik.http.routers.disparador_inbound_meta.tls.certresolver=letsencryptresolver
-      - traefik.http.routers.disparador_inbound_meta.service=disparador_inbound
-      - traefik.http.routers.disparador_inbound_evo.rule=Host(`webhook2.victoreder.com.br`) && PathPrefix(`/backend/webhook-mensagens`)
-      - traefik.http.routers.disparador_inbound_evo.entrypoints=websecure
-      - traefik.http.routers.disparador_inbound_evo.priority=100
-      - traefik.http.routers.disparador_inbound_evo.tls.certresolver=letsencryptresolver
-      - traefik.http.routers.disparador_inbound_evo.service=disparador_inbound
-      - traefik.http.routers.disparador_inbound_meta.entrypoints=websecure
-      - traefik.http.routers.disparador_inbound_meta.priority=100
-      - traefik.http.routers.disparador_inbound_meta.tls.certresolver=letsencryptresolver
-      - traefik.http.routers.disparador_inbound_meta.service=disparador_inbound
-      - traefik.http.services.disparador_inbound.loadbalancer.server.port=3090
-      - traefik.http.services.disparador_inbound.loadbalancer.passHostHeader=1
 
     deploy:
       placement:
@@ -132,6 +113,21 @@ services:
       restart_policy:
         condition: any
         delay: 5s
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=RedeVictor
+        - traefik.http.routers.disparador_inbound_meta.rule=Host(`webhook2.victoreder.com.br`) && PathPrefix(`/backend/webhook-eventsmeta`)
+        - traefik.http.routers.disparador_inbound_meta.entrypoints=websecure
+        - traefik.http.routers.disparador_inbound_meta.priority=200
+        - traefik.http.routers.disparador_inbound_meta.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.disparador_inbound_meta.service=disparador_inbound
+        - traefik.http.routers.disparador_inbound_evo.rule=Host(`webhook2.victoreder.com.br`) && PathPrefix(`/webhook/agente-no-whatsapp`)
+        - traefik.http.routers.disparador_inbound_evo.entrypoints=websecure
+        - traefik.http.routers.disparador_inbound_evo.priority=200
+        - traefik.http.routers.disparador_inbound_evo.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.disparador_inbound_evo.service=disparador_inbound
+        - traefik.http.services.disparador_inbound.loadbalancer.server.port=3090
+        - traefik.http.services.disparador_inbound.loadbalancer.passHostHeader=1
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3090/health"]
