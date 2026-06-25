@@ -2,22 +2,26 @@
   "name": "hublabel-disparador-meta",
   "version": "1.0.0",
   "private": true,
-  "description": "Workers de disparo WhatsApp — Meta API Oficial + Evolution",
+  "description": "Workers de disparo WhatsApp — Meta API Oficial + Evolution + Inbound webhooks",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
     "start:meta": "node src/index.js",
     "start:evolution": "node src/workers/evolution.js",
+    "start:inbound": "node src/inbound.js",
     "dev": "node --watch src/index.js",
-    "dev:evolution": "node --watch src/workers/evolution.js"
+    "dev:evolution": "node --watch src/workers/evolution.js",
+    "dev:inbound": "node --watch src/inbound.js"
   },
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1075.0",
     "@supabase/supabase-js": "^2.108.2",
     "express": "^4.21.2",
+    "ioredis": "^5.6.1",
     "ws": "^8.18.1"
   }
 }

@@ -255,6 +255,216 @@ export async function markDetailFailed(detailId, { statusHttp, mensagemErro, res
   if (error) throw mapSupabaseError(error, `Erro ao marcar detalhe ${detailId} como failed`);
 }
 
+export async function fetchConfigApiOficial() {
+  const { data, error } = await supabase
+    .from('SAAS_Config_ApiOficial')
+    .select('verifyToken')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar SAAS_Config_ApiOficial');
+  return data;
+}
+
+export async function processMetaEvent(evento) {
+  const { data, error } = await supabase.rpc('f_meta_processar_evento', {
+    p_evento: evento,
+  });
+
+  if (error) throw mapSupabaseError(error, 'Erro em f_meta_processar_evento');
+  return data;
+}
+
+export async function fetchConexaoForMedia(phoneNumberId, wabaId) {
+  if (phoneNumberId) {
+    const { data, error } = await supabase
+      .from('SAAS_Conexões')
+      .select('id, contaId, access_token')
+      .eq('apiOficial', true)
+      .eq('phone_number_id', phoneNumberId)
+      .maybeSingle();
+
+    if (error) throw mapSupabaseError(error, 'Erro ao buscar conexão por phone_number_id');
+    if (data) return data;
+  }
+
+  if (wabaId) {
+    const { data, error } = await supabase
+      .from('SAAS_Conexões')
+      .select('id, contaId, access_token')
+      .eq('apiOficial', true)
+      .eq('waba_id', wabaId)
+      .limit(1);
+
+    if (error) throw mapSupabaseError(error, 'Erro ao buscar conexão por waba_id');
+    return data?.[0] ?? null;
+  }
+
+  return null;
+}
+
+export async function saveMetaMediaJob({
+  conexaoId,
+  contaId,
+  telefone,
+  mensagem,
+  tipo_mensagem,
+  meta_message_id,
+  link,
+  nome_contato,
+  mensagemRespondida,
+}) {
+  const { data, error } = await supabase.rpc('f_meta_salvar_mensagem_midia_job', {
+    p_job: {
+      conexaoId,
+      contaId,
+      telefone,
+      mensagem,
+      tipo_mensagem,
+      meta_message_id,
+      link,
+      nome_contato: nome_contato,
+      mensagemRespondida: mensagemRespondida ?? null,
+    },
+  });
+
+  if (error) throw mapSupabaseError(error, 'Erro em f_meta_salvar_mensagem_midia_job');
+
+  if (data?.ok === false) {
+    throw new Error(data.error || 'f_meta_salvar_mensagem_midia_job retornou erro');
+  }
+
+  return data;
+}
+
+export async function fetchConexaoById(idConexao) {
+  const { data, error } = await supabase
+    .from('SAAS_Conexões')
+    .select('id, contaId, apiOficial, access_token, phone_number_id, NomeConexao')
+    .eq('id', idConexao)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, `Erro ao buscar conexão ${idConexao}`);
+  return data;
+}
+
+export async function ingestaoMensagem(payload) {
+  const { data, error } = await supabase.rpc('f_ingestao_mensagem', {
+    p_input: payload,
+  });
+
+  if (error) throw mapSupabaseError(error, 'Erro em f_ingestao_mensagem');
+  return data;
+}
+
+export async function fetchAgente(idAgente) {
+  const { data, error } = await supabase
+    .from('SAAS_AgentesIA')
+    .select('*')
+    .eq('id', idAgente)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, `Erro ao buscar agente ${idAgente}`);
+  return data;
+}
+
+export async function saveMensagemIA({
+  contaId,
+  conexaoId,
+  conversaId,
+  mensagem,
+  tipoMensagem,
+  arquivoUrl,
+  messageEvolutionId,
+}) {
+  const { error } = await supabase.from('SAAS_Mensagens').insert({
+    contaId,
+    conexaoId,
+    conversaId,
+    mensagem,
+    tipoMensagem: tipoMensagem || 'conversation',
+    arquivoUrl: arquivoUrl ?? null,
+    fromMe: true,
+    enviada: true,
+    IA: true,
+    messageEvolutionId: messageEvolutionId ?? null,
+  });
+
+  if (error) throw mapSupabaseError(error, 'Erro ao salvar mensagem IA');
+}
+
+export async function updateConversaUltimaMensagem({ telefone, conexaoId, agenteId }) {
+  const { error } = await supabase
+    .from('SAAS_Conversas_Agentes')
+    .update({
+      ultimaMensagem: new Date().toISOString(),
+      idAgente: agenteId ?? undefined,
+    })
+    .eq('telefone', telefone)
+    .eq('idConexao', conexaoId);
+
+  if (error) throw mapSupabaseError(error, 'Erro ao atualizar conversa do agente');
+}
+
+export async function abrirAtendimentoHumano({ telefone, conexaoId }) {
+  const { error } = await supabase
+    .from('SAAS_Conversas_Agentes')
+    .update({
+      statusAtendimento: 'aberto',
+      pausado: true,
+    })
+    .eq('telefone', telefone)
+    .eq('idConexao', conexaoId);
+
+  if (error) throw mapSupabaseError(error, 'Erro ao abrir atendimento humano');
+}
+
+export async function notificarHumanoWhatsapp({ job, whatsappDestino, mensagem }) {
+  const { serverUrl, instance, apikey, apiOficial, accessToken, phoneNumberId } = job.envio ?? {};
+
+  if (apiOficial) {
+    const to = String(whatsappDestino).replace(/\D/g, '');
+    const response = await fetch(
+      `https://graph.facebook.com/${process.env.META_GRAPH_API_VERSION || 'v25.0'}/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to,
+          type: 'text',
+          text: { body: mensagem },
+        }),
+      },
+    );
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok || json.error) {
+      throw new Error(json.error?.message || 'Falha ao notificar humano via Meta');
+    }
+    return;
+  }
+
+  if (!serverUrl || !instance || !apikey) {
+    throw new Error('Dados Evolution ausentes para notificar humano');
+  }
+
+  const baseUrl = serverUrl.replace(/\/+$/, '');
+  const response = await fetch(`${baseUrl}/message/sendText/${instance}`, {
+    method: 'POST',
+    headers: { apikey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ number: whatsappDestino, text: mensagem }),
+  });
+
+  const json = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(json?.message || 'Falha ao notificar humano via Evolution');
+  }
+}
+
 export async function saveTemplateMessageToChat({
   conexaoId,
   contaId,

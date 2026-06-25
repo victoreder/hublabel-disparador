@@ -22,3 +22,16 @@ services:
       NODE_ENV: production
     healthcheck:
       disable: true
+
+  disparador-inbound:
+    build: .
+    container_name: hublabel-disparador-inbound
+    restart: unless-stopped
+    command: ["node", "src/inbound.js"]
+    ports:
+      - "3090:3090"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      INBOUND_PORT: 3090
