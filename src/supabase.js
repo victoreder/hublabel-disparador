@@ -379,6 +379,15 @@ export async function fetchAgente(idAgente) {
   return data;
 }
 
+export async function addTokensUsuarioPorAgente(params) {
+  const { data, error } = await supabase.rpc('f_add_tokens_usuario_por_agente', {
+    p_params: params,
+  });
+
+  if (error) throw mapSupabaseError(error, 'Erro em f_add_tokens_usuario_por_agente');
+  return data;
+}
+
 export async function saveMensagemIA({
   contaId,
   conexaoId,

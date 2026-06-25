@@ -11,7 +11,8 @@ import {
   pushGroupingMessage,
   waitForGroupedText,
 } from './redis.js';
-import { sendAgentChunk, notifyTokenUsage } from './sendReply.js';
+import { sendAgentChunk } from './sendReply.js';
+import { saveAgentTokenUsage } from './tokens.js';
 
 export async function processAgentJob(job) {
   logger.info('Agent worker: iniciando', {
@@ -84,7 +85,7 @@ export async function processAgentJob(job) {
   const systemPrompt = buildSystemPrompt(job, agente);
   const history = await loadChatHistory(job.conversaId, agente.qntMsgHistorico ?? 20);
 
-  const output = await runAgentChat({
+  const chatResult = await runAgentChat({
     agentConfig,
     job,
     agente,
@@ -93,12 +94,12 @@ export async function processAgentJob(job) {
     userMessage: inputText,
   });
 
-  if (!output) {
+  if (!chatResult?.content) {
     logger.warn('Agente IA sem resposta', { conversaId: job.conversaId });
     return;
   }
 
-  const chunks = splitAgentOutput(output, agente.separarMensagens !== false);
+  const chunks = splitAgentOutput(chatResult.content, agente.separarMensagens !== false);
 
   for (const chunk of chunks) {
     try {
@@ -116,12 +117,13 @@ export async function processAgentJob(job) {
     await clearGroupingKey(agentConfig.redisUrl, job.telefone);
   }
 
-  await notifyTokenUsage(job, agentConfig);
+  await saveAgentTokenUsage(agente.id, chatResult.totalTokens, chatResult.model);
 
   logger.info('Agente IA processado', {
     canal: job.canal,
     conversaId: job.conversaId,
     chunks: chunks.length,
+    totalTokens: chatResult.totalTokens,
   });
 }
 

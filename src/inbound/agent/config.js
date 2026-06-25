@@ -21,7 +21,6 @@ export function getAgentConfig(configIA) {
     tipoIA,
     openaiApiKey,
     redisUrl: process.env.REDIS_URL?.trim() || null,
-    calcularTokenUrl: process.env.CALCULAR_TOKEN_URL?.trim() || null,
     metaGraphApiVersion: process.env.META_GRAPH_API_VERSION?.trim() || 'v25.0',
     whisperModel: process.env.OPENAI_WHISPER_MODEL?.trim() || 'whisper-1',
     visionModel: process.env.OPENAI_VISION_MODEL?.trim() || 'gpt-4o-mini',
@@ -29,4 +28,3 @@ export function getAgentConfig(configIA) {
     maxToolRounds: optionalInt('AGENT_MAX_TOOL_ROUNDS', 6),
   };
 }
-
