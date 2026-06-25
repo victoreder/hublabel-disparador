@@ -85,7 +85,7 @@ services:
       META_GRAPH_API_VERSION: v25.0
       INBOUND_PORT: "3090"
       EVENTS_META_PATH: /backend/webhook-eventsmeta
-      EVOLUTION_WEBHOOK_PATH: /backend/webhook-mensagens
+      EVOLUTION_WEBHOOK_PATH: /agente-no-whatsapp
       AGENT_POLL_MS: "500"
       S3_ENDPOINT: https://s32.victoreder.com.br
       S3_ACCESS_KEY_ID: COLE_S3_ACCESS_KEY
@@ -121,7 +121,7 @@ services:
         - traefik.http.routers.disparador_inbound_meta.priority=100
         - traefik.http.routers.disparador_inbound_meta.tls.certresolver=letsencryptresolver
         - traefik.http.routers.disparador_inbound_meta.service=disparador_inbound
-        - traefik.http.routers.disparador_inbound_evo.rule=Host(`webhook2.victoreder.com.br`) && PathPrefix(`/backend/webhook-mensagens`)
+        - traefik.http.routers.disparador_inbound_evo.rule=Host(`webhook2.victoreder.com.br`) && PathPrefix(`/agente-no-whatsapp`)
         - traefik.http.routers.disparador_inbound_evo.entrypoints=websecure
         - traefik.http.routers.disparador_inbound_evo.priority=100
         - traefik.http.routers.disparador_inbound_evo.tls.certresolver=letsencryptresolver

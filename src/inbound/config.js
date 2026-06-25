@@ -22,7 +22,7 @@ export function getInboundConfig() {
     port: optionalInt('INBOUND_PORT', 3090),
     eventsMetaPath: process.env.EVENTS_META_PATH?.trim() || '/backend/webhook-eventsmeta',
     evolutionWebhookPath:
-      process.env.EVOLUTION_WEBHOOK_PATH?.trim() || '/backend/webhook-mensagens',
+      process.env.EVOLUTION_WEBHOOK_PATH?.trim() || '/agente-no-whatsapp',
     agentPollMs: optionalInt('AGENT_POLL_MS', 500),
     metaGraphApiVersion: process.env.META_GRAPH_API_VERSION?.trim() || 'v25.0',
     s3: {
