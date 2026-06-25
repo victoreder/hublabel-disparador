@@ -47,20 +47,6 @@ export async function handleEvolutionWebhook(req, inboundConfig) {
     return { status: 200, body: resultado };
   }
 
-  const fluxoMeta = {
-    conexaoId: idConexao,
-    conversaId: resultado?.conversaId ?? null,
-    mensagemId: resultado?.mensagemId ?? null,
-    agenteId: resultado?.agenteId ?? resultado?.agente?.id ?? null,
-    segueFluxoIA: Boolean(resultado?.segueFluxoIA),
-    creditoEsgotado: Boolean(resultado?.creditoEsgotado),
-    parouPorPausado: Boolean(resultado?.parouPorPausado),
-    fromMe: organized.fromMe,
-    messageType: organized.messageType,
-    remoteJid: organized.remoteJid,
-    mensagemCriada: Boolean(resultado?.mensagemCriada),
-  };
-
   if (resultado?.segueFluxoIA) {
     const job = buildAgentJobFromIngestao({
       canal: 'evolution',
@@ -68,13 +54,10 @@ export async function handleEvolutionWebhook(req, inboundConfig) {
       organized,
       conexao,
     });
-    const queueSize = enqueueAgentJob(job);
-    logger.info('Evolution → agente enfileirado', { ...fluxoMeta, queueSize });
-  } else {
-    logger.info('Evolution → fluxo IA não acionado', fluxoMeta);
+    enqueueAgentJob(job);
   }
 
-  return { status: 200, body: { ok: true, ...fluxoMeta } };
+  return { status: 200, body: { ok: true, segueFluxoIA: Boolean(resultado?.segueFluxoIA) } };
 }
 
 async function processEvolutionMedia(body, organized, inboundConfig) {

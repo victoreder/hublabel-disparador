@@ -1,5 +1,5 @@
 import { logger } from '../../logger.js';
-import { fetchAgente, fetchConfigIA } from '../../supabase.js';
+import { fetchAgente } from '../../supabase.js';
 import { getAgentConfig } from './config.js';
 import { loadChatHistory } from './memory.js';
 import { runAgentChat } from './openai.js';
@@ -14,39 +14,16 @@ import {
 import { sendAgentChunk, notifyTokenUsage } from './sendReply.js';
 
 export async function processAgentJob(job) {
-  logger.info('Agent worker: iniciando', {
-    canal: job?.canal,
-    conexaoId: job?.conexaoId,
-    conversaId: job?.conversaId,
-    agenteId: job?.agenteId,
-    messageType: job?.messageType,
-    telefone: job?.telefone,
-  });
-
-  let agentConfig;
-  try {
-    agentConfig = getAgentConfig(await fetchConfigIA());
-  } catch (error) {
-    logger.error('Agent worker: falha ao carregar SAAS_Config_IA', { message: error.message });
-    throw error;
-  }
-
-  const agenteIdConexao = job.conexao?.idAgente ?? job.agenteId;
-  const agente =
-    job.agente ??
-    (agenteIdConexao ? await fetchAgente(agenteIdConexao) : null);
+  const agentConfig = getAgentConfig();
+  const agente = job.agente ?? (job.agenteId ? await fetchAgente(job.agenteId) : null);
 
   if (!agente) {
-    logger.warn('Agent worker: agente não encontrado', {
-      agenteId: job.agenteId,
-      conversaId: job.conversaId,
-      agenteNoJob: Boolean(job.agente),
-    });
+    logger.warn('Agente IA não encontrado', { agenteId: job.agenteId });
     return;
   }
 
   if (agente.ativo === false) {
-    logger.info('Agent worker: agente inativo', { agenteId: agente.id, conversaId: job.conversaId });
+    logger.info('Agente IA inativo', { agenteId: agente.id });
     return;
   }
 
@@ -54,13 +31,7 @@ export async function processAgentJob(job) {
   job.agenteId = agente.id;
 
   const textoPreprocessado = await preprocessInput(job, agente, agentConfig);
-  if (textoPreprocessado == null) {
-    logger.info('Agent worker: preprocess abortou (fallback enviado ou mídia ignorada)', {
-      conversaId: job.conversaId,
-      messageType: job.messageType,
-    });
-    return;
-  }
+  if (textoPreprocessado == null) return;
 
   let inputText = textoPreprocessado;
 
@@ -72,10 +43,7 @@ export async function processAgentJob(job) {
       agente.intervaloEntreMensagens ?? 3,
     );
     if (!grouped) {
-      logger.info('Agent worker: aguardando agrupamento de mensagens', {
-        telefone: job.telefone,
-        intervaloSeg: agente.intervaloEntreMensagens ?? 3,
-      });
+      logger.debug('Mensagem agrupada — aguardando próxima', { telefone: job.telefone });
       return;
     }
     inputText = grouped;

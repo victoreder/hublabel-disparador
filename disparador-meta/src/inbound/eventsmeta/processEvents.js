@@ -34,24 +34,7 @@ async function processAllEvents(events) {
           error: result.error,
         });
       } else if (result?.segueFluxoIA) {
-        const queueSize = enqueueAgentJob(buildAgentJobFromMetaResult(result));
-        logger.info('Meta → agente enfileirado', {
-          field: event.field,
-          waba_id: event.waba_id,
-          conversaId: result?.conversaId,
-          agenteId: result?.agenteId,
-          queueSize,
-        });
-      } else if (result?.ok !== false) {
-        logger.info('Meta → fluxo IA não acionado', {
-          field: event.field,
-          waba_id: event.waba_id,
-          conversaId: result?.conversaId,
-          segueFluxoIA: Boolean(result?.segueFluxoIA),
-          creditoEsgotado: Boolean(result?.creditoEsgotado),
-          parouPorPausado: Boolean(result?.parouPorPausado),
-          agenteId: result?.agenteId,
-        });
+        enqueueAgentJob(buildAgentJobFromMetaResult(result));
       }
     } catch (error) {
       logger.error('Erro ao processar evento Meta', {

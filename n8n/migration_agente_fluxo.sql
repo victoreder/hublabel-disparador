@@ -50,8 +50,10 @@ BEGIN
   SELECT to_jsonb(a.*), a.id, COALESCE(a."pausarAtendimento", false)
     INTO v_agente, v_agente_id, v_agente_pausar
     FROM public."SAAS_AgentesIA" a
-  WHERE a.id = NULLIF(trim(v_conexao->>'idAgente'), '')::bigint
+  WHERE a."contaId" = p_conta_id
+    AND a."conexaoId" = p_conexao_id
     AND COALESCE(a.ativo, true) = true
+  ORDER BY a.created_at DESC
   LIMIT 1;
 
   IF v_agente_id IS NOT NULL THEN
