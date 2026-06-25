@@ -30,9 +30,18 @@ function blocoAbrirAtendimento(agente) {
 
 function blocoNotificarHumano(agente) {
   if (agente?.notificarHumano?.ativo !== true) return null;
-  const itens = agente.notificarHumano.itens ?? [];
-  const texto = itens.map((i) => i.instrucoes).filter(Boolean).join('\n-----\n');
-  return texto || null;
+  const itens = (agente.notificarHumano.itens ?? []).filter((i) => i?.instrucoes || i?.whatsapp);
+  if (!itens.length) return null;
+
+  return itens
+    .map((item) => {
+      const partes = [];
+      if (item.whatsapp) partes.push(`WhatsApp destino: ${item.whatsapp}`);
+      if (item.instrucoes) partes.push(item.instrucoes);
+      return partes.join('\n');
+    })
+    .filter(Boolean)
+    .join('\n-----\n');
 }
 
 function blocoRequisicaoHttp(agente) {
