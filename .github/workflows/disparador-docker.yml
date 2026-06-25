@@ -1,49 +1,13 @@
-name: Build and Push Disparador
+# Build disparador: repositório dedicado https://github.com/victoreder/hublabel-disparador
+# Este workflow no monorepo está desativado — use o repo hublabel-disparador.
+
+name: Build and Push Disparador (disabled)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'disparador-meta/**'
-      - '.github/workflows/disparador-docker.yml'
   workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
-  # GITHUB_TOKEN só publica no namespace do repo; Portainer usa esta imagem.
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
-
 jobs:
-  build-and-push:
+  noop:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest
-            type=sha,prefix=
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: ./disparador-meta
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+      - run: echo "Use https://github.com/victoreder/hublabel-disparador para build da imagem"

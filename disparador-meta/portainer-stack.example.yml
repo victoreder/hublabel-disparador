@@ -4,7 +4,7 @@ services:
 ## --------------------------- HUBLABEL DISPARADOR META --------------------------- ##
 
   disparador-meta:
-    image: ghcr.io/victoreder/hublabel-conector-api-oficial:latest
+    image: ghcr.io/victoreder/hublabel-disparador:latest
 
     environment:
       SUPABASE_URL: https://SEU-PROJETO.supabase.co
@@ -45,7 +45,7 @@ services:
 ## --------------------------- HUBLABEL DISPARADOR EVOLUTION --------------------------- ##
 
   disparador-evolution:
-    image: ghcr.io/victoreder/hublabel-conector-api-oficial:latest
+    image: ghcr.io/victoreder/hublabel-disparador:latest
     command: ["node", "src/workers/evolution.js"]
 
     environment:
@@ -76,7 +76,7 @@ services:
 ## --------------------------- HUBLABEL DISPARADOR INBOUND --------------------------- ##
 
   disparador-inbound:
-    image: ghcr.io/victoreder/hublabel-conector-api-oficial:latest
+    image: ghcr.io/victoreder/hublabel-disparador:latest
     command: ["node", "src/inbound.js"]
 
     environment:
