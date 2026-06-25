@@ -277,6 +277,17 @@ export async function fetchConfigIA() {
   return data;
 }
 
+export async function fetchConfigEmails() {
+  const { data, error } = await supabase
+    .from('SAAS_Config_Emails')
+    .select('smtp_email, smtp_name, smtp_host, smtp_port, smtp_user, smtp_apikey')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar SAAS_Config_Emails');
+  return data;
+}
+
 export async function processMetaEvent(evento) {
   const { data, error } = await supabase.rpc('f_meta_processar_evento', {
     p_evento: evento,

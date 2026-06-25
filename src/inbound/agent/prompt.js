@@ -28,15 +28,26 @@ function blocoAbrirAtendimento(agente) {
   return 'Nunca ative a ferramenta ABRIR_ATENDIMENTO, caso o usuário solicite algo que você acha necessário ativar a ferramenta ABRIR_ATENDIMENTO, não ative, apenas responde para o usuário de acordo com suas instruções';
 }
 
+import {
+  getEmailsFromItem,
+  getNotificarItens,
+  getWhatsappsFromItem,
+} from './notifyHuman.js';
+
 function blocoNotificarHumano(agente) {
   if (agente?.notificarHumano?.ativo !== true) return null;
-  const itens = (agente.notificarHumano.itens ?? []).filter((i) => i?.instrucoes || i?.whatsapp);
+  const itens = getNotificarItens(agente);
   if (!itens.length) return null;
 
   return itens
-    .map((item) => {
-      const partes = [];
-      if (item.whatsapp) partes.push(`WhatsApp destino: ${item.whatsapp}`);
+    .map((item, index) => {
+      const partes = [`Item #${index}`];
+      if (item.quandoAtivar) partes.push(`Quando ativar: ${item.quandoAtivar}`);
+      const whatsapps = getWhatsappsFromItem(item);
+      const emails = getEmailsFromItem(item);
+      if (whatsapps.length) partes.push(`WhatsApps (todos serão notificados): ${whatsapps.join(', ')}`);
+      if (emails.length) partes.push(`E-mails (todos serão notificados): ${emails.join(', ')}`);
+      if (item.modeloMensagem) partes.push(`Modelo: ${item.modeloMensagem}`);
       if (item.instrucoes) partes.push(item.instrucoes);
       return partes.join('\n');
     })

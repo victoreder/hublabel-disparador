@@ -1,11 +1,9 @@
-import {
-  abrirAtendimentoHumano,
-  notificarHumanoWhatsapp,
-} from '../../supabase.js';
+import { abrirAtendimentoHumano } from '../../supabase.js';
+import { buildNotificarHumanoToolSchema, executeNotificarHumano } from './notifyHuman.js';
 
 const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 
-function agenteTemConhecimento(agente) {
+function agenteTemConhecimentoLocal(agente) {
   const conhecimento = agente?.conhecimento;
   if (conhecimento == null) return false;
   if (Array.isArray(conhecimento)) {
@@ -21,25 +19,8 @@ function agenteTemConhecimento(agente) {
   return Boolean(String(conhecimento).trim());
 }
 
-function getNotificarItens(agente) {
-  return (agente?.notificarHumano?.itens ?? []).filter((item) => item?.whatsapp || item?.instrucoes);
-}
-
-function resolveWhatsappNotificacao(agente, whatsappArg) {
-  const itens = getNotificarItens(agente);
-  const permitidos = [...new Set(itens.map((i) => String(i.whatsapp || '').trim()).filter(Boolean))];
-
-  if (!permitidos.length) return null;
-
-  const informado = String(whatsappArg || '').trim();
-  if (informado) {
-    const match = permitidos.find((n) => n === informado || n.replace(/\D/g, '') === informado.replace(/\D/g, ''));
-    return match ?? null;
-  }
-
-  if (permitidos.length === 1) return permitidos[0];
-  return null;
-}
+// re-export for tests; notifyHuman has the canonical implementation
+export { agenteTemConhecimentoLocal as agenteTemConhecimento };
 
 async function dynamicHttpRequest({ url, method, headers, body, queryParams }) {
   const upperMethod = String(method || 'GET').toUpperCase();
@@ -94,7 +75,7 @@ async function dynamicHttpRequest({ url, method, headers, body, queryParams }) {
 export function buildToolDefinitions(job, agente) {
   const tools = [];
 
-  if (agenteTemConhecimento(agente)) {
+  if (agenteTemConhecimentoLocal(agente)) {
     tools.push({
       type: 'function',
       function: {
@@ -124,41 +105,8 @@ export function buildToolDefinitions(job, agente) {
   }
 
   if (agente?.notificarHumano?.ativo === true) {
-    const itensNotificar = getNotificarItens(agente);
-    const whatsapps = [...new Set(itensNotificar.map((i) => i.whatsapp).filter(Boolean))];
-
-    if (whatsapps.length > 0) {
-      const properties = {
-        mensagem: { type: 'string', description: 'Mensagem para enviar ao humano' },
-      };
-      const required = ['mensagem'];
-
-      if (whatsapps.length > 1) {
-        properties.whatsapp = {
-          type: 'string',
-          enum: whatsapps,
-          description:
-            'WhatsApp do humano a notificar — escolha conforme as instruções de cada destino no prompt',
-        };
-        required.push('whatsapp');
-      }
-
-      tools.push({
-        type: 'function',
-        function: {
-          name: 'NOTIFICAR_HUMANO',
-          description:
-            whatsapps.length > 1
-              ? 'Notifique um humano via WhatsApp. Use o campo whatsapp para escolher o destino correto.'
-              : 'ative essa ferramenta de acordo com as instrucoes',
-          parameters: {
-            type: 'object',
-            properties,
-            required,
-          },
-        },
-      });
-    }
+    const notificarTool = buildNotificarHumanoToolSchema(agente);
+    if (notificarTool) tools.push(notificarTool);
   }
 
   if (agente?.requisicaoHTTP?.ativo === true) {
@@ -200,25 +148,8 @@ export async function executeTool(name, args, { job, agente, agentConfig, search
   }
 
   if (name === 'NOTIFICAR_HUMANO') {
-    const whatsapp = resolveWhatsappNotificacao(agente, args.whatsapp);
-    if (!whatsapp) {
-      const itens = getNotificarItens(agente);
-      const destinos = [...new Set(itens.map((i) => i.whatsapp).filter(Boolean))];
-      return JSON.stringify({
-        success: false,
-        error:
-          destinos.length > 1
-            ? `Informe whatsapp entre os destinos configurados: ${destinos.join(', ')}`
-            : 'WhatsApp de notificação não configurado',
-      });
-    }
-
-    await notificarHumanoWhatsapp({
-      job,
-      whatsappDestino: whatsapp,
-      mensagem: args.mensagem,
-    });
-    return JSON.stringify({ success: true, whatsapp });
+    const resultado = await executeNotificarHumano({ job, agente, args });
+    return JSON.stringify(resultado);
   }
 
   if (name === 'REQUISICAO_DINAMICA') {
