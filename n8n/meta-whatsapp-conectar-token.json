@@ -1,0 +1,493 @@
+{
+  "name": "Meta WhatsApp - Conectar Token",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meta-token",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "WEBHOOK META TOKEN",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "meta-token-connect"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = raw.body ?? raw;\n\nconst code = body.code;\nconst wabaId = body.waba_id || null;\nconst phoneNumberId = body.phone_number_id || null;\nconst businessId = body.business_id || null;\nconst conexaoId = body.conexaoId || body.conexao_id || null;\nconst contaId = body.contaId || body.conta_id || null;\nconst nome = body.NomeConexao || body.nome || 'WhatsApp API Oficial';\n\nif (!code || typeof code !== 'string') {\n  throw new Error('Campo code obrigatorio.');\n}\n\nif (!conexaoId && !contaId) {\n  throw new Error('Informe conexaoId (atualizar) ou contaId (criar nova conexao).');\n}\n\nreturn [\n  {\n    json: {\n      code,\n      waba_id: wabaId,\n      phone_number_id: phoneNumberId,\n      business_id: businessId,\n      conexaoId,\n      contaId,\n      NomeConexao: nome\n    }\n  }\n];"
+      },
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "VALIDAR ENTRADA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "SAAS_Config_ApiOficial",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "1"
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0027-4000-8000-000000000027",
+      "name": "CONFIG API OFICIAL",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [480, 300],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v25.0/oauth/access_token",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "={{ $('CONFIG API OFICIAL').first().json.app_id }}"
+            },
+            {
+              "name": "client_secret",
+              "value": "={{ $('CONFIG API OFICIAL').first().json.app_secret }}"
+            },
+            {
+              "name": "redirect_uri",
+              "value": ""
+            },
+            {
+              "name": "code",
+              "value": "={{ $('VALIDAR ENTRADA').first().json.code }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "name": "TROCAR CODE POR TOKEN CURTO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v25.0/oauth/access_token",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "fb_exchange_token"
+            },
+            {
+              "name": "client_id",
+              "value": "={{ $('CONFIG API OFICIAL').first().json.app_id }}"
+            },
+            {
+              "name": "client_secret",
+              "value": "={{ $('CONFIG API OFICIAL').first().json.app_secret }}"
+            },
+            {
+              "name": "fb_exchange_token",
+              "value": "={{ $('TROCAR CODE POR TOKEN CURTO').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0006-4000-8000-000000000006",
+      "name": "TROCAR POR TOKEN LONGO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('CONFIG API OFICIAL').first().json;\nif (!config?.app_id || !config?.app_secret) {\n  throw new Error('Config API Oficial incompleta em SAAS_Config_ApiOficial.');\n}\n\nconst curto = $('TROCAR CODE POR TOKEN CURTO').first().json;\nconst longo = $('TROCAR POR TOKEN LONGO').first().json;\n\nif (curto.error) {\n  throw new Error(curto.error.message || 'Falha ao trocar code por token curto.');\n}\nif (!curto.access_token) {\n  throw new Error('Resposta da Meta sem access_token (curto).');\n}\nif (longo.error) {\n  throw new Error(longo.error.message || 'Falha ao trocar por token longo.');\n}\nif (!longo.access_token) {\n  throw new Error('Resposta da Meta sem access_token (longo).');\n}\n\nreturn [{ json: longo }];"
+      },
+      "id": "a1b2c3d4-0007-4000-8000-000000000007",
+      "name": "VALIDAR OAUTH",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-need-assets",
+              "leftValue": "={{ !!$('VALIDAR ENTRADA').first().json.waba_id && !!$('VALIDAR ENTRADA').first().json.phone_number_id }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0008-4000-8000-000000000008",
+      "name": "IDS JA VIERAM DO FRONT?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1440, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v25.0/{{ $('VALIDAR ENTRADA').first().json.phone_number_id }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "display_phone_number,verified_name"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $('TROCAR POR TOKEN LONGO').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0025-4000-8000-000000000025",
+      "name": "BUSCAR DETALHES PHONE",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 140]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v25.0/me/businesses",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,name"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $('TROCAR POR TOKEN LONGO').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0009-4000-8000-000000000009",
+      "name": "BUSCAR BUSINESS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 460]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v25.0/{{ $('BUSCAR BUSINESS').first().json.data[0].id }}/owned_whatsapp_business_accounts",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,name"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $('TROCAR POR TOKEN LONGO').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0011-4000-8000-000000000011",
+      "name": "BUSCAR WABA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1920, 460]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v25.0/{{ $('BUSCAR WABA').first().json.data[0].id }}/phone_numbers",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,display_phone_number,verified_name"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $('TROCAR POR TOKEN LONGO').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0013-4000-8000-000000000013",
+      "name": "BUSCAR PHONE",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2160, 460]
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $('VALIDAR ENTRADA').first().json;\nconst token = $('TROCAR POR TOKEN LONGO').first().json.access_token;\n\nlet wabaId = entrada.waba_id;\nif (!wabaId) {\n  wabaId = $('BUSCAR WABA').first().json.data?.[0]?.id;\n}\nif (!wabaId) {\n  throw new Error('waba_id nao encontrado.');\n}\n\nconst res = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `https://graph.facebook.com/v25.0/${wabaId}/subscribed_apps`,\n  headers: {\n    Authorization: `Bearer ${token}`,\n    'Content-Type': 'application/json'\n  },\n  body: {},\n  json: true\n});\n\nreturn [{ json: res }];"
+      },
+      "id": "a1b2c3d4-0015-4000-8000-000000000015",
+      "name": "INSCREVER WABA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2400, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $('VALIDAR ENTRADA').first().json;\nconst token = $('TROCAR POR TOKEN LONGO').first().json.access_token;\n\nlet phone_number_id = entrada.phone_number_id || null;\nif (!phone_number_id) {\n  phone_number_id = $('BUSCAR PHONE').first().json.data?.[0]?.id || null;\n}\nif (!phone_number_id) {\n  throw new Error('phone_number_id nao encontrado para registro.');\n}\n\nconst headers = {\n  Authorization: `Bearer ${token}`,\n  'Content-Type': 'application/json'\n};\n\nconst phoneRes = await this.helpers.httpRequest({\n  method: 'GET',\n  url: `https://graph.facebook.com/v25.0/${phone_number_id}`,\n  qs: { fields: 'status' },\n  headers,\n  json: true\n});\n\nif (phoneRes.error) {\n  throw new Error(phoneRes.error.message || 'Falha ao consultar status do numero.');\n}\n\nconst statusAntes = phoneRes.status || null;\nlet pin = null;\nlet registrado = false;\nlet statusDepois = statusAntes;\n\nif (statusAntes !== 'CONNECTED') {\n  pin = String(Math.floor(100000 + Math.random() * 900000));\n\n  const regRes = await this.helpers.httpRequest({\n    method: 'POST',\n    url: `https://graph.facebook.com/v25.0/${phone_number_id}/register`,\n    headers,\n    body: {\n      messaging_product: 'whatsapp',\n      pin\n    },\n    json: true\n  });\n\n  if (regRes.error) {\n    const code = regRes.error.code;\n    const msg = regRes.error.message || regRes.error.error_user_msg || 'Falha ao registrar numero na Meta.';\n    if (code === 133005) {\n      throw new Error('PIN de verificacao em duas etapas incorreto. O numero ja possui 2FA; informe o PIN existente.');\n    }\n    throw new Error(msg);\n  }\n\n  registrado = true;\n  statusDepois = 'CONNECTED';\n}\n\nreturn [\n  {\n    json: {\n      phone_number_id,\n      pin,\n      registrado,\n      status_antes: statusAntes,\n      status_depois: statusDepois\n    }\n  }\n];"
+      },
+      "id": "a1b2c3d4-0028-4000-8000-000000000028",
+      "name": "REGISTRAR NUMERO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2520, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $('VALIDAR ENTRADA').first().json;\nconst tokenLongo = $('TROCAR POR TOKEN LONGO').first().json;\nconst access_token = tokenLongo.access_token;\nconst expires_in = tokenLongo.expires_in || null;\nconst registro = $('REGISTRAR NUMERO').first().json;\n\nlet business_id = entrada.business_id || null;\nlet waba_id = entrada.waba_id || null;\nlet phone_number_id = entrada.phone_number_id || null;\nlet Telefone = null;\nlet verified_name = null;\n\nconst temIdsFront = !!waba_id && !!phone_number_id;\n\nif (temIdsFront) {\n  const phoneRes = $('BUSCAR DETALHES PHONE').first().json;\n  if (phoneRes.error) {\n    throw new Error(phoneRes.error.message || 'Falha ao buscar detalhes do numero.');\n  }\n  Telefone = phoneRes.display_phone_number\n    ? String(phoneRes.display_phone_number).replace(/\\D/g, '')\n    : null;\n  verified_name = phoneRes.verified_name || null;\n  if (!Telefone) {\n    throw new Error('Meta nao retornou display_phone_number para o phone_number_id.');\n  }\n} else {\n  const businessRes = $('BUSCAR BUSINESS').first().json;\n  if (businessRes.error) {\n    throw new Error(businessRes.error.message || 'Falha ao buscar businesses.');\n  }\n  business_id = businessRes.data?.[0]?.id || null;\n  if (!business_id) {\n    throw new Error('Nenhuma conta Business encontrada.');\n  }\n\n  const wabaRes = $('BUSCAR WABA').first().json;\n  if (wabaRes.error) {\n    throw new Error(wabaRes.error.message || 'Falha ao buscar WABA.');\n  }\n  waba_id = wabaRes.data?.[0]?.id || null;\n  if (!waba_id) {\n    throw new Error('Nenhuma WABA encontrada.');\n  }\n\n  const phoneRes = $('BUSCAR PHONE').first().json;\n  if (phoneRes.error) {\n    throw new Error(phoneRes.error.message || 'Falha ao buscar phone_numbers.');\n  }\n  const phone = phoneRes.data?.[0];\n  if (!phone?.id) {\n    throw new Error('Nenhum phone_number_id encontrado.');\n  }\n  phone_number_id = phone.id;\n  Telefone = phone.display_phone_number\n    ? String(phone.display_phone_number).replace(/\\D/g, '')\n    : null;\n  verified_name = phone.verified_name || null;\n  if (!Telefone) {\n    throw new Error('Meta nao retornou display_phone_number.');\n  }\n}\n\nconst inscricao = $('INSCREVER WABA').first().json;\nif (inscricao.error) {\n  throw new Error(inscricao.error.message || 'Falha ao inscrever app na WABA.');\n}\nif (inscricao.success !== true) {\n  throw new Error('subscribed_apps nao retornou success:true.');\n}\n\nconst expiresAt = expires_in\n  ? new Date(Date.now() + Number(expires_in) * 1000).toISOString()\n  : null;\n\nconst nomeConexao =\n  entrada.NomeConexao && entrada.NomeConexao !== 'WhatsApp API Oficial'\n    ? entrada.NomeConexao\n    : verified_name || entrada.NomeConexao;\n\nconst payload = {\n  ok: true,\n  access_token,\n  expires_in,\n  expires_at: expiresAt,\n  business_id,\n  waba_id,\n  phone_number_id,\n  Telefone,\n  conexaoId: entrada.conexaoId,\n  contaId: entrada.contaId,\n  NomeConexao: nomeConexao,\n  connected_at: new Date().toISOString(),\n  numero_registrado: registro.registrado,\n  metaPhoneStatus: registro.status_depois || null\n};\n\nif (registro.pin) {\n  payload.metaPinVerificacao = registro.pin;\n}\n\nreturn [{ json: payload }];"
+      },
+      "id": "a1b2c3d4-0018-4000-8000-000000000018",
+      "name": "MONTAR PAYLOAD FINAL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2640, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-update",
+              "leftValue": "={{ !!$json.conexaoId }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0023-4000-8000-000000000023",
+      "name": "ATUALIZAR EXISTENTE?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2880, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "SAAS_Conexões",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.conexaoId }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "apiOficial", "fieldValue": "true" },
+            { "fieldId": "NomeConexao", "fieldValue": "={{ $json.NomeConexao }}" },
+            { "fieldId": "access_token", "fieldValue": "={{ $json.access_token }}" },
+            { "fieldId": "expires_in", "fieldValue": "={{ $json.expires_in }}" },
+            { "fieldId": "business_id", "fieldValue": "={{ $json.business_id }}" },
+            { "fieldId": "waba_id", "fieldValue": "={{ $json.waba_id }}" },
+            { "fieldId": "phone_number_id", "fieldValue": "={{ $json.phone_number_id }}" },
+            { "fieldId": "Telefone", "fieldValue": "={{ $json.Telefone }}" },
+            { "fieldId": "expires_at", "fieldValue": "={{ $json.expires_at }}" },
+            { "fieldId": "metaPhoneStatus", "fieldValue": "={{ $json.metaPhoneStatus }}" },
+            { "fieldId": "metaPinVerificacao", "fieldValue": "={{ $json.metaPinVerificacao }}" }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0021-4000-8000-000000000021",
+      "name": "ATUALIZAR CONEXAO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3120, 200],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "SAAS_Conexões",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "contaId", "fieldValue": "={{ $json.contaId }}" },
+            { "fieldId": "NomeConexao", "fieldValue": "={{ $json.NomeConexao }}" },
+            { "fieldId": "apiOficial", "fieldValue": "true" },
+            { "fieldId": "access_token", "fieldValue": "={{ $json.access_token }}" },
+            { "fieldId": "expires_in", "fieldValue": "={{ $json.expires_in }}" },
+            { "fieldId": "business_id", "fieldValue": "={{ $json.business_id }}" },
+            { "fieldId": "waba_id", "fieldValue": "={{ $json.waba_id }}" },
+            { "fieldId": "phone_number_id", "fieldValue": "={{ $json.phone_number_id }}" },
+            { "fieldId": "Telefone", "fieldValue": "={{ $json.Telefone }}" },
+            { "fieldId": "expires_at", "fieldValue": "={{ $json.expires_at }}" },
+            { "fieldId": "metaPhoneStatus", "fieldValue": "={{ $json.metaPhoneStatus }}" },
+            { "fieldId": "metaPinVerificacao", "fieldValue": "={{ $json.metaPinVerificacao }}" }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0024-4000-8000-000000000024",
+      "name": "CRIAR CONEXAO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3120, 400],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\nconst payload = $('MONTAR PAYLOAD FINAL').first().json;\n\nif (!row?.id) {\n  throw new Error('Falha ao salvar conexao em SAAS_Conexoes.');\n}\n\nconst resposta = {\n  ok: true,\n  conexaoId: row.id,\n  contaId: row.contaId,\n  NomeConexao: row.NomeConexao,\n  business_id: row.business_id,\n  waba_id: row.waba_id,\n  phone_number_id: row.phone_number_id,\n  Telefone: row.Telefone,\n  expires_in: row.expires_in,\n  apiOficial: row.apiOficial,\n  metaPhoneStatus: row.metaPhoneStatus || payload.metaPhoneStatus || null,\n  numero_registrado: payload.numero_registrado === true\n};\n\nif (payload.metaPinVerificacao) {\n  resposta.metaPinVerificacao = payload.metaPinVerificacao;\n  resposta.aviso_pin = 'Guarde este PIN de 6 digitos. Ele e a verificacao em duas etapas do numero na Meta.';\n}\n\nreturn [{ json: resposta }];"
+      },
+      "id": "a1b2c3d4-0022-4000-8000-000000000022",
+      "name": "MONTAR RESPOSTA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3360, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "a1b2c3d4-0019-4000-8000-000000000019",
+      "name": "RESPONDER SUCESSO",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3600, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Body de entrada (POST)\n\nAtualizar conexao existente:\n```json\n{\n  \"conexaoId\": 123,\n  \"code\": \"AQD...\",\n  \"waba_id\": \"123\",\n  \"phone_number_id\": \"456\",\n  \"business_id\": \"789\",\n  \"NomeConexao\": \"WhatsApp Principal\"\n}\n```\n\nCriar nova conexao:\n```json\n{\n  \"contaId\": \"uuid-conta\",\n  \"code\": \"AQD...\",\n  \"waba_id\": \"123\",\n  \"phone_number_id\": \"456\",\n  \"business_id\": \"789\",\n  \"NomeConexao\": \"WhatsApp Principal\"\n}\n```\n\nSe o numero nao estiver CONNECTED, o fluxo chama `POST /{phone_number_id}/register` com PIN de 6 digitos gerado automaticamente e salva em `metaPinVerificacao`.\n\n`app_id` e `app_secret` vêm de `SAAS_Config_ApiOficial` (id=1).\nSalva em `SAAS_Conexões` (apiOficial=true).\nCredencial: Supabase [SAAS]\n\nURL: POST https://n8n2.victoreder.com.br/webhook/meta-token",
+        "height": 300,
+        "width": 480
+      },
+      "id": "a1b2c3d4-0020-4000-8000-000000000020",
+      "name": "NOTAS",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, 20]
+    }
+  ],
+  "connections": {
+    "WEBHOOK META TOKEN": {
+      "main": [[{ "node": "VALIDAR ENTRADA", "type": "main", "index": 0 }]]
+    },
+    "VALIDAR ENTRADA": {
+      "main": [[{ "node": "CONFIG API OFICIAL", "type": "main", "index": 0 }]]
+    },
+    "CONFIG API OFICIAL": {
+      "main": [[{ "node": "TROCAR CODE POR TOKEN CURTO", "type": "main", "index": 0 }]]
+    },
+    "TROCAR CODE POR TOKEN CURTO": {
+      "main": [[{ "node": "TROCAR POR TOKEN LONGO", "type": "main", "index": 0 }]]
+    },
+    "TROCAR POR TOKEN LONGO": {
+      "main": [[{ "node": "VALIDAR OAUTH", "type": "main", "index": 0 }]]
+    },
+    "VALIDAR OAUTH": {
+      "main": [[{ "node": "IDS JA VIERAM DO FRONT?", "type": "main", "index": 0 }]]
+    },
+    "IDS JA VIERAM DO FRONT?": {
+      "main": [
+        [{ "node": "BUSCAR DETALHES PHONE", "type": "main", "index": 0 }],
+        [{ "node": "BUSCAR BUSINESS", "type": "main", "index": 0 }]
+      ]
+    },
+    "BUSCAR DETALHES PHONE": {
+      "main": [[{ "node": "INSCREVER WABA", "type": "main", "index": 0 }]]
+    },
+    "BUSCAR BUSINESS": {
+      "main": [[{ "node": "BUSCAR WABA", "type": "main", "index": 0 }]]
+    },
+    "BUSCAR WABA": {
+      "main": [[{ "node": "BUSCAR PHONE", "type": "main", "index": 0 }]]
+    },
+    "BUSCAR PHONE": {
+      "main": [[{ "node": "INSCREVER WABA", "type": "main", "index": 0 }]]
+    },
+    "INSCREVER WABA": {
+      "main": [[{ "node": "REGISTRAR NUMERO", "type": "main", "index": 0 }]]
+    },
+    "REGISTRAR NUMERO": {
+      "main": [[{ "node": "MONTAR PAYLOAD FINAL", "type": "main", "index": 0 }]]
+    },
+    "MONTAR PAYLOAD FINAL": {
+      "main": [[{ "node": "ATUALIZAR EXISTENTE?", "type": "main", "index": 0 }]]
+    },
+    "ATUALIZAR EXISTENTE?": {
+      "main": [
+        [{ "node": "ATUALIZAR CONEXAO", "type": "main", "index": 0 }],
+        [{ "node": "CRIAR CONEXAO", "type": "main", "index": 0 }]
+      ]
+    },
+    "ATUALIZAR CONEXAO": {
+      "main": [[{ "node": "MONTAR RESPOSTA", "type": "main", "index": 0 }]]
+    },
+    "CRIAR CONEXAO": {
+      "main": [[{ "node": "MONTAR RESPOSTA", "type": "main", "index": 0 }]]
+    },
+    "MONTAR RESPOSTA": {
+      "main": [[{ "node": "RESPONDER SUCESSO", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

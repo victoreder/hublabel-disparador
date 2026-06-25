@@ -1,0 +1,193 @@
+{
+  "name": "Meta WhatsApp - Excluir Template",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meta-excluir-template",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "h1h2h3h4-0001-4000-8000-000000000001",
+      "name": "WEBHOOK EXCLUIR TEMPLATE",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "meta-excluir-template"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = raw.body ?? raw;\n\nconst conexaoId = body.conexaoId || body.conexao_id;\nconst templateId = body.templateId || body.template_id;\n\nif (!conexaoId) throw new Error('Campo conexaoId obrigatorio.');\nif (!templateId) throw new Error('Campo templateId obrigatorio.');\n\nreturn [{ json: { conexaoId, templateId } }];"
+      },
+      "id": "h1h2h3h4-0002-4000-8000-000000000002",
+      "name": "VALIDAR ENTRADA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "SAAS_Conexões",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('VALIDAR ENTRADA').item.json.conexaoId }}"
+            }
+          ]
+        }
+      },
+      "id": "h1h2h3h4-0003-4000-8000-000000000003",
+      "name": "DADOS CONEXAO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [520, 300],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $('VALIDAR ENTRADA').first().json;\nconst conexao = $input.first().json;\n\nif (!conexao?.access_token || !conexao?.waba_id) {\n  throw new Error('Conexao nao encontrada em SAAS_Conexoes.');\n}\n\nif (!conexao.apiOficial) {\n  throw new Error('Conexao nao e API Oficial.');\n}\n\nreturn [\n  {\n    json: {\n      ...entrada,\n      access_token: conexao.access_token,\n      waba_id: conexao.waba_id\n    }\n  }\n];"
+      },
+      "id": "h1h2h3h4-0004-4000-8000-000000000004",
+      "name": "MESCLAR CONEXAO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "SAAS_Templates_Meta",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('MESCLAR CONEXAO').first().json.templateId }}"
+            }
+          ]
+        }
+      },
+      "id": "h1h2h3h4-0006-4000-8000-000000000006",
+      "name": "DADOS TEMPLATE",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1040, 300],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const mesclar = $('MESCLAR CONEXAO').first().json;\nconst template = $input.first().json;\n\nif (!template?.id) {\n  throw new Error('Template nao encontrado em SAAS_Templates_Meta.');\n}\n\nif (String(template.conexaoId) !== String(mesclar.conexaoId)) {\n  throw new Error('Template nao pertence a esta conexao.');\n}\n\nreturn [\n  {\n    json: {\n      conexaoId: mesclar.conexaoId,\n      access_token: mesclar.access_token,\n      waba_id: mesclar.waba_id,\n      templateId: template.id,\n      nome: template.nome,\n      idioma: template.idioma,\n      metaTemplateId: template.metaTemplateId || null\n    }\n  }\n];"
+      },
+      "id": "h1h2h3h4-0008-4000-8000-000000000008",
+      "name": "PREPARAR DADOS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $input.first().json;\nconst qs = { name: prev.nome };\n\nif (prev.metaTemplateId) {\n  qs.hsm_id = prev.metaTemplateId;\n}\n\nlet metaExcluido = false;\nlet metaAviso = null;\n\ntry {\n  const res = await this.helpers.httpRequest({\n    method: 'DELETE',\n    url: `https://graph.facebook.com/v25.0/${prev.waba_id}/message_templates`,\n    qs,\n    headers: { Authorization: `Bearer ${prev.access_token}` },\n    json: true\n  });\n\n  if (res.error) {\n    const msg = res.error.message || res.error.error_user_msg || '';\n    const notFound = /not found|does not exist|nao encontrado|não encontrado/i.test(msg);\n    if (notFound) {\n      metaAviso = msg || 'Template ja inexistente na Meta.';\n    } else {\n      throw new Error(msg || 'Falha ao excluir template na Meta.');\n    }\n  } else if (res.success) {\n    metaExcluido = true;\n  } else {\n    throw new Error('Falha ao excluir template na Meta.');\n  }\n} catch (error) {\n  const msg = error.message || String(error);\n  const notFound = /not found|does not exist|404|nao encontrado|não encontrado/i.test(msg);\n  if (notFound) {\n    metaAviso = msg;\n  } else {\n    throw error;\n  }\n}\n\nreturn [\n  {\n    json: {\n      ...prev,\n      metaExcluido,\n      metaAviso\n    }\n  }\n];"
+      },
+      "id": "h1h2h3h4-0009-4000-8000-000000000009",
+      "name": "EXCLUIR TEMPLATE META",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "tableId": "SAAS_Templates_Meta",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.templateId }}"
+            }
+          ]
+        }
+      },
+      "id": "h1h2h3h4-0010-4000-8000-000000000010",
+      "name": "EXCLUIR TEMPLATE SUPABASE",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1820, 300],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $('EXCLUIR TEMPLATE META').first().json;\n\nreturn [\n  {\n    json: {\n      ok: true,\n      conexaoId: prev.conexaoId,\n      templateId: prev.templateId,\n      nome: prev.nome,\n      idioma: prev.idioma,\n      metaTemplateId: prev.metaTemplateId,\n      metaExcluido: prev.metaExcluido,\n      metaAviso: prev.metaAviso,\n      supabaseExcluido: true\n    }\n  }\n];"
+      },
+      "id": "h1h2h3h4-0011-4000-8000-000000000011",
+      "name": "MONTAR RESPOSTA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2080, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "h1h2h3h4-0012-4000-8000-000000000012",
+      "name": "RESPONDER SUCESSO",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2340, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Body de entrada (POST)\n\n```json\n{\n  \"conexaoId\": 123,\n  \"templateId\": 456\n}\n```\n\nBusca `SAAS_Conexões` + `SAAS_Templates_Meta` → exclui na Meta (v25.0) → exclui no Supabase.\n\nCredencial: Supabase [SAAS]\n\nURL: POST https://n8n2.victoreder.com.br/webhook/meta-excluir-template",
+        "height": 320,
+        "width": 540
+      },
+      "id": "h1h2h3h4-0013-4000-8000-000000000013",
+      "name": "NOTAS",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, 20]
+    }
+  ],
+  "connections": {
+    "WEBHOOK EXCLUIR TEMPLATE": {
+      "main": [[{ "node": "VALIDAR ENTRADA", "type": "main", "index": 0 }]]
+    },
+    "VALIDAR ENTRADA": {
+      "main": [[{ "node": "DADOS CONEXAO", "type": "main", "index": 0 }]]
+    },
+    "DADOS CONEXAO": {
+      "main": [[{ "node": "MESCLAR CONEXAO", "type": "main", "index": 0 }]]
+    },
+    "MESCLAR CONEXAO": {
+      "main": [[{ "node": "DADOS TEMPLATE", "type": "main", "index": 0 }]]
+    },
+    "DADOS TEMPLATE": {
+      "main": [[{ "node": "PREPARAR DADOS", "type": "main", "index": 0 }]]
+    },
+    "PREPARAR DADOS": {
+      "main": [[{ "node": "EXCLUIR TEMPLATE META", "type": "main", "index": 0 }]]
+    },
+    "EXCLUIR TEMPLATE META": {
+      "main": [[{ "node": "EXCLUIR TEMPLATE SUPABASE", "type": "main", "index": 0 }]]
+    },
+    "EXCLUIR TEMPLATE SUPABASE": {
+      "main": [[{ "node": "MONTAR RESPOSTA", "type": "main", "index": 0 }]]
+    },
+    "MONTAR RESPOSTA": {
+      "main": [[{ "node": "RESPONDER SUCESSO", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "tags": [],
+  "meta": { "templateCredsSetupCompleted": true }
+}

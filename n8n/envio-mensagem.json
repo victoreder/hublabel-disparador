@@ -1,0 +1,1586 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "dataToSave": {
+          "values": [
+            {
+              "key": "acao",
+              "value": "enviarMensagem"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executionData",
+      "typeVersion": 1.1,
+      "position": [
+        1072,
+        4944
+      ],
+      "id": "fb80e6b9-f736-4e16-960a-a1ccf5c8808b",
+      "name": "Execution Data99"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "enviar-mensagem",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        48,
+        5008
+      ],
+      "id": "658817ba-02db-4098-af67-c41588b67103",
+      "name": "ENVIAR MENSAGEM",
+      "webhookId": "0d210c58-1258-4a4b-a3ff-c6b5d1e7b9fc"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "SAAS_Conexões",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('ENVIAR MENSAGEM').item.json.body.idConexao }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        208,
+        5008
+      ],
+      "id": "a1b2c3d4-e5f6-4000-8000-000000000101",
+      "name": "DADOS CONEXAO TEXTO",
+      "credentials": {
+        "supabaseApi": {
+          "id": "yzLw3CRWlDo2pmsj",
+          "name": "Supabase [SAAS]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "api-oficial-texto-001",
+              "leftValue": "={{ $('DADOS CONEXAO TEXTO').item.json.apiOficial }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        368,
+        5008
+      ],
+      "id": "a1b2c3d4-e5f6-4000-8000-000000000102",
+      "name": "IF API OFICIAL TEXTO"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('ENVIAR MENSAGEM').first().json.body;\nconst conexao = $('DADOS CONEXAO TEXTO').first().json;\n\nif (!conexao?.access_token || !conexao?.phone_number_id) {\n  throw new Error('Conexao nao encontrada ou sem dados da API Oficial.');\n}\n\nconst to = String(body.telefone || '').replace(/\\D/g, '');\nif (!to) throw new Error('Campo telefone obrigatorio.');\n\nconst payload = {\n  messaging_product: 'whatsapp',\n  recipient_type: 'individual',\n  to,\n  type: 'text',\n  text: { body: body.mensagem }\n};\n\nif (body.mensagemRespondida) {\n  payload.context = { message_id: body.mensagemRespondida };\n}\n\nconst metaRes = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `https://graph.facebook.com/v21.0/${conexao.phone_number_id}/messages`,\n  headers: {\n    Authorization: `Bearer ${conexao.access_token}`,\n    'Content-Type': 'application/json'\n  },\n  body: payload,\n  json: true\n});\n\nif (metaRes.error) {\n  throw new Error(metaRes.error.message || metaRes.error.error_user_msg || 'Falha ao enviar mensagem na Meta.');\n}\n\nconst metaMessageId = metaRes.messages?.[0]?.id || null;\nif (!metaMessageId) {\n  throw new Error('Meta nao retornou message id.');\n}\n\nreturn [\n  {\n    json: {\n      idMensagem: body.idMensagem,\n      metaMessageId,\n      metaStatus: 'sent'\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        4848
+      ],
+      "id": "a1b2c3d4-e5f6-4000-8000-000000000103",
+      "name": "PROCESSAR META TEXTO"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "SAAS_Mensagens",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.idMensagem }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "enviada",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "tipoMensagem",
+              "fieldValue": "conversation"
+            },
+            {
+              "fieldId": "metaMessageId",
+              "fieldValue": "={{ $json.metaMessageId }}"
+            },
+            {
+              "fieldId": "metaStatus",
+              "fieldValue": "={{ $json.metaStatus }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1264,
+        4848
+      ],
+      "id": "a1b2c3d4-e5f6-4000-8000-000000000106",
+      "name": "MENSAGEM ENVIADA META",
+      "credentials": {
+        "supabaseApi": {
+          "id": "yzLw3CRWlDo2pmsj",
+          "name": "Supabase [SAAS]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://evolution2.victoreder.com.br/message/sendText/{{ $json.body.instanceName }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.body.Apikey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"number\":\"{{ $json.body.telefone }}\",\n\"text\":\"{{ $json.body.mensagem.replaceAll('\\n','\\\\n') }}\"\n}",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        592,
+        5072
+      ],
+      "id": "b28c13c1-09d6-4b92-8bcf-e617e5adde44",
+      "name": "MSG NORMAL",
+      "alwaysOutputData": false,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://evolution2.victoreder.com.br/message/sendText/{{ $json.body.instanceName }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.body.Apikey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"number\":\"{{ $json.body.telefone }}\",\n\"text\":\"{{ $json.body.mensagem.replaceAll('\\n','\\\\n') }}\",\n\"quoted\": { \n     \"key\": {\n \"id\": \"{{ $json.body.mensagemRespondida }}\"\n }}\n}",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        592,
+        5264
+      ],
+      "id": "14f30ba2-bd97-4338-bfb5-3b4429031e20",
+      "name": "MSG COM RESPOSTA",
+      "alwaysOutputData": false,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "967486ed-d0a3-4642-83a7-7e2fd3f1a78b",
+              "leftValue": "={{ $json.body.mensagemRespondida }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        416,
+        5168
+      ],
+      "id": "165ad825-a288-4f19-9494-17755e465edf",
+      "name": "If7"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [$('ENVIAR MENSAGEM').first()];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        5072
+      ],
+      "id": "a1b2c3d4-e5f6-4000-8000-000000000107",
+      "name": "RESTAURAR WEBHOOK TEXTO"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "SAAS_Mensagens",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('ENVIAR MENSAGEM').item.json.body.idMensagem }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "enviada",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "tipoMensagem",
+              "fieldValue": "conversation"
+            },
+            {
+              "fieldId": "messageEvolutionId",
+              "fieldValue": "={{ $json.key.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        816,
+        5168
+      ],
+      "id": "cb84e4c2-fb27-47e8-af70-0831584aae8e",
+      "name": "MENSAGEM ENVIADA",
+      "credentials": {
+        "supabaseApi": {
+          "id": "yzLw3CRWlDo2pmsj",
+          "name": "Supabase [SAAS]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "n8n",
+        "fileName": "={{ encodeURIComponent($binary[Object.keys($binary)[0]].fileName) }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        688,
+        5408
+      ],
+      "id": "bc20b921-f963-4ec1-a515-754d49e0ad30",
+      "name": "Upload a file2",
+      "credentials": {
+        "s3": {
+          "id": "5aMeyJPyMolp0nwq",
+          "name": "Minio"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "189b4afd-688c-4ea3-9909-d2494084ad5d",
+              "name": "link",
+              "value": "=https://s32.victoreder.com.br/n8n/{{ encodeURIComponent($binary[Object.keys($binary)[0]].fileName) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        5408
+      ],
+      "id": "e19a7e05-1ba8-4ead-a8eb-60f763b75866",
+      "name": "LINK ARQUIVO1"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "SAAS_Conexões",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('ENVIAR MIDIA').item.json.body.idConexao }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        256,
+        5408
+      ],
+      "id": "a1b2c3d4-e5f6-4000-8000-000000000201",
+      "name": "DADOS CONEXAO MIDIA",
+      "credentials": {
+        "supabaseApi": {
+          "id": "yzLw3CRWlDo2pmsj",
+          "name": "Supabase [SAAS]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "api-oficial-midia-001",
+              "leftValue": "={{ $('DADOS CONEXAO MIDIA').item.json.apiOficial }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        912,
+        5408
+      ],
+      "id": "a1b2c3d4-e5f6-4000-8000-000000000202",
+      "name": "IF API OFICIAL MIDIA"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('ENVIAR MIDIA').first().json.body;\nconst conexao = $('DADOS CONEXAO MIDIA').first().json;\nconst link = $('LINK ARQUIVO1').first().json.link;\n\nif (!conexao?.access_token || !conexao?.phone_number_id) {\n  throw new Error('Conexao nao encontrada ou sem dados da API Oficial.');\n}\n\nconst to = String(body.telefone || '').replace(/\\D/g, '');\nif (!to) throw new Error('Campo telefone obrigatorio.');\n\nconst apiVersion = 'v21.0';\nconst baseUrl = `https://graph.facebook.com/${apiVersion}/${conexao.phone_number_id}/messages`;\nconst headers = {\n  Authorization: `Bearer ${conexao.access_token}`,\n  'Content-Type': 'application/json'\n};\n\nconst typeMap = {\n  audioMessage: 'audio',\n  imageMessage: 'image',\n  videoMessage: 'video',\n  documentMessage: 'document',\n  stickerMessage: 'sticker'\n};\n\nconst metaType = typeMap[body.type];\nif (!metaType) {\n  throw new Error(`Tipo de midia nao suportado na API Oficial: ${body.type}`);\n}\n\nasync function sendMeta(payload) {\n  const res = await this.helpers.httpRequest({\n    method: 'POST',\n    url: baseUrl,\n    headers,\n    body: payload,\n    json: true\n  });\n\n  if (res.error) {\n    throw new Error(res.error.message || res.error.error_user_msg || 'Falha ao enviar midia na Meta.');\n  }\n\n  return res.messages?.[0]?.id || null;\n}\n\nlet captionMetaId = null;\n\nif (body.type === 'audioMessage' && body.caption) {\n  captionMetaId = await sendMeta.call(this, {\n    messaging_product: 'whatsapp',\n    recipient_type: 'individual',\n    to,\n    type: 'text',\n    text: { body: body.caption }\n  });\n}\n\nconst mediaBlock = { link };\n\nif (body.caption && body.type !== 'audioMessage') {\n  mediaBlock.caption = body.caption;\n}\n\nif (body.type === 'documentMessage') {\n  const fileName = String(link || '').split('?')[0].split('/').pop() || 'arquivo';\n  mediaBlock.filename = decodeURIComponent(fileName);\n}\n\nconst mediaMetaId = await sendMeta.call(this, {\n  messaging_product: 'whatsapp',\n  recipient_type: 'individual',\n  to,\n  type: metaType,\n  [metaType]: mediaBlock\n});\n\nif (!mediaMetaId) {\n  throw new Error('Meta nao retornou message id da midia.');\n}\n\nreturn [\n  {\n    json: {\n      idMensagem: body.idMensagem,\n      idMensagem2: body.idMensagem2 || null,\n      tipoMensagem: body.type,\n      link,\n      captionMetaId,\n      mediaMetaId,\n      metaStatus: 'sent'\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        5280
+      ],
+      "id": "a1b2c3d4-e5f6-4000-8000-000000000203",
+      "name": "PROCESSAR META MIDIA"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "meta-caption-extra-001",
+              "leftValue": "={{ $json.captionMetaId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1360,
+        5280
+      ],
+      "id": "a1b2c3d4-e5f6-4000-8000-000000000204",
+      "name": "IF META CAPTION EXTRA"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "SAAS_Mensagens",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('PROCESSAR META MIDIA').item.json.idMensagem2 }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "enviada",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "tipoMensagem",
+              "fieldValue": "conversation"
+            },
+            {
+              "fieldId": "metaMessageId",
+              "fieldValue": "={{ $('PROCESSAR META MIDIA').item.json.captionMetaId }}"
+            },
+            {
+              "fieldId": "metaStatus",
+              "fieldValue": "={{ $('PROCESSAR META MIDIA').item.json.metaStatus }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1584,
+        5200
+      ],
+      "id": "a1b2c3d4-e5f6-4000-8000-000000000205",
+      "name": "MENSAGEM ENVIADA CAPTION META",
+      "credentials": {
+        "supabaseApi": {
+          "id": "yzLw3CRWlDo2pmsj",
+          "name": "Supabase [SAAS]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "SAAS_Mensagens",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('PROCESSAR META MIDIA').item.json.idMensagem }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "enviada",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "tipoMensagem",
+              "fieldValue": "={{ $('PROCESSAR META MIDIA').item.json.tipoMensagem }}"
+            },
+            {
+              "fieldId": "arquivoUrl",
+              "fieldValue": "={{ $('PROCESSAR META MIDIA').item.json.link }}"
+            },
+            {
+              "fieldId": "metaMessageId",
+              "fieldValue": "={{ $('PROCESSAR META MIDIA').item.json.mediaMetaId }}"
+            },
+            {
+              "fieldId": "metaStatus",
+              "fieldValue": "={{ $('PROCESSAR META MIDIA').item.json.metaStatus }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1808,
+        5280
+      ],
+      "id": "a1b2c3d4-e5f6-4000-8000-000000000206",
+      "name": "MENSAGEM ENVIADA META MIDIA",
+      "credentials": {
+        "supabaseApi": {
+          "id": "yzLw3CRWlDo2pmsj",
+          "name": "Supabase [SAAS]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataToSave": {
+          "values": [
+            {
+              "key": "acao",
+              "value": "enviarAudio"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executionData",
+      "typeVersion": 1.1,
+      "position": [
+        2032,
+        5408
+      ],
+      "id": "d9344eda-0308-4812-b430-d77d931a8642",
+      "name": "Execution Data102"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "SAAS_Mensagens",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('ENVIAR MIDIA').item.json.body.idMensagem }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "enviada",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "tipoMensagem",
+              "fieldValue": "={{ $('ENVIAR MIDIA').item.json.body.type }}"
+            },
+            {
+              "fieldId": "arquivoUrl",
+              "fieldValue": "={{ $('LINK ARQUIVO1').item.json.link }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        5536
+      ],
+      "id": "b49e5bad-d4ca-40a9-8252-6f26eecb5024",
+      "name": "MENSAGEM ENVIADA2",
+      "credentials": {
+        "supabaseApi": {
+          "id": "yzLw3CRWlDo2pmsj",
+          "name": "Supabase [SAAS]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('ENVIAR MIDIA').item.json.body.type }}",
+                    "rightValue": "audioMessage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "f7c489f9-4bea-4023-827f-972b39a167ef"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "AUDIO"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "bc98a2be-157f-4932-aaa4-5ad6c7c984e2",
+                    "leftValue": "={{ $('ENVIAR MIDIA').item.json.body.type }}",
+                    "rightValue": "imageMessage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "IMAGEM"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "542dcaa6-6633-4b74-a2fe-51b773a31754",
+                    "leftValue": "={{ $('ENVIAR MIDIA').item.json.body.type }}",
+                    "rightValue": "videoMessage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "VIDEO"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "20b0e712-c06a-4de9-8af2-174e944f89bb",
+                    "leftValue": "={{ $('ENVIAR MIDIA').item.json.body.type }}",
+                    "rightValue": "documentMessage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DOCUMENTO"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "cc221199-89f9-422e-8800-a479443f95d2",
+                    "leftValue": "={{ $('ENVIAR MIDIA').item.json.body.type }}",
+                    "rightValue": "stickerMessage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "STICKER"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1136,
+        5536
+      ],
+      "id": "898ef2f0-76f8-4b4e-88f8-8b393d977576",
+      "name": "Switch4"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://evolution2.victoreder.com.br/message/sendWhatsAppAudio/{{ $('ENVIAR MIDIA').item.json.body.instanceName }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('ENVIAR MIDIA').item.json.body.Apikey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"number\":\"{{ $('ENVIAR MIDIA').item.json.body.telefone }}\",\n\"audio\":\"{{ $('LINK ARQUIVO1').item.json.link }}\"\n}",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1584,
+        5456
+      ],
+      "id": "16d7517b-9885-4b10-9f87-f80bd4e4e46d",
+      "name": "ENVIAR AUDIO1",
+      "alwaysOutputData": false,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "enviar-audio",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        48,
+        5408
+      ],
+      "id": "20ef27be-4cef-4965-953b-0b0b4d5b5ea7",
+      "name": "ENVIAR MIDIA",
+      "webhookId": "0d210c58-1258-4a4b-a3ff-c6b5d1e7b9fc"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://evolution2.victoreder.com.br/message/sendMedia/{{ $('ENVIAR MIDIA').item.json.body.instanceName }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('ENVIAR MIDIA').item.json.body.Apikey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"number\": \"{{ $('ENVIAR MIDIA').item.json.body.telefone }}\",\n    \"mediatype\": \"{{ $('ENVIAR MIDIA').item.json.body.type.replaceAll('Message','') }}\",\n    \"mimetype\":\"{{\n(() => {\n  const url = $('LINK ARQUIVO1').item.json.link || '';\n\n  const ext = url\n    .toLowerCase()\n    .split('?')[0]\n    .split('.')\n    .pop();\n\n  const map = {\n    pdf: 'application/pdf',\n    jpg: 'image/jpeg',\n    jpeg: 'image/jpeg',\n    png: 'image/png',\n    gif: 'image/gif',\n    webp: 'image/webp',\n    svg: 'image/svg+xml',\n\n    mp4: 'video/mp4',\n    mov: 'video/mp4',\n    avi: 'video/x-msvideo',\n    mkv: 'video/x-matroska',\n\n    mp3: 'audio/mpeg',\n    wav: 'audio/wav',\n    ogg: 'audio/ogg',\n\n    txt: 'text/plain',\n    html: 'text/html',\n    css: 'text/css',\n    js: 'application/javascript',\n    json: 'application/json',\n\n    zip: 'application/zip',\n    rar: 'application/vnd.rar',\n    '7z': 'application/x-7z-compressed'\n  };\n\n  return map[ext] || 'application/octet-stream';\n})()\n}}\",\n    \"media\":\"{{ $('LINK ARQUIVO1').item.json.link }}\",\n    \"fileName\":\"{{\n(() => {\n  const url = $('LINK ARQUIVO1').item.json.link || '';\n\n  const fileName = url\n    .split('?')[0]\n    .split('/')\n    .pop();\n\n  return decodeURIComponent(fileName);\n})()\n}}\"\n    \n}\n",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1584,
+        5840
+      ],
+      "id": "bebc20de-2be8-45c2-bf82-364f82d4cf4a",
+      "name": "ENVIAR MIDIA1",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a05d613a-467e-46e5-9dcc-99d593015df9",
+              "leftValue": "={{ $('ENVIAR MIDIA').item.json.body.caption }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1360,
+        5776
+      ],
+      "id": "3a768f8a-97fe-4bae-b679-a555c00a20b3",
+      "name": "If8"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://evolution2.victoreder.com.br/message/sendMedia/{{ $('ENVIAR MIDIA').item.json.body.instanceName }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('ENVIAR MIDIA').item.json.body.Apikey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"number\": \"{{ $('ENVIAR MIDIA').item.json.body.telefone }}\",\n    \"mediatype\": \"{{ $('ENVIAR MIDIA').item.json.body.type.replaceAll('Message','') }}\",\n    \"media\":\"{{ $('LINK ARQUIVO1').item.json.link }}\",\n    \"caption\":\"{{ $('ENVIAR MIDIA').item.json.body.caption.replaceAll('\\n','\\\\n') }}\",\n    \"mimetype\":\"{{\n(() => {\n  const url = $('LINK ARQUIVO1').item.json.link || '';\n\n  const ext = url\n    .toLowerCase()\n    .split('?')[0]\n    .split('.')\n    .pop();\n\n  const map = {\n    pdf: 'application/pdf',\n    jpg: 'image/jpeg',\n    jpeg: 'image/jpeg',\n    png: 'image/png',\n    gif: 'image/gif',\n    webp: 'image/webp',\n    svg: 'image/svg+xml',\n\n    mp4: 'video/mp4',\n    mov: 'video/mp4',\n    avi: 'video/x-msvideo',\n    mkv: 'video/x-matroska',\n\n    mp3: 'audio/mpeg',\n    wav: 'audio/wav',\n    ogg: 'audio/ogg',\n\n    txt: 'text/plain',\n    html: 'text/html',\n    css: 'text/css',\n    js: 'application/javascript',\n    json: 'application/json',\n\n    zip: 'application/zip',\n    rar: 'application/vnd.rar',\n    '7z': 'application/x-7z-compressed'\n  };\n\n  return map[ext] || 'application/octet-stream';\n})()\n}}\",\n    \"fileName\":\"{{\n(() => {\n  const url = $('LINK ARQUIVO1').item.json.link || '';\n\n  return url\n    .split('?')[0]\n    .split('/')\n    .pop();\n})()\n}}\"\n}\n",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1584,
+        5696
+      ],
+      "id": "d7f47166-4b75-4b13-9d8e-a28e45088c91",
+      "name": "ENVIAR MIDIA2",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a05d613a-467e-46e5-9dcc-99d593015df9",
+              "leftValue": "={{ $('ENVIAR MIDIA').item.json.body.caption }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1360,
+        5392
+      ],
+      "id": "5edd8c83-b7f3-4e22-8675-6b408f45c80e",
+      "name": "If9"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://evolution2.victoreder.com.br/message/sendText/{{ $('ENVIAR MIDIA').item.json.body.instanceName }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('ENVIAR MIDIA').item.json.body.Apikey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"number\":\"{{ $('ENVIAR MIDIA').item.json.body.telefone }}\",\n\"text\":\"{{ $('ENVIAR MIDIA').item.json.body.caption.replaceAll('\\n','\\\\n') }}\"\n}",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1584,
+        5328
+      ],
+      "id": "be0b4cda-5ee4-4a9e-87ec-cd9d410713db",
+      "name": "MSG NORMAL1",
+      "alwaysOutputData": false,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "SAAS_Mensagens",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('ENVIAR MIDIA').item.json.body.idMensagem2 }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "enviada",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "tipoMensagem",
+              "fieldValue": "=conversation"
+            },
+            {
+              "fieldId": "arquivoUrl",
+              "fieldValue": "={{ $('LINK ARQUIVO1').item.json.link }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1808,
+        5264
+      ],
+      "id": "0aa961f7-c245-48f1-b725-44b6a3d5c10a",
+      "name": "MENSAGEM ENVIADA3",
+      "credentials": {
+        "supabaseApi": {
+          "id": "yzLw3CRWlDo2pmsj",
+          "name": "Supabase [SAAS]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "enviar-template",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        48,
+        4608
+      ],
+      "id": "b1b2b3b4-c5d6-4000-8000-000000000301",
+      "name": "ENVIAR TEMPLATE",
+      "webhookId": "enviar-template-meta"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT public.f_meta_preparar_envio_template($1::jsonb) AS resultado;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($('ENVIAR TEMPLATE').item.json.body) }}"
+        }
+      },
+      "id": "b1b2b3b4-c5d6-4000-8000-000000000313",
+      "name": "PREPARAR DADOS TEMPLATE",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        208,
+        4608
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "7PzfuDnvHzr3CHMf",
+          "name": "Unnamed credential - SAAS - oficial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const prep = $('PREPARAR DADOS TEMPLATE').first().json.resultado;\n\nif (!prep?.ok) {\n  throw new Error(prep?.error || 'Falha ao preparar dados do template.');\n}\n\nconst conexao = prep.conexao;\nconst template = prep.template;\nconst contato = prep.contato;\nconst idMensagem = prep.idMensagem;\nconst valoresCampos = Array.isArray(prep.valoresCampos) ? prep.valoresCampos : [];\nconst camposPersonalizados = Array.isArray(prep.camposPersonalizados) ? prep.camposPersonalizados : [];\n\nconst telefone = String(contato.telefone || '').replace(/\\D/g, '');\nif (!telefone) throw new Error('Contato sem telefone valido.');\n\nfunction parseJson(raw, fallback) {\n  if (raw == null) return fallback;\n  if (typeof raw === 'string') {\n    try { return JSON.parse(raw); } catch { return fallback; }\n  }\n  return raw;\n}\n\nfunction parseTemplateComponentes(raw) {\n  const data = parseJson(raw, null);\n  if (data == null) return { components: [], variaveisCampos: {} };\n  if (Array.isArray(data)) return { components: data, variaveisCampos: {} };\n  return {\n    components: data.componentes || data.components || [],\n    variaveisCampos: data.variaveisCampos || {},\n  };\n}\n\nfunction parseVariaveisCampos(raw) {\n  const data = parseJson(raw, {});\n  return typeof data === 'object' && data ? data : {};\n}\n\nfunction extractVariableIndexes(text) {\n  const matches = [...String(text ?? '').matchAll(/\\{\\{(\\d+)\\}\\}/g)];\n  return [...new Set(matches.map((m) => Number.parseInt(m[1], 10)).filter(Number.isFinite))].sort((a, b) => a - b);\n}\n\nfunction getComponentText(component) {\n  if (!component) return '';\n  return component.text || component.example?.body_text?.[0]?.[0] || '';\n}\n\nconst valoresPorCampo = new Map(valoresCampos.map((row) => [Number(row.idCampo), row.valor]));\nconst camposPorId = new Map(camposPersonalizados.map((row) => [Number(row.id), row]));\n\nfunction resolveField(campoId) {\n  const id = Number(campoId);\n  if (!Number.isFinite(id)) return '';\n\n  const valorSalvo = valoresPorCampo.get(id);\n  if (valorSalvo != null && String(valorSalvo).trim() !== '') return String(valorSalvo);\n\n  const campo = camposPorId.get(id);\n  const nomeCampo = String(campo?.nome || '').trim().toLowerCase().normalize('NFD').replace(/\\p{M}/gu, '');\n\n  if (nomeCampo === 'nome') return String(contato?.nome ?? '');\n  if (nomeCampo === 'telefone') return String(contato?.telefone ?? '');\n\n  const variaveis = contato?.variaveis && typeof contato.variaveis === 'object' ? contato.variaveis : {};\n  if (campo?.nome) {\n    const slug = String(campo.nome).toLowerCase().replace(/\\s+/g, '_');\n    if (variaveis[slug] != null && String(variaveis[slug]).trim() !== '') return String(variaveis[slug]);\n  }\n  if (variaveis[nomeCampo] != null && String(variaveis[nomeCampo]).trim() !== '') {\n    return String(variaveis[nomeCampo]);\n  }\n  return String(contato?.nome ?? '');\n}\n\nfunction resolveMappedParams(mapping, indexes) {\n  return indexes.map((idx) => {\n    const campoId = mapping?.[String(idx)] ?? mapping?.[idx];\n    if (campoId == null) return '';\n    return resolveField(campoId);\n  });\n}\n\nconst parsed = parseTemplateComponentes(template.componentes);\nconst variaveisCampos = {\n  ...parseVariaveisCampos(template.variaveisCampos),\n  ...parseVariaveisCampos(parsed.variaveisCampos),\n};\nconst templateParts = parsed.components;\n\nconst bodyComponent = templateParts.find((c) => String(c?.type || '').toUpperCase() === 'BODY');\nconst headerComponent = templateParts.find((c) => String(c?.type || '').toUpperCase() === 'HEADER');\nconst buttonsComponent = templateParts.find((c) => String(c?.type || '').toUpperCase() === 'BUTTONS');\n\nconst bodyIndexes = extractVariableIndexes(getComponentText(bodyComponent));\nconst headerIndexes = extractVariableIndexes(getComponentText(headerComponent));\n\nconst resolved = {\n  body: resolveMappedParams(variaveisCampos.body, bodyIndexes),\n  buttons: [],\n};\n\nconst headerFormat = String(headerComponent?.format || '').toLowerCase();\nif (headerIndexes.length > 0 && variaveisCampos.header) {\n  const headerText = resolveMappedParams(variaveisCampos.header, headerIndexes);\n  if (headerText[0]) resolved.header = { type: 'text', text: headerText[0] };\n} else if (['image', 'video', 'document'].includes(headerFormat)) {\n  const headerMap = variaveisCampos.header;\n  let mediaUrl = null;\n  if (headerMap && typeof headerMap === 'object') {\n    const keys = Object.keys(headerMap).sort((a, b) => Number(a) - Number(b));\n    if (keys.length) mediaUrl = resolveField(headerMap[keys[0]]);\n  }\n  resolved.header = mediaUrl\n    ? { type: headerFormat, link: mediaUrl }\n    : { type: headerFormat };\n}\n\nconst buttonsMapping = variaveisCampos.buttons;\nif (Array.isArray(buttonsMapping) && buttonsMapping.length) {\n  const templateButtons = buttonsComponent?.buttons || [];\n  resolved.buttons = buttonsMapping\n    .map((item) => {\n      const index = item?.index ?? item?.idx;\n      const campoId = item?.fieldId ?? item?.idCampo ?? item?.campoId;\n      if (index == null || campoId == null) return null;\n      const templateButton = templateButtons[Number(index)];\n      const buttonType = String(templateButton?.type || item?.type || '').toUpperCase();\n      if (buttonType === 'URL') {\n        return { type: 'url', index: Number(index), payload: resolveField(campoId) };\n      }\n      if (buttonType === 'QUICK_REPLY') {\n        return { type: 'quick_reply', index: Number(index), payload: resolveField(campoId) };\n      }\n      return null;\n    })\n    .filter(Boolean);\n}\n\nif (bodyIndexes.length > 0 && (!resolved.body || resolved.body.length < bodyIndexes.length)) {\n  throw new Error(\n    `Template exige ${bodyIndexes.length} variavel(is) no body; variaveisCampos resolveu ${resolved.body?.length ?? 0}`,\n  );\n}\n\nfunction buildHeaderParameter(type, link) {\n  switch (String(type || 'image').toLowerCase()) {\n    case 'video': return { type: 'video', video: { link } };\n    case 'document': return { type: 'document', document: { link } };\n    default: return { type: 'image', image: { link } };\n  }\n}\n\nfunction buildButtonComponent(button) {\n  if (!button || button.index == null) return null;\n  const index = String(button.index);\n  const type = String(button.type || '').toLowerCase();\n  if (type === 'url') {\n    return { type: 'button', sub_type: 'url', index, parameters: [{ type: 'text', text: String(button.payload ?? '') }] };\n  }\n  if (type === 'quick_reply') {\n    return { type: 'button', sub_type: 'quick_reply', index, parameters: [{ type: 'payload', payload: String(button.payload ?? '') }] };\n  }\n  return null;\n}\n\nconst metaComponents = [];\nconst headerLink = resolved.header?.link;\nconst headerType = (resolved.header?.type || 'image').toLowerCase();\n\nif (headerLink) {\n  metaComponents.push({ type: 'header', parameters: [buildHeaderParameter(headerType, headerLink)] });\n} else if (resolved.header?.type === 'text' && resolved.header?.text != null) {\n  metaComponents.push({ type: 'header', parameters: [{ type: 'text', text: String(resolved.header.text) }] });\n}\n\nif (Array.isArray(resolved.body) && resolved.body.length > 0) {\n  metaComponents.push({\n    type: 'body',\n    parameters: resolved.body.map((text) => ({ type: 'text', text: String(text ?? '') })),\n  });\n}\n\nif (Array.isArray(resolved.buttons)) {\n  for (const button of resolved.buttons) {\n    const component = buildButtonComponent(button);\n    if (component) metaComponents.push(component);\n  }\n}\n\nconst payload = {\n  messaging_product: 'whatsapp',\n  recipient_type: 'individual',\n  to: telefone,\n  type: 'template',\n  template: {\n    name: template.nome,\n    language: { code: template.idioma || 'pt_BR' },\n    ...(metaComponents.length > 0 ? { components: metaComponents } : {}),\n  },\n};\n\nconst metaRes = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `https://graph.facebook.com/v21.0/${conexao.phone_number_id}/messages`,\n  headers: {\n    Authorization: `Bearer ${conexao.access_token}`,\n    'Content-Type': 'application/json',\n  },\n  body: payload,\n  json: true,\n});\n\nif (metaRes.error) {\n  throw new Error(metaRes.error.message || metaRes.error.error_user_msg || 'Falha ao enviar template na Meta.');\n}\n\nconst metaMessageId = metaRes.messages?.[0]?.id || null;\nif (!metaMessageId) throw new Error('Meta nao retornou message id.');\n\nreturn [{ json: { idMensagem, metaMessageId, metaStatus: 'sent' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        368,
+        4608
+      ],
+      "id": "b1b2b3b4-c5d6-4000-8000-000000000305",
+      "name": "PROCESSAR META TEMPLATE"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "SAAS_Mensagens",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.idMensagem }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "enviada",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "tipoMensagem",
+              "fieldValue": "conversation"
+            },
+            {
+              "fieldId": "metaMessageId",
+              "fieldValue": "={{ $json.metaMessageId }}"
+            },
+            {
+              "fieldId": "metaStatus",
+              "fieldValue": "={{ $json.metaStatus }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        528,
+        4608
+      ],
+      "id": "b1b2b3b4-c5d6-4000-8000-000000000308",
+      "name": "MENSAGEM ENVIADA META TEMPLATE",
+      "credentials": {
+        "supabaseApi": {
+          "id": "yzLw3CRWlDo2pmsj",
+          "name": "Supabase [SAAS]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataToSave": {
+          "values": [
+            {
+              "key": "acao",
+              "value": "enviarTemplate"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executionData",
+      "typeVersion": 1.1,
+      "position": [
+        688,
+        4608
+      ],
+      "id": "b1b2b3b4-c5d6-4000-8000-000000000309",
+      "name": "Execution Data103"
+    }
+  ],
+  "connections": {
+    "ENVIAR TEMPLATE": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR DADOS TEMPLATE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PROCESSAR META TEMPLATE": {
+      "main": [
+        [
+          {
+            "node": "MENSAGEM ENVIADA META TEMPLATE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MENSAGEM ENVIADA META TEMPLATE": {
+      "main": [
+        [
+          {
+            "node": "Execution Data103",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR MENSAGEM": {
+      "main": [
+        [
+          {
+            "node": "DADOS CONEXAO TEXTO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DADOS CONEXAO TEXTO": {
+      "main": [
+        [
+          {
+            "node": "IF API OFICIAL TEXTO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF API OFICIAL TEXTO": {
+      "main": [
+        [
+          {
+            "node": "PROCESSAR META TEXTO",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RESTAURAR WEBHOOK TEXTO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RESTAURAR WEBHOOK TEXTO": {
+      "main": [
+        [
+          {
+            "node": "If7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PROCESSAR META TEXTO": {
+      "main": [
+        [
+          {
+            "node": "MENSAGEM ENVIADA META",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MENSAGEM ENVIADA META": {
+      "main": [
+        [
+          {
+            "node": "Execution Data99",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MSG NORMAL": {
+      "main": [
+        [
+          {
+            "node": "MENSAGEM ENVIADA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MSG COM RESPOSTA": {
+      "main": [
+        [
+          {
+            "node": "MENSAGEM ENVIADA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If7": {
+      "main": [
+        [
+          {
+            "node": "MSG COM RESPOSTA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MSG NORMAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MENSAGEM ENVIADA": {
+      "main": [
+        [
+          {
+            "node": "Execution Data99",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR MIDIA": {
+      "main": [
+        [
+          {
+            "node": "DADOS CONEXAO MIDIA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DADOS CONEXAO MIDIA": {
+      "main": [
+        [
+          {
+            "node": "LINK ARQUIVO1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LINK ARQUIVO1": {
+      "main": [
+        [
+          {
+            "node": "Upload a file2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload a file2": {
+      "main": [
+        [
+          {
+            "node": "IF API OFICIAL MIDIA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF API OFICIAL MIDIA": {
+      "main": [
+        [
+          {
+            "node": "PROCESSAR META MIDIA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PROCESSAR META MIDIA": {
+      "main": [
+        [
+          {
+            "node": "IF META CAPTION EXTRA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF META CAPTION EXTRA": {
+      "main": [
+        [
+          {
+            "node": "MENSAGEM ENVIADA CAPTION META",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MENSAGEM ENVIADA META MIDIA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MENSAGEM ENVIADA CAPTION META": {
+      "main": [
+        [
+          {
+            "node": "MENSAGEM ENVIADA META MIDIA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MENSAGEM ENVIADA META MIDIA": {
+      "main": [
+        [
+          {
+            "node": "Execution Data102",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch4": {
+      "main": [
+        [
+          {
+            "node": "If9",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If8",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If8",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If8",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR AUDIO1": {
+      "main": [
+        [
+          {
+            "node": "MENSAGEM ENVIADA2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR MIDIA1": {
+      "main": [
+        [
+          {
+            "node": "MENSAGEM ENVIADA2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If8": {
+      "main": [
+        [
+          {
+            "node": "ENVIAR MIDIA2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ENVIAR MIDIA1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ENVIAR MIDIA2": {
+      "main": [
+        [
+          {
+            "node": "MENSAGEM ENVIADA2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If9": {
+      "main": [
+        [
+          {
+            "node": "MSG NORMAL1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ENVIAR AUDIO1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MSG NORMAL1": {
+      "main": [
+        [
+          {
+            "node": "MENSAGEM ENVIADA3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MENSAGEM ENVIADA2": {
+      "main": [
+        [
+          {
+            "node": "Execution Data102",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR DADOS TEMPLATE": {
+      "main": [
+        [
+          {
+            "node": "PROCESSAR META TEMPLATE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c769dd458d6b5ba7afd15c1a0376f86947c1b86e19cf744b2b8c038019f5a3b6"
+  }
+}

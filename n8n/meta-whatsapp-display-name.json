@@ -1,0 +1,128 @@
+{
+  "name": "Meta WhatsApp - Display Name",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meta-display-name",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e1e2e3e4-0001-4000-8000-000000000001",
+      "name": "WEBHOOK DISPLAY NAME",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "meta-display-name"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "SAAS_Conexões",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ ($json.body ?? $json).conexaoId || ($json.body ?? $json).conexao_id }}"
+            }
+          ]
+        }
+      },
+      "id": "e1e2e3e4-0004-4000-8000-000000000004",
+      "name": "DADOS CONEXAO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [260, 300],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $('WEBHOOK DISPLAY NAME').first().json;\nconst body = raw.body ?? raw;\nconst conexao = $input.first().json;\n\nconst conexaoId = body.conexaoId || body.conexao_id;\nconst acao = String(body.acao || body.action || '').toLowerCase();\nconst displayName = body.display_name || body.displayName || body.nomeExibir || body.novo_nome || null;\n\nif (!conexaoId) throw new Error('Campo conexaoId obrigatorio.');\nif (!['solicitar', 'registrar'].includes(acao)) throw new Error('acao deve ser solicitar ou registrar.');\nif (!conexao?.access_token || !conexao?.phone_number_id) throw new Error('Conexao nao encontrada ou sem phone_number_id.');\nif (!conexao.apiOficial) throw new Error('Conexao nao e API Oficial.');\n\nlet pin = body.pin || body.metaPinVerificacao || conexao.metaPinVerificacao || null;\nif (pin) pin = String(pin).trim();\n\nlet display_name = null;\nif (acao === 'solicitar') {\n  display_name = String(displayName || '').trim();\n  if (!display_name) throw new Error('Campo display_name obrigatorio para solicitar.');\n  if (display_name.length > 128) throw new Error('display_name max 128 caracteres.');\n}\nif (acao === 'registrar' && (!pin || !/^\\d{6}$/.test(pin))) {\n  throw new Error('PIN obrigatorio (6 digitos). Informe pin no body ou reconecte o numero.');\n}\n\nconst token = conexao.access_token;\nconst phoneId = conexao.phone_number_id;\nconst headers = { Authorization: `Bearer ${token}` };\nlet numero_registrado = false;\n\nif (acao === 'solicitar') {\n  const res = await this.helpers.httpRequest({\n    method: 'POST',\n    url: `https://graph.facebook.com/v25.0/${phoneId}`,\n    qs: { new_display_name: display_name },\n    headers,\n    json: true\n  });\n  if (res.error) throw new Error(res.error.error_user_msg || res.error.message || 'Falha ao solicitar display name.');\n  if (!res.success) throw new Error('Meta nao confirmou solicitacao de display name.');\n}\n\nif (acao === 'registrar') {\n  const regRes = await this.helpers.httpRequest({\n    method: 'POST',\n    url: `https://graph.facebook.com/v25.0/${phoneId}/register`,\n    headers: { ...headers, 'Content-Type': 'application/json' },\n    body: { messaging_product: 'whatsapp', pin },\n    json: true\n  });\n  if (regRes.error) {\n    const code = regRes.error.code;\n    const msg = regRes.error.error_user_msg || regRes.error.message || 'Falha ao registrar numero.';\n    if (code === 133005) throw new Error('PIN de verificacao em duas etapas incorreto.');\n    if (code === 133016) throw new Error('Limite de registros atingido (10 em 72h).');\n    throw new Error(msg);\n  }\n  if (!regRes.success) throw new Error('Meta nao confirmou registro do numero.');\n  numero_registrado = true;\n}\n\nconst phoneRes = await this.helpers.httpRequest({\n  method: 'GET',\n  url: `https://graph.facebook.com/v25.0/${phoneId}`,\n  qs: { fields: 'verified_name,name_status,new_display_name,new_name_status,status' },\n  headers,\n  json: true\n});\nif (phoneRes.error) throw new Error(phoneRes.error.error_user_msg || phoneRes.error.message || 'Falha ao consultar status.');\n\nconst LABELS = {\n  APPROVED: 'Aprovado',\n  AVAILABLE_WITHOUT_REVIEW: 'Disponivel sem revisao',\n  DECLINED: 'Recusado',\n  EXPIRED: 'Expirado',\n  PENDING_REVIEW: 'Em revisao',\n  NONE: 'Sem certificado'\n};\n\nconst now = new Date().toISOString();\n\nreturn [{\n  json: {\n    conexaoId,\n    syncPayload: {\n      metaVerifiedName: phoneRes.verified_name || null,\n      metaNameStatus: phoneRes.name_status || null,\n      metaNewDisplayName: phoneRes.new_display_name || null,\n      metaNewNameStatus: phoneRes.new_name_status || null,\n      metaPhoneStatus: phoneRes.status || null,\n      metaDadosUpdatedAt: now\n    },\n    response: {\n      ok: true,\n      acao,\n      conexaoId,\n      display_name_solicitado: display_name,\n      numero_registrado,\n      nome: {\n        atual: phoneRes.verified_name || null,\n        status: phoneRes.name_status || null,\n        statusLabel: LABELS[phoneRes.name_status] || phoneRes.name_status || null,\n        novo: phoneRes.new_display_name || null,\n        novoStatus: phoneRes.new_name_status || null,\n        novoStatusLabel: LABELS[phoneRes.new_name_status] || phoneRes.new_name_status || null\n      },\n      aviso: acao === 'solicitar'\n        ? 'Aguarde aprovacao da Meta. Depois chame acao registrar com o PIN.'\n        : 'Numero re-registrado. O display name aprovado passa a valer nos servidores da Meta.'\n    }\n  }\n}];"
+      },
+      "id": "e1e2e3e4-0007-4000-8000-000000000007",
+      "name": "EXECUTAR",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "SAAS_Conexões",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.conexaoId }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "metaVerifiedName", "fieldValue": "={{ $json.syncPayload.metaVerifiedName }}" },
+            { "fieldId": "metaNameStatus", "fieldValue": "={{ $json.syncPayload.metaNameStatus }}" },
+            { "fieldId": "metaNewDisplayName", "fieldValue": "={{ $json.syncPayload.metaNewDisplayName }}" },
+            { "fieldId": "metaNewNameStatus", "fieldValue": "={{ $json.syncPayload.metaNewNameStatus }}" },
+            { "fieldId": "metaPhoneStatus", "fieldValue": "={{ $json.syncPayload.metaPhoneStatus }}" },
+            { "fieldId": "metaDadosUpdatedAt", "fieldValue": "={{ $json.syncPayload.metaDadosUpdatedAt }}" }
+          ]
+        }
+      },
+      "id": "e1e2e3e4-0011-4000-8000-000000000011",
+      "name": "SALVAR CONEXAO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [780, 300],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $('EXECUTAR').item.json.response }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "e1e2e3e4-0013-4000-8000-000000000013",
+      "name": "RESPONDER SUCESSO",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1040, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Display Name (nome de exibicao)\n\n**URL:** POST /webhook/meta-display-name\n\n### solicitar\n```json\n{ \"conexaoId\": 123, \"acao\": \"solicitar\", \"display_name\": \"Minha Empresa\" }\n```\n\n### registrar (apos aprovacao)\n```json\n{ \"conexaoId\": 123, \"acao\": \"registrar\", \"pin\": \"123456\" }\n```\n\nConsultar status: `meta-perfil` com `acao: consultar` ou `sincronizar`.",
+        "height": 320,
+        "width": 420
+      },
+      "id": "e1e2e3e4-0014-4000-8000-000000000014",
+      "name": "NOTAS",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, 20]
+    }
+  ],
+  "connections": {
+    "WEBHOOK DISPLAY NAME": {
+      "main": [[{ "node": "DADOS CONEXAO", "type": "main", "index": 0 }]]
+    },
+    "DADOS CONEXAO": {
+      "main": [[{ "node": "EXECUTAR", "type": "main", "index": 0 }]]
+    },
+    "EXECUTAR": {
+      "main": [[{ "node": "SALVAR CONEXAO", "type": "main", "index": 0 }]]
+    },
+    "SALVAR CONEXAO": {
+      "main": [[{ "node": "RESPONDER SUCESSO", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "tags": [],
+  "meta": { "templateCredsSetupCompleted": true }
+}

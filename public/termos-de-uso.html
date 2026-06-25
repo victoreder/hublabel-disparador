@@ -5,16 +5,83 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Termos de Uso | HubLabel</title>
   <meta name="description" content="Termos de Uso da plataforma HubLabel e integração WhatsApp API Oficial (Meta)." />
-  <link rel="stylesheet" href="/_assets/legal.css" />
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #475569;
+      --accent: #2563eb;
+      --border: #e2e8f0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+    }
+    .wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+    header { margin-bottom: 28px; }
+    .brand {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    h1 {
+      margin: 8px 0 6px;
+      font-size: 32px;
+      line-height: 1.2;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+    }
+    h2 {
+      margin-top: 28px;
+      margin-bottom: 10px;
+      font-size: 20px;
+    }
+    h3 {
+      margin-top: 18px;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+    p, li { color: #1e293b; }
+    ul { padding-left: 22px; }
+    a { color: var(--accent); }
+    .toc a { text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer {
+      margin-top: 24px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    @media (max-width: 640px) {
+      h1 { font-size: 26px; }
+      .card { padding: 20px; }
+    }
+  </style>
 </head>
 <body>
   <div class="wrap">
     <header>
       <div class="brand">HubLabel</div>
       <h1>Termos de Uso</h1>
-      <p class="meta">
-        Versão: 28/05/2026 · Plataforma: integração WhatsApp API Oficial (Meta)
-      </p>
+      <p class="meta">Versão: 28/05/2026 · Integração WhatsApp API Oficial (Meta)</p>
     </header>
 
     <main class="card">
@@ -30,10 +97,7 @@
       <p>
         <strong>Ao utilizar a plataforma, você declara ter lido, compreendido e aceito estes Termos.</strong>
       </p>
-      <p>
-        Estes Termos devem ser lidos em conjunto com a
-        <a href="/politica-de-privacidade">Política de Privacidade</a>.
-      </p>
+      <p>Estes Termos devem ser lidos em conjunto com a <a href="politica-de-privacidade.html">Política de Privacidade</a>.</p>
 
       <nav class="toc">
         <h2>Sumário</h2>
@@ -76,9 +140,7 @@
         <li>criação e gestão de templates de mensagem;</li>
         <li>processamento de webhooks de eventos (mensagens, status de templates etc.).</li>
       </ul>
-      <p>
-        A HubLabel <strong>não é</strong> a Meta nem representa a Meta perante o Cliente ou Usuário final.
-      </p>
+      <p>A HubLabel <strong>não é</strong> a Meta nem representa a Meta perante o Cliente ou Usuário final.</p>
 
       <h2 id="meta-app">3. Aplicativo Meta do cliente</h2>
       <p>
@@ -134,7 +196,6 @@
         <li>aplicar medidas de segurança compatíveis com a natureza do serviço;</li>
         <li>tratar dados conforme a Política de Privacidade.</li>
       </ul>
-
       <h3>7.2. Do Cliente</h3>
       <ul>
         <li>manter App Meta, webhook e credenciais corretamente configurados;</li>
@@ -155,7 +216,7 @@
       <h2 id="privacidade">9. Privacidade e dados</h2>
       <p>
         O tratamento de dados é regido pela
-        <a href="/politica-de-privacidade">Política de Privacidade</a>.
+        <a href="politica-de-privacidade.html">Política de Privacidade</a>.
       </p>
 
       <h2 id="disponibilidade">10. Disponibilidade e alterações</h2>
@@ -164,7 +225,7 @@
         segurança, compliance ou evolução técnica.
       </p>
       <p>
-        Estes Termos podem ser atualizados a qualquer tempo. A versão vigente será publicada nesta URL.
+        Estes Termos podem ser atualizados a qualquer tempo. A versão vigente será publicada nesta página.
         O uso continuado após alterações implica aceite da nova versão.
       </p>
 
@@ -181,7 +242,6 @@
         Fica eleito o foro da Comarca de <strong>Florianópolis/SC</strong>, salvo disposição legal
         em contrário em relações de consumo.
       </p>
-
       <p>
         <strong>Contato:</strong> RX Estratégias Digitais LTDA · CNPJ 48.713.673/0001-15 ·
         <a href="mailto:financeiro@rxestrategiasdigitais.com.br">financeiro@rxestrategiasdigitais.com.br</a>
@@ -189,10 +249,7 @@
     </main>
 
     <footer>
-      <p>
-        <a href="/politica-de-privacidade">Política de Privacidade</a> ·
-        <a href="/health">Status do serviço</a>
-      </p>
+      <p><a href="politica-de-privacidade.html">Política de Privacidade</a></p>
       <p>© RX Estratégias Digitais LTDA · HubLabel — Todos os direitos reservados.</p>
     </footer>
   </div>

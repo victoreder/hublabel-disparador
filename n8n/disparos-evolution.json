@@ -1,0 +1,2602 @@
+{
+    "nodes": [
+      {
+        "parameters": {
+          "content": "## Recebe mensagem disparo grupo\n",
+          "height": 1056,
+          "width": 2976,
+          "color": 3
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "position": [
+          2304,
+          2800
+        ],
+        "typeVersion": 1,
+        "id": "c6e59cd1-fc16-4cf1-afa3-8598bab061eb",
+        "name": "Sticky Note4"
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "disparar",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          2464,
+          1456
+        ],
+        "id": "1c7f87a9-c084-4262-8f00-576233b63061",
+        "name": "DISPARAR MENSAGEM",
+        "webhookId": "a99059fc-4f49-43c8-a0b4-5789bcd27f9c"
+      },
+      {
+        "parameters": {
+          "operation": "getAll",
+          "tableId": "vw_Detalhes_Completo",
+          "returnAll": true,
+          "matchType": "allFilters",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "dataEnvio",
+                "condition": "gte",
+                "keyValue": "={{ $now }}"
+              },
+              {
+                "keyName": "dataEnvio",
+                "condition": "lte",
+                "keyValue": "={{ $now.plus(1,'minute') }}"
+              },
+              {
+                "keyName": "StatusDisparo",
+                "condition": "neq",
+                "keyValue": "Pausado"
+              },
+              {
+                "keyName": "StatusDisparo",
+                "condition": "neq",
+                "keyValue": "Cancelado"
+              },
+              {
+                "keyName": "Status",
+                "condition": "eq",
+                "keyValue": "pending"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          2592,
+          2432
+        ],
+        "id": "362eebee-137d-4d53-ba8b-3d474ae02d11",
+        "name": "PUXAR DISPAROS MINUTO",
+        "credentials": {
+          "supabaseApi": {
+            "id": "yzLw3CRWlDo2pmsj",
+            "name": "Supabase [SAAS]"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "amount": "={{ (Math.max(0, (new Date($json.body.dataEnvio) - Date.now()) / 1000)).toFixed(2) }}"
+        },
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          2704,
+          1536
+        ],
+        "id": "9720ff03-eb7b-478f-a649-c7575b2d5828",
+        "name": "ESPERAR HORARIO",
+        "webhookId": "622057a2-8a0b-4c51-a81d-e5c89b99c638"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://evolution2.victoreder.com.br/message/sendText/{{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"InstanceName\"] }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"ApikeyConexao\"] }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "number",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"TelefoneContato\"] }}"
+              },
+              {
+                "name": "text",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"Mensagem\"] }}"
+              }
+            ]
+          },
+          "options": {
+            "redirect": {
+              "redirect": {}
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4544,
+          1712
+        ],
+        "id": "db7db206-f147-43fb-bba8-18adcd5fcd92",
+        "name": "MSG TEXTO2",
+        "retryOnFail": true,
+        "waitBetweenTries": 5000,
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://evolution2.victoreder.com.br/message/sendMedia/{{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"InstanceName\"] }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"ApikeyConexao\"] }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "number",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"TelefoneContato\"] }}"
+              },
+              {
+                "name": "caption",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"Mensagem\"] }}"
+              },
+              {
+                "name": "media",
+                "value": "={{ $('DISPARAR MENSAGEM').item.json.body.KeyRedis }}"
+              },
+              {
+                "name": "fileName",
+                "value": "={{ decodeURIComponent($('DISPARAR MENSAGEM').item.json.body.KeyRedis.replaceAll('https://s32.victoreder.com.br/n8n/','')) }}"
+              },
+              {
+                "name": "mediatype",
+                "value": "={{ $node[\"Code in JavaScript\"].json[\"mediaType\"] }}"
+              },
+              {
+                "name": "mimetype",
+                "value": "={{ $json[\"mimetype\"].replaceAll('quicktime','mp4') }}"
+              }
+            ]
+          },
+          "options": {
+            "redirect": {
+              "redirect": {
+                "followRedirects": false
+              }
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4560,
+          1280
+        ],
+        "id": "df502467-d607-4998-a9ef-6e7b7ae2cc06",
+        "name": "MSG TEXTO + MEDIA2",
+        "retryOnFail": true,
+        "executeOnce": false,
+        "waitBetweenTries": 5000,
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "cb1408fb-482d-4102-8b74-f557843fd424",
+                "leftValue": "={{ $('DISPARAR MENSAGEM').item.json.body.KeyRedis }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3360,
+          1456
+        ],
+        "id": "34a8c0e3-0401-4514-ad55-f2a1ce10577f",
+        "name": "TEM MEDIA?"
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "tableId": "SAAS_Detalhes_Disparos",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "id",
+                "condition": "eq",
+                "keyValue": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"id\"] }}"
+              }
+            ]
+          },
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "Status",
+                "fieldValue": "=sent"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          5440,
+          1280
+        ],
+        "id": "9ca18d57-bc5b-41cb-b8ce-5a65e09e0d0f",
+        "name": "SALVAR DISPARO - SUCESSO",
+        "credentials": {
+          "supabaseApi": {
+            "id": "yzLw3CRWlDo2pmsj",
+            "name": "Supabase [SAAS]"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "tableId": "SAAS_Detalhes_Disparos",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "id",
+                "condition": "eq",
+                "keyValue": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"id\"] }}"
+              }
+            ]
+          },
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "Status",
+                "fieldValue": "=failed"
+              },
+              {
+                "fieldId": "Payload",
+                "fieldValue": "={{ $json.error.message }}"
+              },
+              {
+                "fieldId": "mensagemErro",
+                "fieldValue": "={{ \n  $json.error.status === 500\n    ? 'Whatsapp desconectado ou bloqueado'\n    : ($json.error.status === 400\n        ? 'Contato inexistente'\n        : ''   // deixe vazio (ou defina outra mensagem) para outros códigos\n      )\n}}"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          5440,
+          1520
+        ],
+        "id": "15b4594e-67bb-4f8d-9361-501e3f8392fa",
+        "name": "SALVAR DISPARO - FALHO",
+        "credentials": {
+          "supabaseApi": {
+            "id": "yzLw3CRWlDo2pmsj",
+            "name": "Supabase [SAAS]"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.error.status }}",
+                      "rightValue": 504,
+                      "operator": {
+                        "type": "number",
+                        "operation": "equals"
+                      },
+                      "id": "1e4fdcaa-6f5a-48bd-938a-6dfaaf3eb97c"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "TIMEOUT"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "f817d7cb-996e-4892-9e55-00e2a65cf559",
+                      "leftValue": "={{ $json.error.message }}",
+                      "rightValue": "Connection Closed",
+                      "operator": {
+                        "type": "string",
+                        "operation": "contains"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "DESCONECTADO"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "3ca3b2c3-425d-4905-aa16-87e44c6349fb",
+                      "leftValue": "={{ $json.error.status }}",
+                      "rightValue": 502,
+                      "operator": {
+                        "type": "number",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "FORA DO AR"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "a82245de-a9cc-4cb3-8c1b-d6785417dc0d",
+                      "leftValue": "={{ $json.error.status }}",
+                      "rightValue": 500,
+                      "operator": {
+                        "type": "number",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "DESCONECTADO"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "7a013dfa-a8c6-48f7-8e98-4afbc1cbb987",
+                      "leftValue": "={{ $json.error.message.false }}",
+                      "rightValue": 400,
+                      "operator": {
+                        "type": "boolean",
+                        "operation": "false",
+                        "singleValue": true
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "NUMERO NAO EXISTE"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          5104,
+          1552
+        ],
+        "id": "92aa9b10-9b14-4b75-9f6b-4a761176e390",
+        "name": "Switch"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          5440,
+          1952
+        ],
+        "id": "657711c7-5410-484b-9bf5-c8375dc386a1",
+        "name": "ESPERAR 5 SEG",
+        "webhookId": "be0eabf6-8551-461a-8b5c-bdd9a407c450"
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT public.swap_connection($1::bigint, $2::bigint, $3::uuid);",
+          "options": {
+            "queryReplacement": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"idDisparo\"] }},{{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"idConexao\"] }},{{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"UserId\"] }}"
+          }
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          5632,
+          1712
+        ],
+        "id": "28ea901e-2ae3-4c9b-9e76-c8b5a976a564",
+        "name": "CONEXAO DESCONECTADA",
+        "credentials": {
+          "postgres": {
+            "id": "7PzfuDnvHzr3CHMf",
+            "name": "Unnamed credential - SAAS - oficial"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "content": "## DISPARO DE MENSAGENS INDIVIDUAIS\n",
+          "height": 972,
+          "width": 3840,
+          "color": 3
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "position": [
+          2304,
+          1200
+        ],
+        "typeVersion": 1,
+        "id": "cf23348f-c952-4184-9242-ea6fec7c61b7",
+        "name": "Sticky Note26"
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "minutes",
+                "minutesInterval": 1
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          2352,
+          2432
+        ],
+        "id": "30910c35-3dd5-4483-b96a-2b6fe9dced6f",
+        "name": "PROCURAR DISPAROS"
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "disparar-grupos",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          2416,
+          3072
+        ],
+        "id": "0e6da9cc-50e9-424d-a020-cc70829070bd",
+        "name": "DISPARAR MENSAGEM1",
+        "webhookId": "a99059fc-4f49-43c8-a0b4-5789bcd27f9c"
+      },
+      {
+        "parameters": {
+          "amount": "={{ (Math.max(0, (new Date($json.body.dataEnvio) - Date.now()) / 1000)).toFixed(2) }}"
+        },
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          2640,
+          3072
+        ],
+        "id": "3bec6361-941c-4a41-9a6f-f8a6323a1643",
+        "name": "ESPERAR HORARIO1",
+        "webhookId": "622057a2-8a0b-4c51-a81d-e5c89b99c638"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://evolution2.victoreder.com.br/message/sendText/{{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"InstanceName\"] }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"ApikeyConexao\"] }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "number",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"WhatsAppIdGrupo\"] }}"
+              },
+              {
+                "name": "text",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"Mensagem\"] }}"
+              },
+              {
+                "name": "mentionsEveryOne",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"FakeCall\"] }}"
+              }
+            ]
+          },
+          "options": {
+            "redirect": {
+              "redirect": {}
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3744,
+          3248
+        ],
+        "id": "9e8dca59-6c62-4b53-983b-9e87d5e53674",
+        "name": "MSG TEXTO",
+        "retryOnFail": true,
+        "waitBetweenTries": 5000,
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://evolution2.victoreder.com.br/message/sendMedia/{{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"InstanceName\"] }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"ApikeyConexao\"] }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "number",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"WhatsAppIdGrupo\"] }}"
+              },
+              {
+                "name": "mediatype",
+                "value": "={{ $node[\"Code in JavaScript1\"].json[\"mediaType\"] }}"
+              },
+              {
+                "name": "caption",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"Mensagem\"] }}"
+              },
+              {
+                "name": "media",
+                "value": "={{ $('DISPARAR MENSAGEM1').item.json.body.KeyRedis }}"
+              },
+              {
+                "name": "fileName",
+                "value": "={{ decodeURIComponent($('DISPARAR MENSAGEM1').item.json.body.KeyRedis.replaceAll('https://s32.victoreder.com.br/n8n/','')) }}"
+              },
+              {
+                "name": "mentionsEveryOne",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"FakeCall\"] }}"
+              },
+              {
+                "name": "mimetype",
+                "value": "={{ $json[\"mimetype\"].replaceAll('quicktime','mp4') }}"
+              }
+            ]
+          },
+          "options": {
+            "redirect": {
+              "redirect": {}
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3744,
+          2896
+        ],
+        "id": "547833e3-5003-4611-8348-aaf1cb86b2b2",
+        "name": "MSG TEXTO + MEDIA",
+        "retryOnFail": true,
+        "executeOnce": false,
+        "waitBetweenTries": 5000,
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "cb1408fb-482d-4102-8b74-f557843fd424",
+                "leftValue": "={{ $('DISPARAR MENSAGEM1').item.json.body.KeyRedis }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          2848,
+          3120
+        ],
+        "id": "864b6e34-6575-4dd9-a260-ca9175d74bf9",
+        "name": "TEM MEDIA?1"
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "tableId": "SAAS_Detalhes_Disparos",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "id",
+                "condition": "eq",
+                "keyValue": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"id\"] }}"
+              }
+            ]
+          },
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "Status",
+                "fieldValue": "=sent"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          4560,
+          2896
+        ],
+        "id": "d3befc10-02fd-4d52-972c-df5f47bf2b99",
+        "name": "SALVAR DISPARO - SUCESSO1",
+        "credentials": {
+          "supabaseApi": {
+            "id": "yzLw3CRWlDo2pmsj",
+            "name": "Supabase [SAAS]"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "tableId": "SAAS_Detalhes_Disparos",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "id",
+                "condition": "eq",
+                "keyValue": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"id\"] }}"
+              }
+            ]
+          },
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "Status",
+                "fieldValue": "=failed"
+              },
+              {
+                "fieldId": "Payload",
+                "fieldValue": "={{ $json.error.message }}"
+              },
+              {
+                "fieldId": "mensagemErro",
+                "fieldValue": "={{ \n  $json.error.status === 500\n    ? 'Whatsapp desconectado ou bloqueado'\n    : ($json.error.status === 400\n        ? 'Contato inexistente'\n        : ''   // deixe vazio (ou defina outra mensagem) para outros códigos\n      )\n}}"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          4560,
+          3136
+        ],
+        "id": "f105de25-86b2-4123-af22-66deb26603b4",
+        "name": "SALVAR DISPARO - FALHO1",
+        "credentials": {
+          "supabaseApi": {
+            "id": "yzLw3CRWlDo2pmsj",
+            "name": "Supabase [SAAS]"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "351eb347-e7e6-475a-973a-1e860a767fd8",
+                      "leftValue": "={{ $json.error.message }}",
+                      "rightValue": "Connection Closed",
+                      "operator": {
+                        "type": "string",
+                        "operation": "contains"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "DESCOENCTADO"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.error.status }}",
+                      "rightValue": 504,
+                      "operator": {
+                        "type": "number",
+                        "operation": "equals"
+                      },
+                      "id": "1e4fdcaa-6f5a-48bd-938a-6dfaaf3eb97c"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "TIMEOUT"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "3ca3b2c3-425d-4905-aa16-87e44c6349fb",
+                      "leftValue": "={{ $json.error.status }}",
+                      "rightValue": 502,
+                      "operator": {
+                        "type": "number",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "7a013dfa-a8c6-48f7-8e98-4afbc1cbb987",
+                      "leftValue": "={{ $json.error.status }}",
+                      "rightValue": 400,
+                      "operator": {
+                        "type": "number",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "NUMERO NAO EXISTE"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "a82245de-a9cc-4cb3-8c1b-d6785417dc0d",
+                      "leftValue": "={{ $json.error.status }}",
+                      "rightValue": 500,
+                      "operator": {
+                        "type": "number",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "DESCONECTADO"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          4224,
+          3168
+        ],
+        "id": "a273d300-ae08-46c3-a1df-0f2adca0ac2a",
+        "name": "Switch1"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          4560,
+          3568
+        ],
+        "id": "aa14f027-7e6f-468a-a578-1f235d0e4e5f",
+        "name": "ESPERAR 5 SEG1",
+        "webhookId": "be0eabf6-8551-461a-8b5c-bdd9a407c450"
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT public.swap_connection($1::bigint, $2::bigint, $3::uuid);",
+          "options": {
+            "queryReplacement": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"idDisparo\"] }},{{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"idConexao\"] }},{{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"UserId\"] }}"
+          }
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          4720,
+          3360
+        ],
+        "id": "99fe7b0c-c9f0-469b-974d-6cc68cf9b292",
+        "name": "CONEXAO DESCONECTADA1",
+        "credentials": {
+          "postgres": {
+            "id": "7PzfuDnvHzr3CHMf",
+            "name": "Unnamed credential - SAAS - oficial"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.TipoDisparo }}",
+                      "rightValue": "Individual",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "id": "f8d95b81-af2c-42b9-93f7-759e715cd2cf"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Individual"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "1e9be2b3-a5c1-48ed-b625-88428ea791f4",
+                      "leftValue": "={{ $json.TipoDisparo }}",
+                      "rightValue": "Grupos",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals",
+                        "name": "filter.operator.equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Grupos"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          2816,
+          2432
+        ],
+        "id": "f001fc8d-1069-4deb-9b82-88dc61778213",
+        "name": "Switch2"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://webhook2.victoreder.com.br/webhook/disparar",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3104,
+          2368
+        ],
+        "id": "35eef795-5452-4897-bf78-589234e2cf60",
+        "name": "DISPARAR INDIVIDUAL"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://webhook2.victoreder.com.br/webhook/disparar-grupos",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3104,
+          2544
+        ],
+        "id": "f0cc4a79-717d-4cf6-9d6b-b03b6a5308f3",
+        "name": "DISPARAR GRUPOS"
+      },
+      {
+        "parameters": {
+          "dataToSave": {
+            "values": [
+              {
+                "key": "acao",
+                "value": "procurarDisparo"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executionData",
+        "typeVersion": 1.1,
+        "position": [
+          2976,
+          2272
+        ],
+        "id": "5c2a4615-c88a-4fa6-94b5-e3af859d86fd",
+        "name": "Execution Data33"
+      },
+      {
+        "parameters": {
+          "dataToSave": {
+            "values": [
+              {
+                "key": "tipoDisparo",
+                "value": "individual"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executionData",
+        "typeVersion": 1.1,
+        "position": [
+          3296,
+          2368
+        ],
+        "id": "eddd1a17-9093-4374-915c-fdee10db45ad",
+        "name": "Execution Data34"
+      },
+      {
+        "parameters": {
+          "dataToSave": {
+            "values": [
+              {
+                "key": "tipoDisparo",
+                "value": "grupo"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executionData",
+        "typeVersion": 1.1,
+        "position": [
+          3296,
+          2544
+        ],
+        "id": "5d2e9d9d-ae51-472e-91ab-64c5bea56ed5",
+        "name": "Execution Data35"
+      },
+      {
+        "parameters": {
+          "dataToSave": {
+            "values": [
+              {
+                "key": "acao",
+                "value": "dispararMensagem"
+              },
+              {
+                "key": "tipoDisparo",
+                "value": "individual"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executionData",
+        "typeVersion": 1.1,
+        "position": [
+          2608,
+          1296
+        ],
+        "id": "d2bb73f7-68b6-4983-a963-a16d3ca1e9d0",
+        "name": "Execution Data42"
+      },
+      {
+        "parameters": {
+          "dataToSave": {
+            "values": [
+              {
+                "key": "disparo",
+                "value": "sucesso"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executionData",
+        "typeVersion": 1.1,
+        "position": [
+          5840,
+          1280
+        ],
+        "id": "c4017684-6ba7-4df8-9235-505d87d75fc9",
+        "name": "Execution Data43"
+      },
+      {
+        "parameters": {
+          "dataToSave": {
+            "values": [
+              {
+                "key": "disparo",
+                "value": "numeroInexistente"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executionData",
+        "typeVersion": 1.1,
+        "position": [
+          5632,
+          1520
+        ],
+        "id": "f2968136-cd39-49a8-8918-b84245c980a5",
+        "name": "Execution Data44"
+      },
+      {
+        "parameters": {
+          "dataToSave": {
+            "values": [
+              {
+                "key": "disparo",
+                "value": "conexaoDesconectada"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executionData",
+        "typeVersion": 1.1,
+        "position": [
+          5840,
+          1696
+        ],
+        "id": "40533c2a-81a7-414a-b9d8-927842bf6d8a",
+        "name": "Execution Data45"
+      },
+      {
+        "parameters": {
+          "dataToSave": {
+            "values": [
+              {
+                "key": "media",
+                "value": "texto"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executionData",
+        "typeVersion": 1.1,
+        "position": [
+          3088,
+          3328
+        ],
+        "id": "6c961957-d642-495b-b7c2-15933c585344",
+        "name": "Execution Data55"
+      },
+      {
+        "parameters": {
+          "dataToSave": {
+            "values": [
+              {
+                "key": "acao",
+                "value": "dispararMensagem"
+              },
+              {
+                "key": "tipoDisparo",
+                "value": "grupo"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executionData",
+        "typeVersion": 1.1,
+        "position": [
+          2544,
+          2944
+        ],
+        "id": "fe610b10-5223-41d4-bf3e-b9eca2189e8b",
+        "name": "Execution Data56"
+      },
+      {
+        "parameters": {
+          "dataToSave": {
+            "values": [
+              {
+                "key": "disparo",
+                "value": "sucesso"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executionData",
+        "typeVersion": 1.1,
+        "position": [
+          4768,
+          2896
+        ],
+        "id": "0b648a9f-ba96-4efe-9fa0-112988b97196",
+        "name": "Execution Data57"
+      },
+      {
+        "parameters": {
+          "dataToSave": {
+            "values": [
+              {
+                "key": "disparo",
+                "value": "numeroInexistente"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executionData",
+        "typeVersion": 1.1,
+        "position": [
+          4768,
+          3136
+        ],
+        "id": "690798df-3142-458a-9d3d-f95089d0b0fb",
+        "name": "Execution Data58"
+      },
+      {
+        "parameters": {
+          "dataToSave": {
+            "values": [
+              {
+                "key": "disparo",
+                "value": "conexaoDesconectada"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executionData",
+        "typeVersion": 1.1,
+        "position": [
+          4912,
+          3360
+        ],
+        "id": "808b2d24-3559-42e1-8c70-7bb044d0054f",
+        "name": "Execution Data59"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "f031a5e7-c58b-45bf-af5e-20ffcf2e8a7c",
+                "leftValue": "={{ $json.mimetype }}",
+                "rightValue": "audio",
+                "operator": {
+                  "type": "string",
+                  "operation": "contains"
+                }
+              }
+            ],
+            "combinator": "or"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          4160,
+          1360
+        ],
+        "id": "82f6fd02-c01b-40b9-9cf4-4a8b584b86ae",
+        "name": "AUDIO?"
+      },
+      {
+        "parameters": {
+          "method": "HEAD",
+          "url": "={{ $json.body.KeyRedis }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3600,
+          1360
+        ],
+        "id": "6a546912-24e1-4369-9ec2-f58b7ee13af5",
+        "name": "mimetype"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "2cb8d447-d13e-4a9d-a8dd-73e3ecaab0e1",
+                "name": "mimetype",
+                "value": "={{ $binary[Object.keys($binary)[0]].mimeType }}",
+                "type": "string"
+              },
+              {
+                "id": "2bd59b54-ee1c-4950-801e-f917787854c8",
+                "name": "mediatype",
+                "value": "={{ $binary[Object.keys($binary)[0]].mimeType.split('/')[0] }}",
+                "type": "string"
+              }
+            ]
+          },
+          "includeOtherFields": true,
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          3760,
+          1360
+        ],
+        "id": "b2684d66-3739-4191-bf22-097bf9a30d89",
+        "name": "mimetype1"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://evolution2.victoreder.com.br/message/sendText/{{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"InstanceName\"] }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"ApikeyConexao\"] }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "number",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"TelefoneContato\"] }}"
+              },
+              {
+                "name": "text",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"Mensagem\"] }}"
+              }
+            ]
+          },
+          "options": {
+            "redirect": {
+              "redirect": {}
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4688,
+          1456
+        ],
+        "id": "858a76f0-ff2d-4a24-8d0c-56cd2ceabe98",
+        "name": "MSG TEXTO3",
+        "retryOnFail": true,
+        "waitBetweenTries": 5000,
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://evolution2.victoreder.com.br/message/sendWhatsAppAudio/{{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"InstanceName\"] }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"ApikeyConexao\"] }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "number",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"TelefoneContato\"] }}"
+              },
+              {
+                "name": "audio",
+                "value": "={{ $('DISPARAR MENSAGEM').item.json.body.KeyRedis }}"
+              }
+            ]
+          },
+          "options": {
+            "redirect": {
+              "redirect": {}
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          4464,
+          1456
+        ],
+        "id": "bfc0771c-61cd-4ac3-829f-8c6ff618c8b2",
+        "name": "AUDIO2",
+        "retryOnFail": true,
+        "waitBetweenTries": 5000,
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "f031a5e7-c58b-45bf-af5e-20ffcf2e8a7c",
+                "leftValue": "={{ $json.mimetype }}",
+                "rightValue": "audio",
+                "operator": {
+                  "type": "string",
+                  "operation": "contains"
+                }
+              }
+            ],
+            "combinator": "or"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3536,
+          2960
+        ],
+        "id": "5fd7a3de-2272-46ca-b59e-9d1684c4e857",
+        "name": "AUDIO?1"
+      },
+      {
+        "parameters": {
+          "method": "HEAD",
+          "url": "={{ $json.body.KeyRedis }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3008,
+          2960
+        ],
+        "id": "a8126547-0795-462f-8759-a9efd5a7a5d9",
+        "name": "mimetype2"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "2cb8d447-d13e-4a9d-a8dd-73e3ecaab0e1",
+                "name": "mediatype",
+                "value": "={{ $binary[Object.keys($binary)[0]].mimeType.split('/')[0] }}",
+                "type": "string"
+              },
+              {
+                "id": "4484d6cb-fba1-4bab-ae29-2a1e46d02a7f",
+                "name": "mimetype",
+                "value": "={{ $binary[Object.keys($binary)[0]].mimeType }}",
+                "type": "string"
+              }
+            ]
+          },
+          "includeOtherFields": true,
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          3184,
+          2960
+        ],
+        "id": "1ecff942-245d-46db-bd55-9476d3f17508",
+        "name": "mimetype3"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://evolution2.victoreder.com.br/message/sendWhatsAppAudio/{{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"InstanceName\"] }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"ApikeyConexao\"] }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "number",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"WhatsAppIdGrupo\"] }}"
+              },
+              {
+                "name": "audio",
+                "value": "={{ $('DISPARAR MENSAGEM1').item.json.body.KeyRedis }}"
+              },
+              {
+                "name": "mentionsEveryOne",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"FakeCall\"] }}"
+              }
+            ]
+          },
+          "options": {
+            "redirect": {
+              "redirect": {}
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3744,
+          3072
+        ],
+        "id": "c4c6063f-8314-4061-8aa4-2167920d9492",
+        "name": "MSG TEXTO1",
+        "retryOnFail": true,
+        "waitBetweenTries": 5000,
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://evolution2.victoreder.com.br/message/sendText/{{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"InstanceName\"] }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"ApikeyConexao\"] }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "number",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"WhatsAppIdGrupo\"] }}"
+              },
+              {
+                "name": "text",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"Mensagem\"] }}"
+              },
+              {
+                "name": "mentionsEveryOne",
+                "value": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM1\"].json[\"body\"][\"FakeCall\"] }}"
+              }
+            ]
+          },
+          "options": {
+            "redirect": {
+              "redirect": {}
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3952,
+          3072
+        ],
+        "id": "6b9aaba3-75f7-481a-9094-880e764a9d91",
+        "name": "MSG TEXTO4",
+        "retryOnFail": true,
+        "waitBetweenTries": 5000,
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Recebe itens, classifica e devolve um array de itens\nreturn items.map(item => {\n  const bin = item.binary || {};\n  const firstKey = Object.keys(bin)[0];\n  const b = firstKey ? bin[firstKey] : {};\n  const mt = (b.mimeType || '').toLowerCase();\n  const main = mt.split('/')[0];\n\n  let mediaType;\n\n  if (['image', 'video', 'audio'].includes(main)) {\n    mediaType = main;\n  } else {\n    const subtype = (mt.split('/')[1] || '');\n    const docApps = [\n      'pdf','msword','rtf','json','xml','csv',\n      'vnd.openxmlformats-officedocument.wordprocessingml.document',\n      'vnd.openxmlformats-officedocument.spreadsheetml.sheet',\n      'vnd.openxmlformats-officedocument.presentationml.presentation',\n      'vnd.ms-excel','vnd.ms-powerpoint','zip','x-7z-compressed',\n      'x-rar-compressed','x-tar'\n    ];\n\n    if (main === 'text') mediaType = 'document';\n    else if (main === 'application' && docApps.some(s => subtype.includes(s))) mediaType = 'document';\n    else {\n      // Fallback por extensão\n      const name = decodeURIComponent(b.fileName || item.json?.fileName || '');\n      const ext = (name.split('.').pop() || '').toLowerCase();\n\n      if (['jpg','jpeg','png','gif','webp','bmp','tiff','svg','heic','heif','avif'].includes(ext)) mediaType = 'image';\n      else if (['mp4','mov','m4v','mkv','avi','webm','flv','wmv'].includes(ext)) mediaType = 'video';\n      else if (['mp3','wav','m4a','aac','ogg','oga','flac','amr','opus','wma'].includes(ext)) mediaType = 'audio';\n      else mediaType = 'document';\n    }\n  }\n\n  // Anexa a classificação no JSON do item\n  item.json = { ...(item.json || {}), mediaType };\n  return item;\n});\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3984,
+          1360
+        ],
+        "id": "319d4786-f6b3-4e35-89a1-4a291328cc13",
+        "name": "Code in JavaScript"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Recebe itens, classifica e devolve um array de itens\nreturn items.map(item => {\n  const bin = item.binary || {};\n  const firstKey = Object.keys(bin)[0];\n  const b = firstKey ? bin[firstKey] : {};\n  const mt = (b.mimeType || '').toLowerCase();\n  const main = mt.split('/')[0];\n\n  let mediaType;\n\n  if (['image', 'video', 'audio'].includes(main)) {\n    mediaType = main;\n  } else {\n    const subtype = (mt.split('/')[1] || '');\n    const docApps = [\n      'pdf','msword','rtf','json','xml','csv',\n      'vnd.openxmlformats-officedocument.wordprocessingml.document',\n      'vnd.openxmlformats-officedocument.spreadsheetml.sheet',\n      'vnd.openxmlformats-officedocument.presentationml.presentation',\n      'vnd.ms-excel','vnd.ms-powerpoint','zip','x-7z-compressed',\n      'x-rar-compressed','x-tar'\n    ];\n\n    if (main === 'text') mediaType = 'document';\n    else if (main === 'application' && docApps.some(s => subtype.includes(s))) mediaType = 'document';\n    else {\n      // Fallback por extensão\n      const name = decodeURIComponent(b.fileName || item.json?.fileName || '');\n      const ext = (name.split('.').pop() || '').toLowerCase();\n\n      if (['jpg','jpeg','png','gif','webp','bmp','tiff','svg','heic','heif','avif'].includes(ext)) mediaType = 'image';\n      else if (['mp4','mov','m4v','mkv','avi','webm','flv','wmv'].includes(ext)) mediaType = 'video';\n      else if (['mp3','wav','m4a','aac','ogg','oga','flac','amr','opus','wma'].includes(ext)) mediaType = 'audio';\n      else mediaType = 'document';\n    }\n  }\n\n  // Anexa a classificação no JSON do item\n  item.json = { ...(item.json || {}), mediaType };\n  return item;\n});\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3360,
+          2960
+        ],
+        "id": "2270c320-d6f6-465c-940b-fb6f2d194b6d",
+        "name": "Code in JavaScript1"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "6824534c-9ff1-4ad9-8017-9e200096fdee",
+                "leftValue": "={{ $json.error.message }}",
+                "rightValue": "Connection Closed",
+                "operator": {
+                  "type": "string",
+                  "operation": "contains"
+                }
+              },
+              {
+                "id": "4da194b6-9a2b-40a9-8474-7d62be157132",
+                "leftValue": "={{ $json.error.message }}",
+                "rightValue": "exist",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals",
+                  "name": "filter.operator.equals"
+                }
+              }
+            ],
+            "combinator": "or"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          5312,
+          1760
+        ],
+        "id": "be9e334d-e250-4b61-bdfb-cb600e21f141",
+        "name": "CONEXAO"
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "tableId": "SAAS_Detalhes_Disparos",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "id",
+                "condition": "eq",
+                "keyValue": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"id\"] }}"
+              }
+            ]
+          },
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "Status",
+                "fieldValue": "=failed"
+              },
+              {
+                "fieldId": "Payload",
+                "fieldValue": "={{ $json.error.message }}"
+              },
+              {
+                "fieldId": "mensagemErro",
+                "fieldValue": "={{ $json.error.message }}"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          5632,
+          1920
+        ],
+        "id": "45b51265-dea0-4555-bc60-8f7b484fb0a3",
+        "name": "SALVAR DISPARO - FALHO2",
+        "credentials": {
+          "supabaseApi": {
+            "id": "yzLw3CRWlDo2pmsj",
+            "name": "Supabase [SAAS]"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "dataToSave": {
+            "values": [
+              {
+                "key": "disparo",
+                "value": "erroInesperado"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executionData",
+        "typeVersion": 1.1,
+        "position": [
+          5856,
+          1920
+        ],
+        "id": "8e804c72-0d97-4d99-ad44-4023ed71c06c",
+        "name": "Execution Data65"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "6824534c-9ff1-4ad9-8017-9e200096fdee",
+                "leftValue": "={{ $json.error.message }}",
+                "rightValue": "Connection Closed",
+                "operator": {
+                  "type": "string",
+                  "operation": "contains"
+                }
+              },
+              {
+                "id": "4da194b6-9a2b-40a9-8474-7d62be157132",
+                "leftValue": "={{ $json.error.message }}",
+                "rightValue": "exist",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals",
+                  "name": "filter.operator.equals"
+                }
+              }
+            ],
+            "combinator": "or"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          4480,
+          3360
+        ],
+        "id": "2fea5ace-b7a6-4ea5-b513-f698d3189ed8",
+        "name": "CONEXAO1"
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "tableId": "SAAS_Detalhes_Disparos",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "id",
+                "condition": "eq",
+                "keyValue": "={{ $item(\"0\").$node[\"DISPARAR MENSAGEM\"].json[\"body\"][\"id\"] }}"
+              }
+            ]
+          },
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "Status",
+                "fieldValue": "=failed"
+              },
+              {
+                "fieldId": "Payload",
+                "fieldValue": "={{ $json.error.message }}"
+              },
+              {
+                "fieldId": "mensagemErro",
+                "fieldValue": "={{ $json.error.message }}"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [
+          4736,
+          3568
+        ],
+        "id": "f392f5b6-7c01-4b96-b5fa-250add562e23",
+        "name": "SALVAR DISPARO - FALHO3",
+        "credentials": {
+          "supabaseApi": {
+            "id": "yzLw3CRWlDo2pmsj",
+            "name": "Supabase [SAAS]"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "dataToSave": {
+            "values": [
+              {
+                "key": "disparo",
+                "value": "erroInesperado"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executionData",
+        "typeVersion": 1.1,
+        "position": [
+          4960,
+          3568
+        ],
+        "id": "d237d689-a6ee-4e31-8d2f-cb8a50d860d9",
+        "name": "Execution Data66"
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT public.f_mensagem_por_contato(\n  p_contato_id    => $1::bigint,\n  p_id_conexao    => $2::bigint,\n  p_conta_id      => $3::uuid,\n  p_mensagem      => $4::text,\n  p_url_arquivo   => $5::text,\n  p_tipo_mensagem => $6::text\n) AS resultado;",
+          "options": {
+            "queryReplacement": "={{ $json.idContato }},{{ $json.idConexao }},{{ $('DISPARAR MENSAGEM').item.json.body.UserId }},{{ $json.Mensagem }},{{ $json.KeyRedis ? $json.KeyRedis : null }},{{\n  $('MSG TEXTO2').isExecuted && $('MSG TEXTO2').item.json.messageType\n    ? $('MSG TEXTO2').item.json.messageType\n    : $('MSG TEXTO + MEDIA2').isExecuted && $('MSG TEXTO + MEDIA2').item.json.messageType\n      ? $('MSG TEXTO + MEDIA2').item.json.messageType\n      : $('MSG TEXTO3').isExecuted && $('MSG TEXTO3').item.json.messageType\n        ? $('MSG TEXTO3').item.json.messageType\n        : ''\n}}"
+          }
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          5648,
+          1280
+        ],
+        "id": "3f4a4f12-a793-4d69-8c03-4dcb0a21f37d",
+        "name": "SALVAR NO CHAT",
+        "credentials": {
+          "postgres": {
+            "id": "7PzfuDnvHzr3CHMf",
+            "name": "Unnamed credential - SAAS - oficial"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "DISPARAR MENSAGEM": {
+        "main": [
+          [
+            {
+              "node": "Execution Data42",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "ESPERAR HORARIO",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "PUXAR DISPAROS MINUTO": {
+        "main": [
+          [
+            {
+              "node": "Switch2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ESPERAR HORARIO": {
+        "main": [
+          [
+            {
+              "node": "TEM MEDIA?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "MSG TEXTO2": {
+        "main": [
+          [
+            {
+              "node": "SALVAR DISPARO - SUCESSO",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Switch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "MSG TEXTO + MEDIA2": {
+        "main": [
+          [
+            {
+              "node": "SALVAR DISPARO - SUCESSO",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Switch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "TEM MEDIA?": {
+        "main": [
+          [
+            {
+              "node": "mimetype",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "MSG TEXTO2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "SALVAR DISPARO - SUCESSO": {
+        "main": [
+          [
+            {
+              "node": "SALVAR NO CHAT",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "SALVAR DISPARO - FALHO": {
+        "main": [
+          [
+            {
+              "node": "Execution Data44",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Switch": {
+        "main": [
+          [
+            {
+              "node": "ESPERAR 5 SEG",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [],
+          [
+            {
+              "node": "ESPERAR 5 SEG",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "CONEXAO",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "SALVAR DISPARO - FALHO",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ESPERAR 5 SEG": {
+        "main": [
+          [
+            {
+              "node": "TEM MEDIA?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CONEXAO DESCONECTADA": {
+        "main": [
+          [
+            {
+              "node": "Execution Data45",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "PROCURAR DISPAROS": {
+        "main": [
+          [
+            {
+              "node": "PUXAR DISPAROS MINUTO",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Execution Data33",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "DISPARAR MENSAGEM1": {
+        "main": [
+          [
+            {
+              "node": "ESPERAR HORARIO1",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Execution Data56",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ESPERAR HORARIO1": {
+        "main": [
+          [
+            {
+              "node": "TEM MEDIA?1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "MSG TEXTO": {
+        "main": [
+          [
+            {
+              "node": "SALVAR DISPARO - SUCESSO1",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Switch1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "MSG TEXTO + MEDIA": {
+        "main": [
+          [
+            {
+              "node": "SALVAR DISPARO - SUCESSO1",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Switch1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "TEM MEDIA?1": {
+        "main": [
+          [
+            {
+              "node": "mimetype2",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "MSG TEXTO",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Execution Data55",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "SALVAR DISPARO - SUCESSO1": {
+        "main": [
+          [
+            {
+              "node": "Execution Data57",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "SALVAR DISPARO - FALHO1": {
+        "main": [
+          [
+            {
+              "node": "Execution Data58",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Switch1": {
+        "main": [
+          [],
+          [
+            {
+              "node": "ESPERAR 5 SEG1",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "ESPERAR 5 SEG1",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "SALVAR DISPARO - FALHO1",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "CONEXAO1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ESPERAR 5 SEG1": {
+        "main": [
+          [
+            {
+              "node": "TEM MEDIA?1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CONEXAO DESCONECTADA1": {
+        "main": [
+          [
+            {
+              "node": "Execution Data59",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Switch2": {
+        "main": [
+          [
+            {
+              "node": "DISPARAR INDIVIDUAL",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "DISPARAR GRUPOS",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "DISPARAR INDIVIDUAL": {
+        "main": [
+          [
+            {
+              "node": "Execution Data34",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "DISPARAR GRUPOS": {
+        "main": [
+          [
+            {
+              "node": "Execution Data35",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AUDIO?": {
+        "main": [
+          [
+            {
+              "node": "AUDIO2",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "MSG TEXTO + MEDIA2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "mimetype": {
+        "main": [
+          [
+            {
+              "node": "mimetype1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "mimetype1": {
+        "main": [
+          [
+            {
+              "node": "Code in JavaScript",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "MSG TEXTO3": {
+        "main": [
+          [
+            {
+              "node": "SALVAR DISPARO - SUCESSO",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Switch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AUDIO2": {
+        "main": [
+          [
+            {
+              "node": "MSG TEXTO3",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Switch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AUDIO?1": {
+        "main": [
+          [
+            {
+              "node": "MSG TEXTO1",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "MSG TEXTO + MEDIA",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "mimetype2": {
+        "main": [
+          [
+            {
+              "node": "mimetype3",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "mimetype3": {
+        "main": [
+          [
+            {
+              "node": "Code in JavaScript1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "MSG TEXTO1": {
+        "main": [
+          [
+            {
+              "node": "MSG TEXTO4",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Switch1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "MSG TEXTO4": {
+        "main": [
+          [
+            {
+              "node": "SALVAR DISPARO - SUCESSO1",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Switch1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Code in JavaScript": {
+        "main": [
+          [
+            {
+              "node": "AUDIO?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Code in JavaScript1": {
+        "main": [
+          [
+            {
+              "node": "AUDIO?1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CONEXAO": {
+        "main": [
+          [
+            {
+              "node": "CONEXAO DESCONECTADA",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "SALVAR DISPARO - FALHO2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "SALVAR DISPARO - FALHO2": {
+        "main": [
+          [
+            {
+              "node": "Execution Data65",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "CONEXAO1": {
+        "main": [
+          [
+            {
+              "node": "CONEXAO DESCONECTADA1",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "SALVAR DISPARO - FALHO3",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "SALVAR DISPARO - FALHO3": {
+        "main": [
+          [
+            {
+              "node": "Execution Data66",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "SALVAR NO CHAT": {
+        "main": [
+          [
+            {
+              "node": "Execution Data43",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "pinData": {
+      "DISPARAR MENSAGEM": [
+        {
+          "headers": {
+            "host": "webhook2.victoreder.com.br",
+            "user-agent": "axios/1.13.5",
+            "content-length": "559",
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "content-type": "application/json",
+            "x-forwarded-for": "172.18.0.1",
+            "x-forwarded-host": "webhook2.victoreder.com.br",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "5dce8e0b37b0",
+            "x-real-ip": "172.18.0.1"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "id": 6585,
+            "idDisparo": 295,
+            "idContato": 8087,
+            "Mensagem": "outro teste",
+            "idConexao": 391,
+            "dataEnvio": "2026-04-29T13:30:57.538323+00:00",
+            "Status": "pending",
+            "statusHttp": null,
+            "mensagemErro": null,
+            "respostaHttp": null,
+            "Payload": null,
+            "KeyRedis": null,
+            "FakeCall": false,
+            "StatusDisparo": "Aguardando",
+            "TelefoneContato": "554891034326@s.whatsapp.net",
+            "WhatsAppIdGrupo": null,
+            "NomeGrupo": "Lucas",
+            "InstanceName": "victo-CWBFQE",
+            "ApikeyConexao": "36DDC297-100E-486E-9BE3-EA9E4C74DC9D",
+            "UserId": "5b845d7c-d40d-4fa6-a5b4-e26cf246a15a",
+            "NomeConexao": "victo",
+            "TipoDisparo": "Individual"
+          },
+          "webhookUrl": "https://webhook2.victoreder.com.br/webhook/disparar",
+          "executionMode": "production"
+        }
+      ]
+    },
+    "meta": {
+      "templateCredsSetupCompleted": true,
+      "instanceId": "c769dd458d6b5ba7afd15c1a0376f86947c1b86e19cf744b2b8c038019f5a3b6"
+    }
+  }

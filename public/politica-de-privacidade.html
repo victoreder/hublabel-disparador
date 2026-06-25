@@ -5,16 +5,89 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Política de Privacidade | HubLabel</title>
   <meta name="description" content="Política de Privacidade da plataforma HubLabel e integração WhatsApp API Oficial (Meta)." />
-  <link rel="stylesheet" href="/_assets/legal.css" />
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #475569;
+      --accent: #2563eb;
+      --border: #e2e8f0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+    }
+    .wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+    header { margin-bottom: 28px; }
+    .brand {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    h1 {
+      margin: 8px 0 6px;
+      font-size: 32px;
+      line-height: 1.2;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+    }
+    h2 {
+      margin-top: 28px;
+      margin-bottom: 10px;
+      font-size: 20px;
+    }
+    h3 {
+      margin-top: 18px;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+    p, li { color: #1e293b; }
+    ul { padding-left: 22px; }
+    a { color: var(--accent); }
+    .toc a { text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    code {
+      font-size: 0.92em;
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    footer {
+      margin-top: 24px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    @media (max-width: 640px) {
+      h1 { font-size: 26px; }
+      .card { padding: 20px; }
+    }
+  </style>
 </head>
 <body>
   <div class="wrap">
     <header>
       <div class="brand">HubLabel</div>
       <h1>Política de Privacidade</h1>
-      <p class="meta">
-        Versão: 28/05/2026 · Plataforma: integração WhatsApp API Oficial (Meta)
-      </p>
+      <p class="meta">Versão: 28/05/2026 · Integração WhatsApp API Oficial (Meta)</p>
     </header>
 
     <main class="card">
@@ -31,9 +104,7 @@
         processa dados técnicos e operacionais necessários ao funcionamento da plataforma; o Cliente
         é responsável perante seus usuários finais conforme sua relação contratual e política própria.
       </p>
-      <p>
-        Esta Política integra os <a href="/termos-de-uso">Termos de Uso</a> da plataforma.
-      </p>
+      <p>Esta Política integra os <a href="termos-de-uso.html">Termos de Uso</a> da plataforma.</p>
 
       <nav class="toc">
         <h2>Sumário</h2>
@@ -76,14 +147,12 @@
       </p>
 
       <h2 id="dados">3. Dados que tratamos</h2>
-
       <h3>3.1. Dados de cadastro e conta</h3>
       <ul>
         <li>identificação da conta/empresa (<code>contaId</code>, nome, slug);</li>
         <li>dados de usuários administradores (nome, e-mail, telefone, quando informados);</li>
         <li>registros de acesso e autenticação na plataforma.</li>
       </ul>
-
       <h3>3.2. Dados da integração Meta / WhatsApp</h3>
       <ul>
         <li>App ID e Config ID do aplicativo Meta do Cliente (configuração);</li>
@@ -95,7 +164,6 @@
         <li>mensagens enviadas e metadados de entrega (destinatário, tipo, ID da mensagem, payload técnico);</li>
         <li>eventos recebidos via webhook (mensagens inbound, status de template, status de entrega).</li>
       </ul>
-
       <h3>3.3. Dados de titulares contatados via WhatsApp</h3>
       <p>Quando o Cliente utiliza a API para atendimento ou disparos, podemos tratar em nome do Cliente:</p>
       <ul>
@@ -103,13 +171,11 @@
         <li>conteúdo de mensagens trocadas (texto, mídia, metadados);</li>
         <li>identificadores de conversa e timestamps.</li>
       </ul>
-
       <h3>3.4. Dados coletados automaticamente</h3>
       <ul>
         <li>endereço IP, data/hora, user-agent, URLs acessadas;</li>
         <li>logs de erro, auditoria e diagnóstico de infraestrutura.</li>
       </ul>
-
       <h3>3.5. Dados que não coletamos</h3>
       <ul>
         <li>senha da conta Meta/Facebook do usuário (login ocorre diretamente na Meta);</li>
@@ -158,9 +224,7 @@
       </ul>
 
       <h2 id="seguranca">8. Segurança</h2>
-      <p>
-        Adotamos medidas técnicas e organizacionais proporcionais ao risco, incluindo:
-      </p>
+      <p>Adotamos medidas técnicas e organizacionais proporcionais ao risco, incluindo:</p>
       <ul>
         <li>comunicação via HTTPS/TLS;</li>
         <li>restricção de App Secret e tokens a ambientes servidor;</li>
@@ -212,16 +276,13 @@
 
       <h2 id="alteracoes">13. Alterações</h2>
       <p>
-        Podemos atualizar esta Política a qualquer momento. A versão vigente será publicada nesta URL.
+        Podemos atualizar esta Política a qualquer momento. A versão vigente será publicada nesta página.
         Alterações relevantes poderão ser comunicadas por meios razoáveis.
       </p>
     </main>
 
     <footer>
-      <p>
-        <a href="/termos-de-uso">Termos de Uso</a> ·
-        <a href="/health">Status do serviço</a>
-      </p>
+      <p><a href="termos-de-uso.html">Termos de Uso</a></p>
       <p>© RX Estratégias Digitais LTDA · HubLabel — Todos os direitos reservados.</p>
     </footer>
   </div>

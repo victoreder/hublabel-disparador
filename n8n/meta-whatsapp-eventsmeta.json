@@ -1,0 +1,388 @@
+{
+  "name": "Meta WhatsApp - Events Meta",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "eventsmeta",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0001-4000-8000-000000000001",
+      "name": "WEBHOOK GET VERIFICACAO",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 200],
+      "webhookId": "eventsmeta-verify"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "SAAS_Config_ApiOficial",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "1"
+            }
+          ]
+        }
+      },
+      "id": "b1b2c3d4-0028-4000-8000-000000000028",
+      "name": "CONFIG API OFICIAL",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [240, 200],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const query = $('WEBHOOK GET VERIFICACAO').first().json.query ?? $input.first().json.query ?? $input.first().json;\nconst config = $('CONFIG API OFICIAL').first().json;\nconst verifyToken = config.verify_token || config.verifyToken;\n\nif (!verifyToken) {\n  throw new Error('Configure verify_token em SAAS_Config_ApiOficial.');\n}\n\nconst mode = query['hub.mode'] || query.hub?.mode;\nconst token = query['hub.verify_token'] || query.hub?.verify_token;\nconst challenge = query['hub.challenge'] || query.hub?.challenge;\n\nif (mode === 'subscribe' && token === verifyToken && challenge) {\n  return [{ json: { challenge: String(challenge), verified: true } }];\n}\n\nreturn [{ json: { verified: false } }];"
+      },
+      "id": "b1b2c3d4-0003-4000-8000-000000000003",
+      "name": "VALIDAR CHALLENGE",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-verified",
+              "leftValue": "={{ $json.verified }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1b2c3d4-0004-4000-8000-000000000004",
+      "name": "TOKEN VALIDO?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [720, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.challenge }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "b1b2c3d4-0005-4000-8000-000000000005",
+      "name": "RESPONDER CHALLENGE",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [960, 120]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"error\": \"forbidden\" }",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "b1b2c3d4-0006-4000-8000-000000000006",
+      "name": "RESPONDER 403",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "eventsmeta",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b1b2c3d4-0007-4000-8000-000000000007",
+      "name": "WEBHOOK POST EVENTOS",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 520],
+      "webhookId": "eventsmeta-inbound"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = raw.body ?? raw;\n\nconst entries = Array.isArray(body.entry) ? body.entry : [];\nconst events = [];\n\nfor (const entry of entries) {\n  const wabaId = entry.id;\n  const changes = Array.isArray(entry.changes) ? entry.changes : [];\n  for (const change of changes) {\n    events.push({\n      waba_id: wabaId,\n      field: change.field,\n      value: change.value,\n      received_at: new Date().toISOString()\n    });\n  }\n}\n\nreturn events.length\n  ? events.map((event) => ({ json: { ...event, empty: false } }))\n  : [{ json: { empty: true, received_at: new Date().toISOString() } }];"
+      },
+      "id": "b1b2c3d4-0009-4000-8000-000000000009",
+      "name": "EXTRAIR EVENTOS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 520]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "EVENT_RECEIVED",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "b1b2c3d4-0010-4000-8000-000000000010",
+      "name": "RESPONDER 200 META",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [480, 420]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-not-empty",
+              "leftValue": "={{ $json.empty }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1b2c3d4-0012-4000-8000-000000000012",
+      "name": "TEM EVENTOS?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [480, 620]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT public.f_meta_processar_evento($1::jsonb) AS resultado;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ waba_id: $json.waba_id, field: $json.field, value: $json.value, received_at: $json.received_at }) }}"
+        }
+      },
+      "id": "b1b2c3d4-0013-4000-8000-000000000013",
+      "name": "PROCESSAR EVENTO",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [720, 620],
+      "credentials": {
+        "postgres": {
+          "id": "7PzfuDnvHzr3CHMf",
+          "name": "Unnamed credential - SAAS - oficial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const mediaTypes = ['image', 'audio', 'video', 'document', 'sticker'];\nconst extMap = {\n  'image/jpeg': 'jpg',\n  'image/jpg': 'jpg',\n  'image/png': 'png',\n  'image/webp': 'webp',\n  'video/mp4': 'mp4',\n  'video/3gpp': '3gp',\n  'audio/ogg': 'ogg',\n  'audio/ogg; codecs=opus': 'ogg',\n  'audio/mpeg': 'mp3',\n  'audio/aac': 'aac',\n  'application/pdf': 'pdf'\n};\nconst out = [];\n\nfor (const item of $input.all()) {\n  const e = item.json;\n  if (e.empty || e.field !== 'messages') continue;\n\n  const value = e.value || {};\n  const phoneNumberId = value.metadata?.phone_number_id || null;\n  const contacts = Array.isArray(value.contacts) ? value.contacts : [];\n  const nomeContato = contacts[0]?.profile?.name || null;\n  const messages = Array.isArray(value.messages) ? value.messages : [];\n\n  for (const msg of messages) {\n    const type = msg.type;\n    if (!mediaTypes.includes(type)) continue;\n\n    const block = msg[type] || {};\n    const mediaId = block.id;\n    if (!mediaId) continue;\n\n    let ext = extMap[(block.mime_type || '').toLowerCase()] || 'bin';\n    if (block.filename && String(block.filename).includes('.')) {\n      ext = String(block.filename).split('.').pop() || ext;\n    }\n\n    const safeId = String(msg.id || mediaId).replace(/[^a-zA-Z0-9._-]/g, '_');\n\n    out.push({\n      json: {\n        waba_id: e.waba_id,\n        phone_number_id: phoneNumberId,\n        meta_message_id: msg.id,\n        telefone: msg.from,\n        tipo_mensagem: type,\n        mensagem: block.caption || null,\n        media_id: mediaId,\n        mime_type: block.mime_type || null,\n        filename_meta: block.filename || null,\n        nome_contato: nomeContato,\n        received_at: e.received_at,\n        file_ext: ext,\n        safe_message_id: safeId,\n        mensagemRespondida: msg.context?.id || null\n      }\n    });\n  }\n}\n\nreturn out;"
+      },
+      "id": "b1b2c3d4-0014-4000-8000-000000000014",
+      "name": "EXTRAIR MIDIAS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 860]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT c.id AS \"conexaoId\", c.\"contaId\", c.access_token\nFROM public.\"SAAS_Conexões\" c\nWHERE COALESCE(c.\"apiOficial\", false) = true\n  AND (\n    (NULLIF($1::text, '') IS NOT NULL AND c.\"phone_number_id\" = $1::text)\n    OR (NULLIF($2::text, '') IS NOT NULL AND c.waba_id = $2::text)\n  )\nORDER BY CASE WHEN c.\"phone_number_id\" = $1::text THEN 0 ELSE 1 END\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ $('EXTRAIR MIDIAS').item.json.phone_number_id || '' }},{{ $('EXTRAIR MIDIAS').item.json.waba_id || '' }}"
+        }
+      },
+      "id": "b1b2c3d4-0015-4000-8000-000000000015",
+      "name": "BUSCAR CONEXAO MIDIA",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [960, 860],
+      "credentials": {
+        "postgres": {
+          "id": "7PzfuDnvHzr3CHMf",
+          "name": "Unnamed credential - SAAS - oficial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v25.0/{{ $('EXTRAIR MIDIAS').item.json.media_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('BUSCAR CONEXAO MIDIA').item.json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1b2c3d4-0017-4000-8000-000000000017",
+      "name": "URL MIDIA META",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 860]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('URL MIDIA META').item.json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('BUSCAR CONEXAO MIDIA').item.json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "b1b2c3d4-0019-4000-8000-000000000019",
+      "name": "BAIXAR ARQUIVO META",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 860]
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "n8n",
+        "fileName": "={{ 'meta/' + $('BUSCAR CONEXAO MIDIA').item.json.conexaoId + '/' + $('EXTRAIR MIDIAS').item.json.safe_message_id + '.' + $('EXTRAIR MIDIAS').item.json.file_ext }}",
+        "binaryPropertyName": "data",
+        "additionalFields": {}
+      },
+      "id": "b1b2c3d4-0021-4000-8000-000000000021",
+      "name": "UPLOAD S3",
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [1680, 860],
+      "credentials": {
+        "s3": {
+          "id": "5aMeyJPyMolp0nwq",
+          "name": "Minio"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT public.f_meta_salvar_mensagem_midia_job($1::jsonb) AS resultado;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify({ conexaoId: $('BUSCAR CONEXAO MIDIA').item.json.conexaoId, contaId: $('BUSCAR CONEXAO MIDIA').item.json.contaId, telefone: $('EXTRAIR MIDIAS').item.json.telefone, mensagem: $('EXTRAIR MIDIAS').item.json.mensagem, tipo_mensagem: $('EXTRAIR MIDIAS').item.json.tipo_mensagem, meta_message_id: $('EXTRAIR MIDIAS').item.json.meta_message_id, link: 'https://s32.victoreder.com.br/n8n/meta/' + $('BUSCAR CONEXAO MIDIA').item.json.conexaoId + '/' + $('EXTRAIR MIDIAS').item.json.safe_message_id + '.' + $('EXTRAIR MIDIAS').item.json.file_ext, nome_contato: $('EXTRAIR MIDIAS').item.json.nome_contato, mensagemRespondida: $('EXTRAIR MIDIAS').item.json.mensagemRespondida || null }) }}"
+        }
+      },
+      "id": "b1b2c3d4-0022-4000-8000-000000000022",
+      "name": "SALVAR MENSAGEM MIDIA",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1920, 860],
+      "credentials": {
+        "postgres": {
+          "id": "7PzfuDnvHzr3CHMf",
+          "name": "Unnamed credential - SAAS - oficial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Events Meta\n\n**GET** — verificacao Meta\n`verify_token` vem de `SAAS_Config_ApiOficial` (id=1)\n\n**POST**\n1. Responde 200 imediato\n2. PROCESSAR EVENTO (Postgres)\n3. Midias: download Meta v25.0 → S3 Minio (direto, sem Code) → chat\n\nCredenciais:\n- Supabase [SAAS] (config)\n- Postgres: Unnamed credential - SAAS - oficial\n- S3: Minio (bucket n8n)\n\nURL: https://back.victoreder.com.br/eventsmeta",
+        "height": 340,
+        "width": 480
+      },
+      "id": "b1b2c3d4-0011-4000-8000-000000000011",
+      "name": "NOTAS",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, 20]
+    }
+  ],
+  "connections": {
+    "WEBHOOK GET VERIFICACAO": {
+      "main": [[{ "node": "CONFIG API OFICIAL", "type": "main", "index": 0 }]]
+    },
+    "CONFIG API OFICIAL": {
+      "main": [[{ "node": "VALIDAR CHALLENGE", "type": "main", "index": 0 }]]
+    },
+    "VALIDAR CHALLENGE": {
+      "main": [[{ "node": "TOKEN VALIDO?", "type": "main", "index": 0 }]]
+    },
+    "TOKEN VALIDO?": {
+      "main": [
+        [{ "node": "RESPONDER CHALLENGE", "type": "main", "index": 0 }],
+        [{ "node": "RESPONDER 403", "type": "main", "index": 0 }]
+      ]
+    },
+    "WEBHOOK POST EVENTOS": {
+      "main": [[{ "node": "EXTRAIR EVENTOS", "type": "main", "index": 0 }]]
+    },
+    "EXTRAIR EVENTOS": {
+      "main": [
+        [
+          { "node": "RESPONDER 200 META", "type": "main", "index": 0 },
+          { "node": "TEM EVENTOS?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "TEM EVENTOS?": {
+      "main": [
+        [
+          { "node": "PROCESSAR EVENTO", "type": "main", "index": 0 },
+          { "node": "EXTRAIR MIDIAS", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    },
+    "EXTRAIR MIDIAS": {
+      "main": [[{ "node": "BUSCAR CONEXAO MIDIA", "type": "main", "index": 0 }]]
+    },
+    "BUSCAR CONEXAO MIDIA": {
+      "main": [[{ "node": "URL MIDIA META", "type": "main", "index": 0 }]]
+    },
+    "URL MIDIA META": {
+      "main": [[{ "node": "BAIXAR ARQUIVO META", "type": "main", "index": 0 }]]
+    },
+    "BAIXAR ARQUIVO META": {
+      "main": [[{ "node": "UPLOAD S3", "type": "main", "index": 0 }]]
+    },
+    "UPLOAD S3": {
+      "main": [[{ "node": "SALVAR MENSAGEM MIDIA", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

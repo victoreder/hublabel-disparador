@@ -1,0 +1,37 @@
+services:
+  disparador-meta:
+    build: .
+    container_name: hublabel-disparador-meta
+    restart: unless-stopped
+    ports:
+      - "3080:3080"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3080
+
+  disparador-evolution:
+    build: .
+    container_name: hublabel-disparador-evolution
+    restart: unless-stopped
+    command: ["node", "src/workers/evolution.js"]
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    healthcheck:
+      disable: true
+
+  disparador-inbound:
+    build: .
+    container_name: hublabel-disparador-inbound
+    restart: unless-stopped
+    command: ["node", "src/inbound.js"]
+    ports:
+      - "3090:3090"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      INBOUND_PORT: 3090

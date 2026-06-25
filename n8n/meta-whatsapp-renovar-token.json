@@ -1,0 +1,273 @@
+{
+  "name": "Meta WhatsApp - Renovar Token",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meta-renovar-token",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c1c2c3d4-0001-4000-8000-000000000001",
+      "name": "WEBHOOK RENOVAR TOKEN",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "meta-renovar-token"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = raw.body ?? raw;\n\nconst conexaoId = body.conexaoId || body.conexao_id || null;\nconst phoneNumberId = body.phone_number_id || null;\n\nif (!conexaoId && !phoneNumberId) {\n  throw new Error('Informe conexaoId ou phone_number_id.');\n}\n\nreturn [{ json: { conexaoId, phone_number_id: phoneNumberId } }];"
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000003",
+      "name": "VALIDAR ENTRADA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "SAAS_Config_ApiOficial",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "1"
+            }
+          ]
+        }
+      },
+      "id": "c1c2c3d4-0014-4000-8000-000000000014",
+      "name": "CONFIG API OFICIAL",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [480, 300],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-id",
+              "leftValue": "={{ !!$('VALIDAR ENTRADA').first().json.conexaoId }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c1c2c3d4-0012-4000-8000-000000000012",
+      "name": "BUSCAR POR ID?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "SAAS_Conexões",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('VALIDAR ENTRADA').item.json.conexaoId }}"
+            }
+          ]
+        }
+      },
+      "id": "c1c2c3d4-0004-4000-8000-000000000004",
+      "name": "DADOS CONEXAO ID",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [960, 200],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "SAAS_Conexões",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone_number_id",
+              "keyValue": "={{ $('VALIDAR ENTRADA').item.json.phone_number_id }}"
+            }
+          ]
+        }
+      },
+      "id": "c1c2c3d4-0013-4000-8000-000000000013",
+      "name": "DADOS CONEXAO PHONE",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [960, 400],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('CONFIG API OFICIAL').first().json;\nconst row = $input.first().json;\n\nif (!config?.app_id || !config?.app_secret) {\n  throw new Error('Config API Oficial incompleta em SAAS_Config_ApiOficial.');\n}\nif (!row?.access_token) {\n  throw new Error('Conexao nao encontrada em SAAS_Conexoes.');\n}\nif (!row.apiOficial) {\n  throw new Error('Conexao nao e API Oficial (apiOficial=false).');\n}\n\nreturn [{ json: row }];"
+      },
+      "id": "c1c2c3d4-0005-4000-8000-000000000005",
+      "name": "VALIDAR CONEXAO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/v25.0/oauth/access_token",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "grant_type", "value": "fb_exchange_token" },
+            { "name": "client_id", "value": "={{ $('CONFIG API OFICIAL').first().json.app_id }}" },
+            { "name": "client_secret", "value": "={{ $('CONFIG API OFICIAL').first().json.app_secret }}" },
+            { "name": "fb_exchange_token", "value": "={{ $json.access_token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c1c2c3d4-0006-4000-8000-000000000006",
+      "name": "RENOVAR TOKEN META",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const conexao = $('VALIDAR CONEXAO').first().json;\nconst tokenRes = $input.first().json;\n\nif (tokenRes.error) {\n  throw new Error(tokenRes.error.message || 'Falha ao renovar token na Meta.');\n}\nif (!tokenRes.access_token) {\n  throw new Error('Resposta da Meta sem access_token.');\n}\n\nconst expiresAt = tokenRes.expires_in\n  ? new Date(Date.now() + Number(tokenRes.expires_in) * 1000).toISOString()\n  : null;\n\nreturn [\n  {\n    json: {\n      conexaoId: conexao.id,\n      access_token: tokenRes.access_token,\n      expires_in: tokenRes.expires_in || null,\n      expires_at: expiresAt\n    }\n  }\n];"
+      },
+      "id": "c1c2c3d4-0007-4000-8000-000000000007",
+      "name": "VALIDAR RESPOSTA META",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "SAAS_Conexões",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.conexaoId }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "access_token", "fieldValue": "={{ $json.access_token }}" },
+            { "fieldId": "expires_in", "fieldValue": "={{ $json.expires_in }}" },
+            { "fieldId": "expires_at", "fieldValue": "={{ $json.expires_at }}" }
+          ]
+        }
+      },
+      "id": "c1c2c3d4-0008-4000-8000-000000000008",
+      "name": "ATUALIZAR CONEXAO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1920, 300],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $('VALIDAR RESPOSTA META').first().json;\n\nreturn [\n  {\n    json: {\n      ok: true,\n      conexaoId: prev.conexaoId,\n      expires_in: prev.expires_in,\n      expires_at: prev.expires_at,\n      renewed_at: new Date().toISOString()\n    }\n  }\n];"
+      },
+      "id": "c1c2c3d4-0009-4000-8000-000000000009",
+      "name": "MONTAR RESPOSTA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2160, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "c1c2c3d4-0010-4000-8000-000000000010",
+      "name": "RESPONDER SUCESSO",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2400, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Body de entrada (POST)\n\n```json\n{ \"conexaoId\": 123 }\n```\n\nOu:\n```json\n{ \"phone_number_id\": \"123456789\" }\n```\n\n`app_id` e `app_secret` vêm de `SAAS_Config_ApiOficial` (id=1).\nBusca token em `SAAS_Conexões`, renova na Meta, atualiza `access_token`, `expires_in` e `expires_at`.\n\nCredencial: Supabase [SAAS]\n\nURL: POST https://n8n2.victoreder.com.br/webhook/meta-renovar-token",
+        "height": 360,
+        "width": 520
+      },
+      "id": "c1c2c3d4-0011-4000-8000-000000000011",
+      "name": "NOTAS",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, 20]
+    }
+  ],
+  "connections": {
+    "WEBHOOK RENOVAR TOKEN": {
+      "main": [[{ "node": "VALIDAR ENTRADA", "type": "main", "index": 0 }]]
+    },
+    "VALIDAR ENTRADA": {
+      "main": [[{ "node": "CONFIG API OFICIAL", "type": "main", "index": 0 }]]
+    },
+    "CONFIG API OFICIAL": {
+      "main": [[{ "node": "BUSCAR POR ID?", "type": "main", "index": 0 }]]
+    },
+    "BUSCAR POR ID?": {
+      "main": [
+        [{ "node": "DADOS CONEXAO ID", "type": "main", "index": 0 }],
+        [{ "node": "DADOS CONEXAO PHONE", "type": "main", "index": 0 }]
+      ]
+    },
+    "DADOS CONEXAO ID": {
+      "main": [[{ "node": "VALIDAR CONEXAO", "type": "main", "index": 0 }]]
+    },
+    "DADOS CONEXAO PHONE": {
+      "main": [[{ "node": "VALIDAR CONEXAO", "type": "main", "index": 0 }]]
+    },
+    "VALIDAR CONEXAO": {
+      "main": [[{ "node": "RENOVAR TOKEN META", "type": "main", "index": 0 }]]
+    },
+    "RENOVAR TOKEN META": {
+      "main": [[{ "node": "VALIDAR RESPOSTA META", "type": "main", "index": 0 }]]
+    },
+    "VALIDAR RESPOSTA META": {
+      "main": [[{ "node": "ATUALIZAR CONEXAO", "type": "main", "index": 0 }]]
+    },
+    "ATUALIZAR CONEXAO": {
+      "main": [[{ "node": "MONTAR RESPOSTA", "type": "main", "index": 0 }]]
+    },
+    "MONTAR RESPOSTA": {
+      "main": [[{ "node": "RESPONDER SUCESSO", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "tags": [],
+  "meta": { "templateCredsSetupCompleted": true }
+}

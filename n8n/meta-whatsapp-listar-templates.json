@@ -1,0 +1,249 @@
+{
+  "name": "Meta WhatsApp - Listar Templates",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meta-listar-templates",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "g1g2g3g4-0001-4000-8000-000000000001",
+      "name": "WEBHOOK LISTAR TEMPLATES",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "meta-listar-templates"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "var-001",
+              "name": "META_GRAPH_API_VERSION",
+              "value": "v21.0",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "g1g2g3g4-0002-4000-8000-000000000002",
+      "name": "VARIAVEIS",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = raw.body ?? raw;\n\nconst conexaoId = body.conexaoId || body.conexao_id;\nconst fonte = body.fonte || 'supabase';\n\nif (!conexaoId) throw new Error('Campo conexaoId obrigatorio.');\nif (!['supabase', 'meta', 'ambos'].includes(fonte)) {\n  throw new Error('fonte deve ser supabase, meta ou ambos.');\n}\n\nreturn [{ json: { conexaoId, fonte } }];"
+      },
+      "id": "g1g2g3g4-0003-4000-8000-000000000003",
+      "name": "VALIDAR ENTRADA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "SAAS_Conexões",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('VALIDAR ENTRADA').item.json.conexaoId }}"
+            }
+          ]
+        }
+      },
+      "id": "g1g2g3g4-0004-4000-8000-000000000004",
+      "name": "DADOS CONEXAO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [780, 300],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $('VALIDAR ENTRADA').first().json;\nconst conexao = $input.first().json;\n\nif (!conexao?.access_token || !conexao?.waba_id) {\n  throw new Error('Conexao nao encontrada em SAAS_Conexoes.');\n}\n\nreturn [{ json: { ...entrada, access_token: conexao.access_token, waba_id: conexao.waba_id } }];"
+      },
+      "id": "g1g2g3g4-0005-4000-8000-000000000005",
+      "name": "MESCLAR CONEXAO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "cond-fonte-meta",
+              "leftValue": "={{ $json.fonte }}",
+              "rightValue": "supabase",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "g1g2g3g4-0006-4000-8000-000000000006",
+      "name": "CONSULTAR META?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1300, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "cond-fonte-supa",
+              "leftValue": "={{ $('MESCLAR CONEXAO').first().json.fonte }}",
+              "rightValue": "meta",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "g1g2g3g4-0012-4000-8000-000000000012",
+      "name": "CONSULTAR SUPABASE?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1300, 420]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/{{ $('VARIAVEIS').first().json.META_GRAPH_API_VERSION }}/{{ $('MESCLAR CONEXAO').first().json.waba_id }}/message_templates",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "fields", "value": "name,language,status,category,components,id" },
+            { "name": "limit", "value": "100" },
+            { "name": "access_token", "value": "={{ $('MESCLAR CONEXAO').first().json.access_token }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "g1g2g3g4-0007-4000-8000-000000000007",
+      "name": "LISTAR TEMPLATES META",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 120]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "SAAS_Templates_Meta",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "conexaoId",
+              "keyValue": "={{ $('MESCLAR CONEXAO').first().json.conexaoId }}"
+            }
+          ]
+        }
+      },
+      "id": "g1g2g3g4-0008-4000-8000-000000000008",
+      "name": "LISTAR TEMPLATES SUPABASE",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1560, 520],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $('MESCLAR CONEXAO').first().json;\nconst fonte = entrada.fonte;\n\nlet metaTemplates = [];\nlet supabaseTemplates = [];\n\ntry {\n  if (fonte !== 'supabase') {\n    const metaRes = $('LISTAR TEMPLATES META').first().json;\n    if (metaRes.error) throw new Error(metaRes.error.message || 'Falha ao listar templates na Meta.');\n    metaTemplates = metaRes.data || [];\n  }\n} catch (error) {\n  if (fonte === 'meta') throw error;\n}\n\ntry {\n  if (fonte !== 'meta') {\n    supabaseTemplates = $('LISTAR TEMPLATES SUPABASE').all().map((item) => item.json);\n  }\n} catch (error) {\n  if (fonte === 'supabase') throw error;\n}\n\nreturn [\n  {\n    json: {\n      ok: true,\n      conexaoId: entrada.conexaoId,\n      fonte,\n      meta_total: metaTemplates.length,\n      supabase_total: supabaseTemplates.length,\n      meta_templates: metaTemplates,\n      supabase_templates: supabaseTemplates\n    }\n  }\n];"
+      },
+      "id": "g1g2g3g4-0009-4000-8000-000000000009",
+      "name": "MONTAR RESPOSTA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1820, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "g1g2g3g4-0010-4000-8000-000000000010",
+      "name": "RESPONDER SUCESSO",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2080, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Body de entrada (POST)\n\n```json\n{\n  \"conexaoId\": 123,\n  \"fonte\": \"ambos\"\n}\n```\n\nfonte: `supabase` | `meta` | `ambos`\n\nBusca `SAAS_Conexões` + `SAAS_Templates_Meta` e/ou Meta API.\n\nCredencial: Supabase [SAAS]\n\nURL: POST https://n8n2.victoreder.com.br/webhook/meta-listar-templates",
+        "height": 300,
+        "width": 520
+      },
+      "id": "g1g2g3g4-0011-4000-8000-000000000011",
+      "name": "NOTAS",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, 20]
+    }
+  ],
+  "connections": {
+    "WEBHOOK LISTAR TEMPLATES": {
+      "main": [[{ "node": "VARIAVEIS", "type": "main", "index": 0 }]]
+    },
+    "VARIAVEIS": {
+      "main": [[{ "node": "VALIDAR ENTRADA", "type": "main", "index": 0 }]]
+    },
+    "VALIDAR ENTRADA": {
+      "main": [[{ "node": "DADOS CONEXAO", "type": "main", "index": 0 }]]
+    },
+    "DADOS CONEXAO": {
+      "main": [[{ "node": "MESCLAR CONEXAO", "type": "main", "index": 0 }]]
+    },
+    "MESCLAR CONEXAO": {
+      "main": [[{ "node": "CONSULTAR META?", "type": "main", "index": 0 }]]
+    },
+    "CONSULTAR META?": {
+      "main": [
+        [{ "node": "LISTAR TEMPLATES META", "type": "main", "index": 0 }],
+        [{ "node": "CONSULTAR SUPABASE?", "type": "main", "index": 0 }]
+      ]
+    },
+    "LISTAR TEMPLATES META": {
+      "main": [[{ "node": "CONSULTAR SUPABASE?", "type": "main", "index": 0 }]]
+    },
+    "CONSULTAR SUPABASE?": {
+      "main": [
+        [{ "node": "LISTAR TEMPLATES SUPABASE", "type": "main", "index": 0 }],
+        [{ "node": "MONTAR RESPOSTA", "type": "main", "index": 0 }]
+      ]
+    },
+    "LISTAR TEMPLATES META": {
+      "main": [[{ "node": "MONTAR RESPOSTA", "type": "main", "index": 0 }]]
+    },
+    "LISTAR TEMPLATES SUPABASE": {
+      "main": [[{ "node": "MONTAR RESPOSTA", "type": "main", "index": 0 }]]
+    },
+    "MONTAR RESPOSTA": {
+      "main": [[{ "node": "RESPONDER SUCESSO", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "tags": [],
+  "meta": { "templateCredsSetupCompleted": true }
+}

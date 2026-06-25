@@ -1,0 +1,217 @@
+{
+  "name": "Meta WhatsApp - Enviar Mensagem",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meta-enviar-mensagem",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f1f2f3f4-0001-4000-8000-000000000001",
+      "name": "WEBHOOK ENVIAR MENSAGEM",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "meta-enviar-mensagem"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "var-001",
+              "name": "META_GRAPH_API_VERSION",
+              "value": "v21.0",
+              "type": "string"
+            },
+            {
+              "id": "var-002",
+              "name": "SUPABASE_URL",
+              "value": "COLE_SEU_SUPABASE_URL_AQUI",
+              "type": "string"
+            },
+            {
+              "id": "var-003",
+              "name": "SUPABASE_SERVICE_ROLE_KEY",
+              "value": "COLE_SEU_SERVICE_ROLE_KEY_AQUI",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "f1f2f3f4-0002-4000-8000-000000000002",
+      "name": "VARIAVEIS",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = raw.body ?? raw;\n\nconst conexaoId = body.conexaoId || body.conexao_id;\nconst to = String(body.to || '').replace(/\\D/g, '');\nconst type = body.type;\n\nif (!conexaoId) throw new Error('Campo conexaoId obrigatorio.');\nif (!to) throw new Error('Campo to obrigatorio (apenas digitos).');\nif (!type) throw new Error('Campo type obrigatorio.');\n\nconst sessionTypes = ['text', 'image', 'audio', 'video', 'document', 'sticker', 'location', 'contacts', 'interactive', 'reaction'];\nconst allowed = ['template', ...sessionTypes];\nif (!allowed.includes(type)) {\n  throw new Error(`type invalido. Use: ${allowed.join(', ')}`);\n}\n\nreturn [\n  {\n    json: {\n      conexaoId,\n      to,\n      type,\n      template: body.template || null,\n      text: body.text || null,\n      image: body.image || null,\n      audio: body.audio || null,\n      video: body.video || null,\n      document: body.document || null,\n      sticker: body.sticker || null,\n      location: body.location || null,\n      contacts: body.contacts || null,\n      interactive: body.interactive || null,\n      reaction: body.reaction || null,\n      context: body.context || null\n    }\n  }\n];"
+      },
+      "id": "f1f2f3f4-0003-4000-8000-000000000003",
+      "name": "VALIDAR ENTRADA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "SAAS_Conexões",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $('VALIDAR ENTRADA').item.json.conexaoId }}"
+            }
+          ]
+        }
+      },
+      "id": "f1f2f3f4-0004-4000-8000-000000000004",
+      "name": "DADOS CONEXAO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [780, 300],
+      "credentials": {
+        "supabaseApi": { "id": "yzLw3CRWlDo2pmsj", "name": "Supabase [SAAS]" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $('VALIDAR ENTRADA').first().json;\nconst conexao = $input.first().json;\n\nif (!conexao?.access_token || !conexao?.phone_number_id) {\n  throw new Error('Conexao nao encontrada em SAAS_Conexoes.');\n}\n\nif (!conexao.apiOficial) {\n  throw new Error('Conexao nao e API Oficial.');\n}\n\nif (!conexao.contaId) {\n  throw new Error('Conexao sem contaId.');\n}\n\nreturn [\n  {\n    json: {\n      ...entrada,\n      access_token: conexao.access_token,\n      phone_number_id: conexao.phone_number_id,\n      waba_id: conexao.waba_id,\n      contaId: conexao.contaId\n    }\n  }\n];"
+      },
+      "id": "f1f2f3f4-0005-4000-8000-000000000005",
+      "name": "MESCLAR CONEXAO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst payload = {\n  messaging_product: 'whatsapp',\n  recipient_type: 'individual',\n  to: data.to,\n  type: data.type\n};\n\nif (data.context) payload.context = data.context;\n\nif (data.type === 'template') {\n  if (!data.template?.name) throw new Error('template.name obrigatorio para type=template.');\n  payload.template = {\n    name: data.template.name,\n    language: data.template.language || { code: 'pt_BR' },\n    components: data.template.components || []\n  };\n} else if (data.type === 'text') {\n  if (!data.text?.body) throw new Error('text.body obrigatorio para type=text.');\n  payload.text = data.text;\n} else if (data.type === 'image') {\n  if (!data.image) throw new Error('image obrigatorio para type=image.');\n  payload.image = data.image;\n} else if (data.type === 'audio') {\n  if (!data.audio) throw new Error('audio obrigatorio para type=audio.');\n  payload.audio = data.audio;\n} else if (data.type === 'video') {\n  if (!data.video) throw new Error('video obrigatorio para type=video.');\n  payload.video = data.video;\n} else if (data.type === 'document') {\n  if (!data.document) throw new Error('document obrigatorio para type=document.');\n  payload.document = data.document;\n} else if (data.type === 'sticker') {\n  if (!data.sticker) throw new Error('sticker obrigatorio para type=sticker.');\n  payload.sticker = data.sticker;\n} else if (data.type === 'location') {\n  if (!data.location) throw new Error('location obrigatorio para type=location.');\n  payload.location = data.location;\n} else if (data.type === 'contacts') {\n  if (!data.contacts) throw new Error('contacts obrigatorio para type=contacts.');\n  payload.contacts = data.contacts;\n} else if (data.type === 'interactive') {\n  if (!data.interactive) throw new Error('interactive obrigatorio para type=interactive.');\n  payload.interactive = data.interactive;\n} else if (data.type === 'reaction') {\n  if (!data.reaction) throw new Error('reaction obrigatorio para type=reaction.');\n  payload.reaction = data.reaction;\n}\n\nreturn [\n  {\n    json: {\n      conexaoId: data.conexaoId,\n      phone_number_id: data.phone_number_id,\n      access_token: data.access_token,\n      to: data.to,\n      type: data.type,\n      meta_payload: payload\n    }\n  }\n];"
+      },
+      "id": "f1f2f3f4-0006-4000-8000-000000000006",
+      "name": "MONTAR PAYLOAD META",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/{{ $('VARIAVEIS').first().json.META_GRAPH_API_VERSION }}/{{ $json.phone_number_id }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.access_token }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.meta_payload) }}",
+        "options": {}
+      },
+      "id": "f1f2f3f4-0007-4000-8000-000000000007",
+      "name": "ENVIAR MENSAGEM META",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $('MONTAR PAYLOAD META').first().json;\nconst metaRes = $input.first().json;\n\nif (metaRes.error) {\n  throw new Error(metaRes.error.message || metaRes.error.error_user_msg || 'Falha ao enviar mensagem na Meta.');\n}\n\nconst messageId = metaRes.messages?.[0]?.id || null;\nconst payload = prev.meta_payload;\nconst type = prev.type;\n\nlet mensagem = null;\nif (type === 'text') mensagem = payload.text?.body || null;\nelse if (type === 'template') mensagem = `[template: ${payload.template?.name || 'sem_nome'}]`;\nelse if (type === 'image') mensagem = payload.image?.caption || '[imagem]';\nelse if (type === 'video') mensagem = payload.video?.caption || '[video]';\nelse if (type === 'audio') mensagem = '[audio]';\nelse if (type === 'document') mensagem = payload.document?.caption || '[documento]';\nelse if (type === 'sticker') mensagem = '[sticker]';\nelse if (type === 'location') mensagem = '[localizacao]';\nelse if (type === 'contacts') mensagem = '[contato]';\nelse if (type === 'interactive') mensagem = '[interativo]';\nelse if (type === 'reaction') mensagem = payload.reaction?.emoji || '[reacao]';\nelse mensagem = `[${type}]`;\n\nreturn [\n  {\n    json: {\n      conexaoId: prev.conexaoId,\n      contaId: $('MESCLAR CONEXAO').first().json.contaId,\n      destinatario: prev.to,\n      tipo: type,\n      mensagem,\n      metaMessageId: messageId,\n      metaStatus: messageId ? 'sent' : null,\n      status: messageId ? 'enviada' : 'erro',\n      metaResponse: metaRes\n    }\n  }\n];"
+      },
+      "id": "f1f2f3f4-0008-4000-8000-000000000008",
+      "name": "VALIDAR RESPOSTA META",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1820, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const vars = $('VARIAVEIS').first().json;\nconst prev = $input.first().json;\n\nif (!prev.metaMessageId) {\n  return [{ json: { ...prev, chat: { ok: false, skipped: true } } }];\n}\n\nconst supabaseUrl = (vars.SUPABASE_URL || '').replace(/\\/$/, '');\nconst serviceKey = vars.SUPABASE_SERVICE_ROLE_KEY;\n\nif (!supabaseUrl || supabaseUrl.includes('COLE_SEU')) {\n  throw new Error('Defina SUPABASE_URL no no VARIAVEIS.');\n}\nif (!serviceKey || serviceKey.includes('COLE_SEU')) {\n  throw new Error('Defina SUPABASE_SERVICE_ROLE_KEY no no VARIAVEIS.');\n}\n\nconst tipoMap = {\n  text: 'conversation',\n  template: 'conversation',\n  image: 'imageMessage',\n  audio: 'audioMessage',\n  video: 'videoMessage',\n  document: 'documentMessage',\n  sticker: 'stickerMessage',\n  location: 'location',\n  contacts: 'contacts',\n  interactive: 'interactive',\n  reaction: 'reaction'\n};\n\nconst chat = await this.helpers.httpRequest({\n  method: 'POST',\n  url: `${supabaseUrl}/rest/v1/rpc/f_meta_salvar_mensagem_chat`,\n  headers: {\n    apikey: serviceKey,\n    Authorization: `Bearer ${serviceKey}`,\n    'Content-Type': 'application/json',\n    Prefer: 'return=representation'\n  },\n  body: {\n    p_conexao_id: prev.conexaoId,\n    p_conta_id: prev.contaId,\n    p_telefone: prev.destinatario,\n    p_mensagem: prev.mensagem,\n    p_tipo_mensagem: tipoMap[prev.tipo] || prev.tipo,\n    p_from_me: true,\n    p_meta_message_id: prev.metaMessageId,\n    p_meta_status: prev.metaStatus\n  },\n  json: true\n});\n\nreturn [{ json: { ...prev, chat } }];"
+      },
+      "id": "f1f2f3f4-0009-4000-8000-000000000009",
+      "name": "SALVAR NO CHAT",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2080, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $('VALIDAR RESPOSTA META').first().json;\nconst row = $input.first().json;\n\nreturn [\n  {\n    json: {\n      ok: true,\n      mensagemId: row.chat?.mensagemId || null,\n      conversaId: row.chat?.conversaId || null,\n      conexaoId: prev.conexaoId,\n      destinatario: prev.destinatario,\n      tipo: prev.tipo,\n      metaMessageId: prev.metaMessageId,\n      metaStatus: prev.metaStatus,\n      status: prev.status\n    }\n  }\n];"
+      },
+      "id": "f1f2f3f4-0010-4000-8000-000000000010",
+      "name": "MONTAR RESPOSTA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2340, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "f1f2f3f4-0011-4000-8000-000000000011",
+      "name": "RESPONDER SUCESSO",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2600, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Body — Template (fora da janela 24h)\n\n```json\n{\n  \"conexaoId\": 123,\n  \"to\": \"5511999999999\",\n  \"type\": \"template\",\n  \"template\": {\n    \"name\": \"boas_vindas\",\n    \"language\": { \"code\": \"pt_BR\" },\n    \"components\": [{ \"type\": \"body\", \"parameters\": [{ \"type\": \"text\", \"text\": \"Joao\" }] }]\n  }\n}\n```\n\n## Body — Texto (janela 24h)\n\n```json\n{\n  \"conexaoId\": 123,\n  \"to\": \"5511999999999\",\n  \"type\": \"text\",\n  \"text\": { \"body\": \"Ola! Como posso ajudar?\" }\n}\n```\n\nBusca `SAAS_Conexões` → envia Meta → salva em `SAAS_Mensagens` (chat).\n\nConfigure no VARIAVEIS:\n- SUPABASE_URL\n- SUPABASE_SERVICE_ROLE_KEY\n\nURL: POST https://n8n2.victoreder.com.br/webhook/meta-enviar-mensagem",
+        "height": 560,
+        "width": 560
+      },
+      "id": "f1f2f3f4-0012-4000-8000-000000000012",
+      "name": "NOTAS",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, 20]
+    }
+  ],
+  "connections": {
+    "WEBHOOK ENVIAR MENSAGEM": {
+      "main": [[{ "node": "VARIAVEIS", "type": "main", "index": 0 }]]
+    },
+    "VARIAVEIS": {
+      "main": [[{ "node": "VALIDAR ENTRADA", "type": "main", "index": 0 }]]
+    },
+    "VALIDAR ENTRADA": {
+      "main": [[{ "node": "DADOS CONEXAO", "type": "main", "index": 0 }]]
+    },
+    "DADOS CONEXAO": {
+      "main": [[{ "node": "MESCLAR CONEXAO", "type": "main", "index": 0 }]]
+    },
+    "MESCLAR CONEXAO": {
+      "main": [[{ "node": "MONTAR PAYLOAD META", "type": "main", "index": 0 }]]
+    },
+    "MONTAR PAYLOAD META": {
+      "main": [[{ "node": "ENVIAR MENSAGEM META", "type": "main", "index": 0 }]]
+    },
+    "ENVIAR MENSAGEM META": {
+      "main": [[{ "node": "VALIDAR RESPOSTA META", "type": "main", "index": 0 }]]
+    },
+    "VALIDAR RESPOSTA META": {
+      "main": [[{ "node": "SALVAR NO CHAT", "type": "main", "index": 0 }]]
+    },
+    "SALVAR NO CHAT": {
+      "main": [[{ "node": "MONTAR RESPOSTA", "type": "main", "index": 0 }]]
+    },
+    "MONTAR RESPOSTA": {
+      "main": [[{ "node": "RESPONDER SUCESSO", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "tags": [],
+  "meta": { "templateCredsSetupCompleted": true }
+}

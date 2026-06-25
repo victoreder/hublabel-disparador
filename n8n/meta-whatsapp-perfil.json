@@ -1,0 +1,844 @@
+{
+  "name": "Meta WhatsApp - Perfil e Dados Conexao",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meta-perfil",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "h1h2h3h4-0001-4000-8000-000000000001",
+      "name": "WEBHOOK PERFIL",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "meta-perfil"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = raw.body ?? raw;\nconst perfil = body.perfil && typeof body.perfil === 'object' ? body.perfil : {};\n\nconst pick = (key) => {\n  if (body[key] !== undefined && body[key] !== null && body[key] !== '') return body[key];\n  if (perfil[key] !== undefined && perfil[key] !== null && perfil[key] !== '') return perfil[key];\n  return undefined;\n};\n\nconst conexaoId = body.conexaoId || body.conexao_id;\nconst acao = String(body.acao || body.action || 'consultar').toLowerCase();\n\nif (!conexaoId) throw new Error('Campo conexaoId obrigatorio.');\nif (!['consultar', 'sincronizar', 'atualizar'].includes(acao)) {\n  throw new Error('acao deve ser consultar, sincronizar ou atualizar.');\n}\n\nconst verticals = [\"OTHER\", \"AUTO\", \"BEAUTY\", \"APPAREL\", \"EDU\", \"ENTERTAIN\", \"EVENT_PLAN\", \"FINANCE\", \"GROCERY\", \"GOVT\", \"HOTEL\", \"HEALTH\", \"NONPROFIT\", \"PROF_SERVICES\", \"RETAIL\", \"TRAVEL\", \"RESTAURANT\", \"ALCOHOL\", \"ONLINE_GAMBLING\", \"PHYSICAL_GAMBLING\", \"OTC_DRUGS\", \"MATRIMONY_SERVICE\"];\n\nconst payload = {\n  conexaoId,\n  acao,\n  about: pick('about'),\n  description: pick('description'),\n  address: pick('address'),\n  email: pick('email'),\n  vertical: pick('vertical'),\n  websites: body.websites ?? perfil.websites,\n  foto_base64: body.foto_base64 || body.fotoBase64 || null,\n  foto_mime: body.foto_mime || body.fotoMime || null\n};\n\nif (acao === 'atualizar') {\n  const hasField = (key) => {\n    const value = payload[key];\n    if (key === 'websites') return Array.isArray(value) && value.length > 0;\n    if (key === 'foto_base64') return typeof value === 'string' && value.length > 0;\n    return value !== undefined && value !== null && value !== '';\n  };\n\n  if (!['about', 'description', 'address', 'email', 'vertical', 'websites', 'foto_base64'].some(hasField)) {\n    throw new Error('Informe ao menos um campo para atualizar.');\n  }\n\n  if (hasField('about')) {\n    const about = String(payload.about).trim();\n    if (about.length < 1 || about.length > 139) {\n      throw new Error('about deve ter entre 1 e 139 caracteres.');\n    }\n    payload.about = about;\n  }\n\n  if (hasField('description')) {\n    const description = String(payload.description).trim();\n    if (description.length < 1 || description.length > 512) {\n      throw new Error('description deve ter entre 1 e 512 caracteres.');\n    }\n    payload.description = description;\n  }\n\n  if (hasField('address')) {\n    const address = String(payload.address).trim();\n    if (address.length < 1 || address.length > 256) {\n      throw new Error('address deve ter entre 1 e 256 caracteres.');\n    }\n    payload.address = address;\n  }\n\n  if (hasField('email')) {\n    const email = String(payload.email).trim();\n    if (email.length > 128 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {\n      throw new Error('email invalido (max 128 caracteres, formato valido).');\n    }\n    payload.email = email;\n  }\n\n  if (hasField('vertical')) {\n    const vertical = String(payload.vertical).trim().toUpperCase();\n    if (!verticals.includes(vertical)) {\n      throw new Error(`vertical invalido. Use um valor da enum Meta, ex: OTHER, RETAIL, RESTAURANT.`);\n    }\n    payload.vertical = vertical;\n  }\n\n  if (payload.websites !== undefined && payload.websites !== null) {\n    if (!Array.isArray(payload.websites)) throw new Error('websites deve ser array.');\n    if (payload.websites.length > 2) throw new Error('websites max 2 URLs.');\n    payload.websites = payload.websites\n      .map((url) => String(url).trim())\n      .filter(Boolean);\n    if (!payload.websites.length) delete payload.websites;\n    for (const url of payload.websites || []) {\n      if (url.length > 256) throw new Error('cada URL max 256 caracteres.');\n      if (!/^https?:\\/\\//i.test(url)) throw new Error('URLs devem comecar com http:// ou https://');\n    }\n  }\n\n  if (hasField('foto_base64')) {\n    let b64 = String(payload.foto_base64).trim();\n    const dataUrlMatch = b64.match(/^data:image\\/\\w+;base64,(.+)$/i);\n    if (dataUrlMatch) b64 = dataUrlMatch[1];\n    b64 = b64.replace(/\\s/g, '').replace(/-/g, '+').replace(/_/g, '/');\n    payload.foto_base64 = b64;\n\n    const buffer = Buffer.from(b64, 'base64');\n    if (!buffer.length) throw new Error('foto_base64 invalida.');\n    if (buffer.length > 5 * 1024 * 1024) throw new Error('Foto max 5MB.');\n\n    const isJpeg = buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;\n    const isPng = buffer.length >= 8 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;\n    const isWebp = buffer.length >= 12 && buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';\n\n    if (!isJpeg) {\n      if (isPng) throw new Error('Meta exige JPG. Converta PNG para JPEG no front (canvas.toBlob image/jpeg).');\n      if (isWebp) throw new Error('Meta exige JPG. Converta WebP para JPEG no front.');\n      throw new Error('Foto de perfil deve ser JPG (image/jpeg).');\n    }\n\n    payload.foto_mime = 'image/jpeg';\n  }\n}\n\nreturn [{ json: payload }];"
+      },
+      "id": "h1h2h3h4-0003-4000-8000-000000000003",
+      "name": "VALIDAR ENTRADA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "SAAS_Config_ApiOficial",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "1"
+            }
+          ]
+        }
+      },
+      "id": "h1h2h3h4-0016-4000-8000-000000000016",
+      "name": "CONFIG API OFICIAL",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "yzLw3CRWlDo2pmsj",
+          "name": "Supabase [SAAS]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "SAAS_Conexões",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('VALIDAR ENTRADA').item.json.conexaoId }}"
+            }
+          ]
+        }
+      },
+      "id": "h1h2h3h4-0004-4000-8000-000000000004",
+      "name": "DADOS CONEXAO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        720,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "yzLw3CRWlDo2pmsj",
+          "name": "Supabase [SAAS]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $('VALIDAR ENTRADA').first().json;\nconst conexao = $('DADOS CONEXAO').first().json;\nconst config = $('CONFIG API OFICIAL').first().json;\n\nif (!config?.app_id) {\n  throw new Error('Config API Oficial incompleta em SAAS_Config_ApiOficial.');\n}\nif (!conexao?.access_token || !conexao?.phone_number_id) {\n  throw new Error('Conexao nao encontrada ou sem phone_number_id.');\n}\nif (!conexao.waba_id) {\n  throw new Error('Conexao sem waba_id.');\n}\nif (!conexao.apiOficial) {\n  throw new Error('Conexao nao e API Oficial.');\n}\n\nreturn [\n  {\n    json: {\n      ...entrada,\n      access_token: conexao.access_token,\n      phone_number_id: conexao.phone_number_id,\n      waba_id: conexao.waba_id,\n      business_id: conexao.business_id,\n      app_id: config.app_id,\n      conexaoRow: conexao\n    }\n  }\n];"
+      },
+      "id": "h1h2h3h4-0005-4000-8000-000000000005",
+      "name": "VALIDAR CONEXAO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.acao }}",
+                    "rightValue": "consultar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "consultar"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.acao }}",
+                    "rightValue": "sincronizar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "sincronizar"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.acao }}",
+                    "rightValue": "atualizar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "atualizar"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "h1h2h3h4-0006-4000-8000-000000000006",
+      "name": "ACAO",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $('VALIDAR CONEXAO').first().json;\nconst row = entrada.conexaoRow;\n\nconst TIER_LABELS = {\n  TIER_50: '50 conversas / 24h',\n  TIER_250: '250 conversas / 24h',\n  TIER_2K: '2.000 conversas / 24h',\n  TIER_10K: '10.000 conversas / 24h',\n  TIER_100K: '100.000 conversas / 24h',\n  TIER_UNLIMITED: 'Ilimitado',\n  UNTIERED: 'Sem limite definido'\n};\n\nconst PHONE_STATUS_LABELS = {\n  CONNECTED: 'Conectado',\n  DISCONNECTED: 'Desconectado',\n  PENDING: 'Pendente',\n  DELETED: 'Excluido',\n  MIGRATED: 'Migrado',\n  BANNED: 'Banido',\n  RESTRICTED: 'Restrito',\n  RATE_LIMITED: 'Limitado',\n  UNVERIFIED: 'Nao verificado'\n};\n\nconst BIZ_VERIFICATION_LABELS = {\n  verified: 'Verificado',\n  not_verified: 'Nao verificado',\n  pending: 'Pendente',\n  failed: 'Falhou',\n  rejected: 'Rejeitado'\n};\n\nconst ACCOUNT_REVIEW_LABELS = {\n  APPROVED: 'Aprovado',\n  PENDING: 'Pendente',\n  REJECTED: 'Rejeitado'\n};\n\nconst NAME_STATUS_LABELS = {\n  APPROVED: 'Aprovado',\n  AVAILABLE_WITHOUT_REVIEW: 'Disponivel sem revisao',\n  DECLINED: 'Recusado',\n  EXPIRED: 'Expirado',\n  PENDING_REVIEW: 'Em revisao',\n  NONE: 'Sem certificado'\n};\n\nconst parseMetaPagamento = (value) => {\n  if (Array.isArray(value)) return value;\n  if (value && typeof value === 'object') return [value];\n  if (typeof value === 'string' && value.trim()) {\n    try {\n      const parsed = JSON.parse(value);\n      return Array.isArray(parsed) ? parsed : [];\n    } catch {\n      return [];\n    }\n  }\n  return [];\n};\n\nconst formatPhone = (telefone) => {\n  if (!telefone) return null;\n  const d = String(telefone).replace(/\\D/g, '');\n  if (d.length >= 12 && d.startsWith('55')) {\n    return `+${d.slice(0, 2)} ${d.slice(2, 4)} ${d.slice(4)}`;\n  }\n  return `+${d}`;\n};\n\nconst getLinhaCredito = (metaPagamento, primaryFundingId, wabaStatus) => {\n  const wabaSt = String(wabaStatus || '').toUpperCase();\n  if (wabaSt === 'PENDING_VALID_PAYMENT_METHOD') {\n    return { status: 'pending_valid_payment_method', label: 'Forma de pagamento pendente' };\n  }\n  if (primaryFundingId) {\n    return { status: 'active', label: 'Configurada' };\n  }\n  const arr = Array.isArray(metaPagamento) ? metaPagamento : [];\n  const billing = arr.find((c) => c?.configuration_name === 'billing_meta_api');\n  if (billing?.pending_valid_payment_method) {\n    return { status: 'pending_valid_payment_method', label: 'Forma de pagamento pendente' };\n  }\n  if (billing?.has_payment_method || billing?.primary_funding_id) {\n    return { status: 'active', label: 'Configurada' };\n  }\n  for (let i = arr.length - 1; i >= 0; i--) {\n    const cfg = arr[i];\n    if (!cfg || cfg.configuration_name === 'billing_meta_api') continue;\n    const st = String(cfg?.status || cfg?.credit_line_status || '').toLowerCase();\n    if (st && !st.includes('need') && !st.includes('pending') && !st.includes('update')) {\n      return { status: st, label: 'Configurada' };\n    }\n  }\n  return { status: 'needs_update', label: 'Atualizacao necessaria' };\n};\n\nconst limite = row.metaMessagingLimit || row.metaPhoneQualityLimit || null;\nconst metaPagamento = parseMetaPagamento(row.metaPagamento);\nconst billing = metaPagamento.find((c) => c?.configuration_name === 'billing_meta_api') || null;\nconst linhaCredito = getLinhaCredito(metaPagamento, row.metaPrimaryFundingId || null, row.metaWabaStatus || billing?.waba_status || null);\nconst perfil = row.metaPerfil || {};\n\nreturn [\n  {\n    json: {\n      ok: true,\n      acao: 'consultar',\n      conexaoId: entrada.conexaoId,\n      cache: true,\n      dados: {\n        nomeExibir: row.metaVerifiedName || row.NomeConexao || null,\n        nomeStatus: row.metaNameStatus || null,\n        nomeStatusLabel: NAME_STATUS_LABELS[row.metaNameStatus] || row.metaNameStatus || 'Sem informacao',\n        novoNomeExibir: row.metaNewDisplayName || null,\n        novoNomeStatus: row.metaNewNameStatus || null,\n        novoNomeStatusLabel: NAME_STATUS_LABELS[row.metaNewNameStatus] || row.metaNewNameStatus || null,\n        telefone: row.Telefone || null,\n        telefoneFormatado: formatPhone(row.Telefone),\n        fotoPerfil: row.FotoPerfil || perfil.profile_picture_url || null,\n        wabaId: row.waba_id || null,\n        phoneNumberId: row.phone_number_id || null,\n        businessId: row.business_id || null,\n        limiteMensagens: limite,\n        limiteMensagensLabel: TIER_LABELS[limite] || limite || 'Sem informacao',\n        statusNumero: row.metaPhoneStatus || null,\n        statusNumeroLabel: PHONE_STATUS_LABELS[row.metaPhoneStatus] || row.metaPhoneStatus || 'Sem informacao',\n        qualidade: row.metaQualityRating || null,\n        verificacaoEmpresarial: row.metaBusinessVerificationStatus || null,\n        verificacaoEmpresarialLabel: BIZ_VERIFICATION_LABELS[row.metaBusinessVerificationStatus] || row.metaBusinessVerificationStatus || 'Sem informacao',\n        statusConta: row.metaAccountReviewStatus || null,\n        statusContaLabel: ACCOUNT_REVIEW_LABELS[row.metaAccountReviewStatus] || row.metaAccountReviewStatus || 'Sem informacao',\n        linhaCredito: linhaCredito.status,\n        linhaCreditoLabel: linhaCredito.label,\n        statusWaba: row.metaWabaStatus || billing?.waba_status || null,\n        statusWabaLabel: (row.metaWabaStatus || billing?.waba_status) === 'PENDING_VALID_PAYMENT_METHOD'\n          ? 'Forma de pagamento pendente'\n          : (row.metaWabaStatus || billing?.waba_status || 'Sem informacao'),\n        moeda: row.metaWabaCurrency || billing?.currency || null,\n        fusoHorarioId: row.metaWabaTimezoneId || billing?.timezone_id || null,\n        formaPagamentoPendente: (row.metaWabaStatus || billing?.waba_status) === 'PENDING_VALID_PAYMENT_METHOD'\n          || billing?.pending_valid_payment_method === true,\n        numerosWaba: billing?.phone_numbers || [],\n        metaPagamento,\n        metaPagamentoUpdatedAt: row.metaPagamentoUpdatedAt || null,\n        metaPrimaryFundingId: row.metaPrimaryFundingId || null,\n        atualizadoEm: row.metaDadosUpdatedAt || row.metaPerfilUpdatedAt || null\n      },\n      perfil\n    }\n  }\n];"
+      },
+      "id": "h1h2h3h4-0007-4000-8000-000000000007",
+      "name": "MONTAR RESPOSTA CACHE",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $('VALIDAR CONEXAO').first().json;\nconst token = prev.access_token;\nconst headers = { Authorization: `Bearer ${token}` };\n\nconst metaErrorMessage = (err) => {\n  const apiErr = err?.response?.body?.error || err?.response?.data?.error || err?.error;\n  return apiErr?.error_user_msg || apiErr?.message || err?.message || String(err);\n};\n\nconst req = async (url, qs = {}, optional = false) => {\n  try {\n    const res = await this.helpers.httpRequest({\n      method: 'GET',\n      url,\n      qs,\n      headers,\n      json: true\n    });\n    if (res?.error) {\n      if (optional) return { error: res.error };\n      throw new Error(res.error.error_user_msg || res.error.message || 'Falha na Meta API.');\n    }\n    return res;\n  } catch (err) {\n    if (optional) return { error: { message: metaErrorMessage(err) } };\n    throw new Error(metaErrorMessage(err));\n  }\n};\n\nconst [wabaRes, phoneNumbersRes, perfilRes] = await Promise.all([\n  req(`https://graph.facebook.com/v25.0/${prev.waba_id}`, {\n    fields: 'id,name,message_template_namespace,account_review_status,business_verification_status,whatsapp_business_manager_messaging_limit'\n  }),\n  req(`https://graph.facebook.com/v25.0/${prev.waba_id}/phone_numbers`, {\n    fields: 'id,display_phone_number,verified_name,code_verification_status,quality_rating,status'\n  }),\n  req(`https://graph.facebook.com/v25.0/${prev.phone_number_id}/whatsapp_business_profile`, {\n    fields: 'about,address,description,email,profile_picture_url,websites,vertical,messaging_product'\n  })\n]);\n\nlet phoneDetailRes = await req(\n  `https://graph.facebook.com/v25.0/${prev.phone_number_id}`,\n  {\n    fields: 'status,verified_name,display_phone_number,quality_rating,code_verification_status,name_status,new_display_name,new_name_status'\n  },\n  true\n);\nif (phoneDetailRes?.error) {\n  phoneDetailRes = await req(\n    `https://graph.facebook.com/v25.0/${prev.phone_number_id}`,\n    {\n      fields: 'status,verified_name,display_phone_number,quality_rating,code_verification_status'\n    },\n    true\n  );\n}\n\nconst phoneNumbers = Array.isArray(phoneNumbersRes?.data) ? phoneNumbersRes.data : [];\nconst phoneFromList = phoneNumbers.find((p) => String(p.id) === String(prev.phone_number_id)) || phoneNumbers[0] || {};\nconst phoneRes = phoneDetailRes?.error ? phoneFromList : { ...phoneFromList, ...phoneDetailRes };\n\nconst perfil = Array.isArray(perfilRes.data) && perfilRes.data.length ? perfilRes.data[0] : {};\nconst telefone = phoneRes.display_phone_number\n  ? String(phoneRes.display_phone_number).replace(/\\D/g, '')\n  : prev.conexaoRow?.Telefone || null;\n\nconst limite = wabaRes.whatsapp_business_manager_messaging_limit\n  || prev.conexaoRow?.metaMessagingLimit\n  || prev.conexaoRow?.metaPhoneQualityLimit\n  || null;\n\nconst now = new Date().toISOString();\n\nreturn [\n  {\n    json: {\n      ...prev,\n      syncPayload: {\n        Telefone: telefone,\n        FotoPerfil: perfil.profile_picture_url || prev.conexaoRow?.FotoPerfil || null,\n        metaVerifiedName: phoneRes.verified_name || null,\n        metaNameStatus: phoneRes.name_status || null,\n        metaNewDisplayName: phoneRes.new_display_name || null,\n        metaNewNameStatus: phoneRes.new_name_status || null,\n        metaPhoneStatus: phoneRes.status || null,\n        metaQualityRating: phoneRes.quality_rating || null,\n        metaBusinessVerificationStatus: wabaRes.business_verification_status || null,\n        metaAccountReviewStatus: wabaRes.account_review_status || null,\n        metaMessagingLimit: limite,\n        metaWabaName: wabaRes.name || null,\n        metaPerfil: perfil,\n        metaPerfilUpdatedAt: now,\n        metaDadosUpdatedAt: now\n      }\n    }\n  }\n];"
+      },
+      "id": "h1h2h3h4-0008-4000-8000-000000000008",
+      "name": "BUSCAR DADOS META",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "SAAS_Conexões",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('VALIDAR CONEXAO').item.json.conexaoId }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "Telefone",
+              "fieldValue": "={{ $json.syncPayload.Telefone }}"
+            },
+            {
+              "fieldId": "FotoPerfil",
+              "fieldValue": "={{ $json.syncPayload.FotoPerfil }}"
+            },
+            {
+              "fieldId": "metaVerifiedName",
+              "fieldValue": "={{ $json.syncPayload.metaVerifiedName }}"
+            },
+            {
+              "fieldId": "metaNameStatus",
+              "fieldValue": "={{ $json.syncPayload.metaNameStatus }}"
+            },
+            {
+              "fieldId": "metaNewDisplayName",
+              "fieldValue": "={{ $json.syncPayload.metaNewDisplayName }}"
+            },
+            {
+              "fieldId": "metaNewNameStatus",
+              "fieldValue": "={{ $json.syncPayload.metaNewNameStatus }}"
+            },
+            {
+              "fieldId": "metaPhoneStatus",
+              "fieldValue": "={{ $json.syncPayload.metaPhoneStatus }}"
+            },
+            {
+              "fieldId": "metaQualityRating",
+              "fieldValue": "={{ $json.syncPayload.metaQualityRating }}"
+            },
+            {
+              "fieldId": "metaBusinessVerificationStatus",
+              "fieldValue": "={{ $json.syncPayload.metaBusinessVerificationStatus }}"
+            },
+            {
+              "fieldId": "metaAccountReviewStatus",
+              "fieldValue": "={{ $json.syncPayload.metaAccountReviewStatus }}"
+            },
+            {
+              "fieldId": "metaMessagingLimit",
+              "fieldValue": "={{ $json.syncPayload.metaMessagingLimit }}"
+            },
+            {
+              "fieldId": "metaPerfil",
+              "fieldValue": "={{ JSON.stringify($json.syncPayload.metaPerfil) }}"
+            },
+            {
+              "fieldId": "metaPerfilUpdatedAt",
+              "fieldValue": "={{ $json.syncPayload.metaPerfilUpdatedAt }}"
+            },
+            {
+              "fieldId": "metaDadosUpdatedAt",
+              "fieldValue": "={{ $json.syncPayload.metaDadosUpdatedAt }}"
+            },
+            {
+              "fieldId": "metaWabaName",
+              "fieldValue": "={{ $json.syncPayload.metaWabaName }}"
+            }
+          ]
+        }
+      },
+      "id": "h1h2h3h4-0009-4000-8000-000000000009",
+      "name": "SALVAR CONEXAO",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "yzLw3CRWlDo2pmsj",
+          "name": "Supabase [SAAS]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const entrada = $('VALIDAR CONEXAO').first().json;\nconst row = $input.first().json;\n\nconst TIER_LABELS = {\n  TIER_50: '50 conversas / 24h',\n  TIER_250: '250 conversas / 24h',\n  TIER_2K: '2.000 conversas / 24h',\n  TIER_10K: '10.000 conversas / 24h',\n  TIER_100K: '100.000 conversas / 24h',\n  TIER_UNLIMITED: 'Ilimitado',\n  UNTIERED: 'Sem limite definido'\n};\n\nconst PHONE_STATUS_LABELS = {\n  CONNECTED: 'Conectado',\n  DISCONNECTED: 'Desconectado',\n  PENDING: 'Pendente',\n  DELETED: 'Excluido',\n  MIGRATED: 'Migrado',\n  BANNED: 'Banido',\n  RESTRICTED: 'Restrito',\n  RATE_LIMITED: 'Limitado',\n  UNVERIFIED: 'Nao verificado'\n};\n\nconst BIZ_VERIFICATION_LABELS = {\n  verified: 'Verificado',\n  not_verified: 'Nao verificado',\n  pending: 'Pendente',\n  failed: 'Falhou',\n  rejected: 'Rejeitado'\n};\n\nconst ACCOUNT_REVIEW_LABELS = {\n  APPROVED: 'Aprovado',\n  PENDING: 'Pendente',\n  REJECTED: 'Rejeitado'\n};\n\nconst NAME_STATUS_LABELS = {\n  APPROVED: 'Aprovado',\n  AVAILABLE_WITHOUT_REVIEW: 'Disponivel sem revisao',\n  DECLINED: 'Recusado',\n  EXPIRED: 'Expirado',\n  PENDING_REVIEW: 'Em revisao',\n  NONE: 'Sem certificado'\n};\n\nconst parseMetaPagamento = (value) => {\n  if (Array.isArray(value)) return value;\n  if (value && typeof value === 'object') return [value];\n  if (typeof value === 'string' && value.trim()) {\n    try {\n      const parsed = JSON.parse(value);\n      return Array.isArray(parsed) ? parsed : [];\n    } catch {\n      return [];\n    }\n  }\n  return [];\n};\n\nconst formatPhone = (telefone) => {\n  if (!telefone) return null;\n  const d = String(telefone).replace(/\\D/g, '');\n  if (d.length >= 12 && d.startsWith('55')) {\n    return `+${d.slice(0, 2)} ${d.slice(2, 4)} ${d.slice(4)}`;\n  }\n  return `+${d}`;\n};\n\nconst getLinhaCredito = (metaPagamento, primaryFundingId, wabaStatus) => {\n  const wabaSt = String(wabaStatus || '').toUpperCase();\n  if (wabaSt === 'PENDING_VALID_PAYMENT_METHOD') {\n    return { status: 'pending_valid_payment_method', label: 'Forma de pagamento pendente' };\n  }\n  if (primaryFundingId) {\n    return { status: 'active', label: 'Configurada' };\n  }\n  const arr = Array.isArray(metaPagamento) ? metaPagamento : [];\n  const billing = arr.find((c) => c?.configuration_name === 'billing_meta_api');\n  if (billing?.pending_valid_payment_method) {\n    return { status: 'pending_valid_payment_method', label: 'Forma de pagamento pendente' };\n  }\n  if (billing?.has_payment_method || billing?.primary_funding_id) {\n    return { status: 'active', label: 'Configurada' };\n  }\n  for (let i = arr.length - 1; i >= 0; i--) {\n    const cfg = arr[i];\n    if (!cfg || cfg.configuration_name === 'billing_meta_api') continue;\n    const st = String(cfg?.status || cfg?.credit_line_status || '').toLowerCase();\n    if (st && !st.includes('need') && !st.includes('pending') && !st.includes('update')) {\n      return { status: st, label: 'Configurada' };\n    }\n  }\n  return { status: 'needs_update', label: 'Atualizacao necessaria' };\n};\n\nconst limite = row.metaMessagingLimit || row.metaPhoneQualityLimit || null;\nconst metaPagamento = parseMetaPagamento(row.metaPagamento);\nconst billing = metaPagamento.find((c) => c?.configuration_name === 'billing_meta_api') || null;\nconst linhaCredito = getLinhaCredito(metaPagamento, row.metaPrimaryFundingId || null, row.metaWabaStatus || billing?.waba_status || null);\nconst perfil = row.metaPerfil || {};\n\nreturn [\n  {\n    json: {\n      ok: true,\n      acao: entrada.acao,\n      conexaoId: entrada.conexaoId,\n      cache: false,\n      dados: {\n        nomeExibir: row.metaVerifiedName || row.NomeConexao || null,\n        nomeStatus: row.metaNameStatus || null,\n        nomeStatusLabel: NAME_STATUS_LABELS[row.metaNameStatus] || row.metaNameStatus || 'Sem informacao',\n        novoNomeExibir: row.metaNewDisplayName || null,\n        novoNomeStatus: row.metaNewNameStatus || null,\n        novoNomeStatusLabel: NAME_STATUS_LABELS[row.metaNewNameStatus] || row.metaNewNameStatus || null,\n        telefone: row.Telefone || null,\n        telefoneFormatado: formatPhone(row.Telefone),\n        fotoPerfil: row.FotoPerfil || perfil.profile_picture_url || null,\n        wabaId: row.waba_id || null,\n        phoneNumberId: row.phone_number_id || null,\n        businessId: row.business_id || null,\n        limiteMensagens: limite,\n        limiteMensagensLabel: TIER_LABELS[limite] || limite || 'Sem informacao',\n        statusNumero: row.metaPhoneStatus || null,\n        statusNumeroLabel: PHONE_STATUS_LABELS[row.metaPhoneStatus] || row.metaPhoneStatus || 'Sem informacao',\n        qualidade: row.metaQualityRating || null,\n        verificacaoEmpresarial: row.metaBusinessVerificationStatus || null,\n        verificacaoEmpresarialLabel: BIZ_VERIFICATION_LABELS[row.metaBusinessVerificationStatus] || row.metaBusinessVerificationStatus || 'Sem informacao',\n        statusConta: row.metaAccountReviewStatus || null,\n        statusContaLabel: ACCOUNT_REVIEW_LABELS[row.metaAccountReviewStatus] || row.metaAccountReviewStatus || 'Sem informacao',\n        linhaCredito: linhaCredito.status,\n        linhaCreditoLabel: linhaCredito.label,\n        statusWaba: row.metaWabaStatus || billing?.waba_status || null,\n        statusWabaLabel: (row.metaWabaStatus || billing?.waba_status) === 'PENDING_VALID_PAYMENT_METHOD'\n          ? 'Forma de pagamento pendente'\n          : (row.metaWabaStatus || billing?.waba_status || 'Sem informacao'),\n        moeda: row.metaWabaCurrency || billing?.currency || null,\n        fusoHorarioId: row.metaWabaTimezoneId || billing?.timezone_id || null,\n        formaPagamentoPendente: (row.metaWabaStatus || billing?.waba_status) === 'PENDING_VALID_PAYMENT_METHOD'\n          || billing?.pending_valid_payment_method === true,\n        numerosWaba: billing?.phone_numbers || [],\n        metaPagamento,\n        metaPrimaryFundingId: row.metaPrimaryFundingId || null,\n        metaPagamentoUpdatedAt: row.metaPagamentoUpdatedAt || null,\n        atualizadoEm: row.metaDadosUpdatedAt || row.metaPerfilUpdatedAt || null\n      },\n      perfil\n    }\n  }\n];"
+      },
+      "id": "h1h2h3h4-0010-4000-8000-000000000010",
+      "name": "MONTAR RESPOSTA UNIFICADA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "h1h2h3h4-0014-4000-8000-000000000014",
+      "name": "RESPONDER SUCESSO",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2160,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Perfil + Dados da Conexao\n\n**URL:** POST /webhook/meta-perfil\n\n### atualizar\nCampos editaveis (Meta): about (1-139), description (1-512), address (1-256), email, vertical (enum), websites (max 2, https://).\nPOST: `/{phone_number_id}/whatsapp_business_profile` com `messaging_product: whatsapp`.\nFoto: JPG min 192x192 via Resumable Upload + profile_picture_handle (request separado).\n\nDisplay name (nome de exibicao): consultar/sincronizar retorna `nomeStatus`, `novoNomeExibir`, `novoNomeStatus`. Para alterar use workflow `meta-display-name`.",
+        "height": 380,
+        "width": 520
+      },
+      "id": "h1h2h3h4-0015-4000-8000-000000000015",
+      "name": "NOTAS",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $('VALIDAR CONEXAO').first().json;\nconst webhook = $('WEBHOOK PERFIL').first().json;\nconst body = webhook.body ?? webhook;\nconst perfilReq = body.perfil && typeof body.perfil === 'object' ? body.perfil : {};\n\nconst wasInBody = (key) =>\n  Object.prototype.hasOwnProperty.call(body, key) ||\n  Object.prototype.hasOwnProperty.call(perfilReq, key);\n\nconst str = (v) => (v === undefined || v === null ? '' : String(v).trim());\n\nconst emailRe = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n\nconst wasEdited = (key) => {\n  if (!wasInBody(key)) return false;\n  const rawVal = body[key] !== undefined ? body[key] : perfilReq[key];\n  if (key === 'websites') {\n    return Array.isArray(rawVal) && rawVal.some((u) => str(u) !== '');\n  }\n  return rawVal !== undefined && rawVal !== null && str(rawVal) !== '';\n};\n\nconst getJpegDimensions = (buffer) => {\n  let i = 2;\n  while (i < buffer.length - 8) {\n    if (buffer[i] !== 0xff) { i++; continue; }\n    const marker = buffer[i + 1];\n    if (marker === 0xd9) break;\n    const len = buffer.readUInt16BE(i + 2);\n    if (len < 2 || i + 2 + len > buffer.length) break;\n    if ([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf].includes(marker)) {\n      return { height: buffer.readUInt16BE(i + 5), width: buffer.readUInt16BE(i + 7) };\n    }\n    i += 2 + len;\n  }\n  return null;\n};\n\nconst valueOf = (key) => {\n  const rawVal = body[key] !== undefined ? body[key] : perfilReq[key];\n  if (key === 'websites') {\n    if (!Array.isArray(rawVal)) return [];\n    return rawVal.map((u) => str(u)).filter(Boolean);\n  }\n  if (key === 'vertical') return str(rawVal).toUpperCase();\n  return str(rawVal);\n};\n\nconst temFoto = !!(prev.foto_base64);\nconst hasTextFieldsEdited = ['about', 'description', 'address', 'email', 'vertical', 'websites'].some(wasEdited);\n\nif (!hasTextFieldsEdited && !temFoto) {\n  throw new Error('Nenhum campo para atualizar.');\n}\n\nconst textBody = { messaging_product: 'whatsapp' };\n\nif (wasEdited('about')) {\n  const about = valueOf('about');\n  if (!about || about.length > 139) throw new Error('about deve ter entre 1 e 139 caracteres.');\n  textBody.about = about;\n}\n\nif (wasEdited('description')) {\n  const description = valueOf('description');\n  if (!description || description.length > 512) throw new Error('description deve ter entre 1 e 512 caracteres.');\n  textBody.description = description;\n}\n\nif (wasEdited('address')) {\n  const address = valueOf('address');\n  if (!address || address.length > 256) throw new Error('address deve ter entre 1 e 256 caracteres.');\n  textBody.address = address;\n}\n\nif (wasEdited('email')) {\n  const email = valueOf('email');\n  if (!email || email.length > 128 || !emailRe.test(email)) {\n    throw new Error('email invalido (formato e max 128 caracteres).');\n  }\n  textBody.email = email;\n}\n\nif (wasEdited('vertical')) {\n  const vertical = valueOf('vertical');\n  const allowed = ['OTHER','AUTO','BEAUTY','APPAREL','EDU','ENTERTAIN','EVENT_PLAN','FINANCE','GROCERY','GOVT','HOTEL','HEALTH','NONPROFIT','PROF_SERVICES','RETAIL','TRAVEL','RESTAURANT','ALCOHOL','ONLINE_GAMBLING','PHYSICAL_GAMBLING','OTC_DRUGS','MATRIMONY_SERVICE'];\n  if (!vertical || !allowed.includes(vertical)) {\n    throw new Error('vertical invalido. Ex: RETAIL, RESTAURANT, HEALTH, OTHER.');\n  }\n  textBody.vertical = vertical;\n}\n\nif (wasEdited('websites')) {\n  const websites = valueOf('websites');\n  if (!websites.length) throw new Error('websites deve ter ao menos 1 URL valida.');\n  if (websites.length > 2) throw new Error('websites max 2 URLs.');\n  for (const url of websites) {\n    if (url.length > 256) throw new Error('cada URL max 256 caracteres.');\n    if (!/^https?:\\/\\//i.test(url)) throw new Error('URLs devem comecar com http:// ou https://');\n  }\n  textBody.websites = websites;\n}\n\nconst hasTextPayload = Object.keys(textBody).length > 1;\nlet foto_length = 0;\n\nif (temFoto) {\n  const buffer = Buffer.from(prev.foto_base64, 'base64');\n  foto_length = buffer.length;\n  if (!foto_length) throw new Error('foto_base64 invalida.');\n  if (foto_length > 5 * 1024 * 1024) throw new Error('Foto max 5MB.');\n  const isJpeg = buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;\n  if (!isJpeg) throw new Error('Meta exige JPG na foto de perfil. Envie image/jpeg.');\n  const dims = getJpegDimensions(buffer);\n  if (!dims || dims.width < 192 || dims.height < 192) {\n    throw new Error('Foto de perfil deve ser JPG com no minimo 192x192 pixels.');\n  }\n}\n\nif (hasTextFieldsEdited && !hasTextPayload) {\n  throw new Error('Nenhum campo de texto valido para enviar a Meta.');\n}\n\nreturn [{\n  json: {\n    access_token: prev.access_token,\n    phone_number_id: prev.phone_number_id,\n    app_id: prev.app_id,\n    textBody,\n    hasText: hasTextPayload,\n    hasPhoto: temFoto,\n    temFoto,\n    foto_length\n  },\n  ...(temFoto ? {\n    binary: {\n      foto: {\n        data: prev.foto_base64,\n        mimeType: 'image/jpeg',\n        fileName: 'profile.jpg'\n      }\n    }\n  } : {})\n}];"
+      },
+      "id": "h1h2h3h4-0011-4000-8000-000000000011",
+      "name": "PREPARAR ATUALIZACAO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.hasPhoto }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "h1h2h3h4-0017-4000-8000-000000000017",
+      "name": "TEM FOTO?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v25.0/{{ $json.app_id }}/uploads",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "file_name",
+              "value": "profile.jpg"
+            },
+            {
+              "name": "file_length",
+              "value": "={{ $json.foto_length }}"
+            },
+            {
+              "name": "file_type",
+              "value": "image/jpeg"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "h1h2h3h4-0018-4000-8000-000000000018",
+      "name": "CRIAR SESSAO UPLOAD",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prep = $('PREPARAR ATUALIZACAO').first();\nconst session = $input.first().json;\n\nif (session.error) {\n  throw new Error(session.error.error_user_msg || session.error.message || 'Falha ao criar sessao de upload na Meta.');\n}\nif (!session.id) throw new Error('Falha ao criar sessao de upload na Meta.');\n\nreturn [{\n  json: {\n    session_id: session.id,\n    access_token: prep.json.access_token,\n    phone_number_id: prep.json.phone_number_id,\n    textBody: prep.json.textBody,\n    hasText: prep.json.hasText,\n    hasPhoto: true\n  },\n  binary: prep.binary\n}];"
+      },
+      "id": "h1h2h3h4-0019-4000-8000-000000000019",
+      "name": "PREPARAR UPLOAD FOTO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v25.0/{{ $json.session_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=OAuth {{ $json.access_token }}"
+            },
+            {
+              "name": "file_offset",
+              "value": "0"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "foto",
+        "options": {}
+      },
+      "id": "h1h2h3h4-0020-4000-8000-000000000020",
+      "name": "UPLOAD FOTO META",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prep = $('PREPARAR ATUALIZACAO').first().json;\nconst uploadRes = $input.first().json;\n\nif (uploadRes.error) {\n  throw new Error(uploadRes.error.error_user_msg || uploadRes.error.message || 'Falha ao enviar foto para a Meta.');\n}\nif (!uploadRes.h) throw new Error('Meta nao retornou handle da foto.');\n\nconst textBody = {\n  ...prep.textBody,\n  profile_picture_handle: uploadRes.h\n};\n\nreturn [{\n  json: {\n    access_token: prep.access_token,\n    phone_number_id: prep.phone_number_id,\n    textBody,\n    hasText: true,\n    hasPhoto: true\n  }\n}];"
+      },
+      "id": "h1h2h3h4-0021-4000-8000-000000000021",
+      "name": "MESCLAR HANDLE",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const p = $input.first().json;\nreturn [{\n  json: {\n    access_token: p.access_token,\n    phone_number_id: p.phone_number_id,\n    textBody: p.textBody,\n    hasText: p.hasText,\n    hasPhoto: false\n  }\n}];"
+      },
+      "id": "h1h2h3h4-0022-4000-8000-000000000022",
+      "name": "NORMALIZAR SEM FOTO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const updateRes = $input.first().json;\n\nif (updateRes?.error) {\n  const err = updateRes.error;\n  throw new Error(err.error_user_msg || err.message || 'Falha ao atualizar perfil na Meta.');\n}\nif (!updateRes?.success) {\n  throw new Error('Meta nao confirmou atualizacao do perfil.');\n}\n\nreturn [{ json: $('VALIDAR CONEXAO').first().json }];"
+      },
+      "id": "h1h2h3h4-0013-4000-8000-000000000013",
+      "name": "VALIDAR ATUALIZACAO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.hasText }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "h1h2h3h4-0023-4000-8000-000000000023",
+      "name": "TEM TEXTO?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2160,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v25.0/{{ $json.phone_number_id }}/whatsapp_business_profile",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.textBody }}",
+        "options": {}
+      },
+      "id": "h1h2h3h4-0024-4000-8000-000000000024",
+      "name": "ATUALIZAR PERFIL META",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        440
+      ]
+    }
+  ],
+  "connections": {
+    "WEBHOOK PERFIL": {
+      "main": [
+        [
+          {
+            "node": "VALIDAR ENTRADA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VALIDAR ENTRADA": {
+      "main": [
+        [
+          {
+            "node": "CONFIG API OFICIAL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIG API OFICIAL": {
+      "main": [
+        [
+          {
+            "node": "DADOS CONEXAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DADOS CONEXAO": {
+      "main": [
+        [
+          {
+            "node": "VALIDAR CONEXAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VALIDAR CONEXAO": {
+      "main": [
+        [
+          {
+            "node": "ACAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ACAO": {
+      "main": [
+        [
+          {
+            "node": "MONTAR RESPOSTA CACHE",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "BUSCAR DADOS META",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PREPARAR ATUALIZACAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MONTAR RESPOSTA CACHE": {
+      "main": [
+        [
+          {
+            "node": "RESPONDER SUCESSO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR DADOS META": {
+      "main": [
+        [
+          {
+            "node": "SALVAR CONEXAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SALVAR CONEXAO": {
+      "main": [
+        [
+          {
+            "node": "MONTAR RESPOSTA UNIFICADA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MONTAR RESPOSTA UNIFICADA": {
+      "main": [
+        [
+          {
+            "node": "RESPONDER SUCESSO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR ATUALIZACAO": {
+      "main": [
+        [
+          {
+            "node": "TEM FOTO?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VALIDAR ATUALIZACAO": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR DADOS META",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TEM FOTO?": {
+      "main": [
+        [
+          {
+            "node": "CRIAR SESSAO UPLOAD",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NORMALIZAR SEM FOTO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRIAR SESSAO UPLOAD": {
+      "main": [
+        [
+          {
+            "node": "PREPARAR UPLOAD FOTO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PREPARAR UPLOAD FOTO": {
+      "main": [
+        [
+          {
+            "node": "UPLOAD FOTO META",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPLOAD FOTO META": {
+      "main": [
+        [
+          {
+            "node": "MESCLAR HANDLE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MESCLAR HANDLE": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR PERFIL META",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NORMALIZAR SEM FOTO": {
+      "main": [
+        [
+          {
+            "node": "TEM TEXTO?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TEM TEXTO?": {
+      "main": [
+        [
+          {
+            "node": "ATUALIZAR PERFIL META",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "VALIDAR ATUALIZACAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATUALIZAR PERFIL META": {
+      "main": [
+        [
+          {
+            "node": "VALIDAR ATUALIZACAO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
