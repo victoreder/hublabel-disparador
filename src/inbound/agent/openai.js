@@ -1,5 +1,4 @@
 import { logger } from '../../logger.js';
-import { computeMaxTokens } from './config.js';
 import { executeTool, buildToolDefinitions } from './tools.js';
 import { searchKnowledge } from './rag.js';
 
@@ -18,8 +17,6 @@ export async function runAgentChat({
     { role: 'user', content: userMessage },
   ];
 
-  const maxTokens = Math.min(4096, computeMaxTokens(agente));
-
   let rounds = 0;
   while (rounds < agentConfig.maxToolRounds) {
     rounds += 1;
@@ -27,7 +24,6 @@ export async function runAgentChat({
     const body = {
       model: agente.modelo || 'gpt-4o-mini',
       messages,
-      max_tokens: maxTokens,
     };
 
     if (tools.length) body.tools = tools;

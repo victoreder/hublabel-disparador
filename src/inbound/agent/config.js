@@ -30,12 +30,3 @@ export function getAgentConfig(configIA) {
   };
 }
 
-export function computeMaxTokens(agente) {
-  const creditos = Number(agente?.maxCreditos ?? 0);
-  const modelo = String(agente?.modelo ?? '');
-  let fator = 1000;
-  if (modelo === 'gpt-5-mini') fator = 1000;
-  else if (modelo === 'gpt-5') fator = 200;
-  else if (modelo === 'gpt-5-pro') fator = Math.round(1000 / 60);
-  return Math.max(256, Math.floor(creditos * fator));
-}
