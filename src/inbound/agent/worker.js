@@ -14,17 +14,39 @@ import {
 import { sendAgentChunk, notifyTokenUsage } from './sendReply.js';
 
 export async function processAgentJob(job) {
-  const configIA = await fetchConfigIA();
-  const agentConfig = getAgentConfig(configIA);
-  const agente = job.agente ?? (job.agenteId ? await fetchAgente(job.agenteId) : null);
+  logger.info('Agent worker: iniciando', {
+    canal: job?.canal,
+    conexaoId: job?.conexaoId,
+    conversaId: job?.conversaId,
+    agenteId: job?.agenteId,
+    messageType: job?.messageType,
+    telefone: job?.telefone,
+  });
+
+  let agentConfig;
+  try {
+    agentConfig = getAgentConfig(await fetchConfigIA());
+  } catch (error) {
+    logger.error('Agent worker: falha ao carregar SAAS_Config_IA', { message: error.message });
+    throw error;
+  }
+
+  const agenteIdConexao = job.conexao?.idAgente ?? job.agenteId;
+  const agente =
+    job.agente ??
+    (agenteIdConexao ? await fetchAgente(agenteIdConexao) : null);
 
   if (!agente) {
-    logger.warn('Agente IA não encontrado', { agenteId: job.agenteId });
+    logger.warn('Agent worker: agente não encontrado', {
+      agenteId: job.agenteId,
+      conversaId: job.conversaId,
+      agenteNoJob: Boolean(job.agente),
+    });
     return;
   }
 
   if (agente.ativo === false) {
-    logger.info('Agente IA inativo', { agenteId: agente.id });
+    logger.info('Agent worker: agente inativo', { agenteId: agente.id, conversaId: job.conversaId });
     return;
   }
 
@@ -32,7 +54,13 @@ export async function processAgentJob(job) {
   job.agenteId = agente.id;
 
   const textoPreprocessado = await preprocessInput(job, agente, agentConfig);
-  if (textoPreprocessado == null) return;
+  if (textoPreprocessado == null) {
+    logger.info('Agent worker: preprocess abortou (fallback enviado ou mídia ignorada)', {
+      conversaId: job.conversaId,
+      messageType: job.messageType,
+    });
+    return;
+  }
 
   let inputText = textoPreprocessado;
 
@@ -44,7 +72,10 @@ export async function processAgentJob(job) {
       agente.intervaloEntreMensagens ?? 3,
     );
     if (!grouped) {
-      logger.debug('Mensagem agrupada — aguardando próxima', { telefone: job.telefone });
+      logger.info('Agent worker: aguardando agrupamento de mensagens', {
+        telefone: job.telefone,
+        intervaloSeg: agente.intervaloEntreMensagens ?? 3,
+      });
       return;
     }
     inputText = grouped;

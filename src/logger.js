@@ -13,4 +13,9 @@ export const logger = {
   error(message, meta) {
     console.error(`[ERROR] ${new Date().toISOString()} ${message}${formatMeta(meta)}`);
   },
+  debug(message, meta) {
+    if (process.env.LOG_DEBUG === '1') {
+      console.log(`[DEBUG] ${new Date().toISOString()} ${message}${formatMeta(meta)}`);
+    }
+  },
 };
