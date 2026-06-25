@@ -1,13 +1,16 @@
-name: Build and Push Docker Image
+name: Build and Push Disparador
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'disparador-meta/**'
+      - '.github/workflows/disparador-docker.yml'
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ghcr.io/victoreder/hublabel-disparador
 
 jobs:
   build-and-push:
@@ -31,7 +34,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest
             type=sha,prefix=
@@ -39,7 +42,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ./disparador-meta
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
