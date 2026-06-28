@@ -1,9 +1,11 @@
 import { logger } from '../../logger.js';
-import { fetchAgente, fetchConfigIA } from '../../supabase.js';
+import { fetchAgente, fetchConfigIA, fetchConversaAgente } from '../../supabase.js';
+import { executeAgentAction } from './actions.js';
 import { getAgentConfig } from './config.js';
 import { loadChatHistory } from './memory.js';
 import { runAgentChat } from './openai.js';
 import { splitAgentOutput } from './parseResponse.js';
+import { buildArquivoMapFromInstrucoes, parseAgentOutputWithActions } from './parseActions.js';
 import { buildSystemPrompt } from './prompt.js';
 import { preprocessInput } from './preprocess.js';
 import {
@@ -13,6 +15,26 @@ import {
 } from './redis.js';
 import { sendAgentChunk } from './sendReply.js';
 import { saveAgentTokenUsage } from './tokens.js';
+
+async function resolveAgenteAtivo(job) {
+  if (job.conversaId) {
+    const conversa = await fetchConversaAgente(job.conversaId);
+    job.conversa = conversa;
+
+    const agenteIdConversa = conversa?.idAgente;
+    if (agenteIdConversa) {
+      const agente = await fetchAgente(agenteIdConversa);
+      if (agente) return agente;
+    }
+  }
+
+  const agenteIdConexao =
+    job.conexao?.idAgente ?? job.agenteId ?? job.agente?.id ?? null;
+
+  if (job.agente?.id === agenteIdConexao) return job.agente;
+  if (agenteIdConexao) return fetchAgente(agenteIdConexao);
+  return job.agente ?? null;
+}
 
 export async function processAgentJob(job) {
   logger.info('Agent worker: iniciando', {
@@ -32,16 +54,12 @@ export async function processAgentJob(job) {
     throw error;
   }
 
-  const agenteIdConexao = job.conexao?.idAgente ?? job.agenteId;
-  const agente =
-    job.agente ??
-    (agenteIdConexao ? await fetchAgente(agenteIdConexao) : null);
+  const agente = await resolveAgenteAtivo(job);
 
   if (!agente) {
     logger.warn('Agent worker: agente não encontrado', {
       agenteId: job.agenteId,
       conversaId: job.conversaId,
-      agenteNoJob: Boolean(job.agente),
     });
     return;
   }
@@ -99,17 +117,52 @@ export async function processAgentJob(job) {
     return;
   }
 
-  const chunks = splitAgentOutput(chatResult.content, agente.separarMensagens !== false);
+  const segments = parseAgentOutputWithActions(chatResult.content);
+  const arquivoMap = buildArquivoMapFromInstrucoes(agente.instrucoes);
+  const actionCtx = {
+    job,
+    agente,
+    agentConfig,
+    arquivoMap,
+    history,
+    userMessage: inputText,
+    respostaAgente: chatResult.content,
+  };
+  const separarMensagens = agente.separarMensagens !== false;
 
-  for (const chunk of chunks) {
-    try {
-      await sendAgentChunk(job, chunk, agentConfig);
-    } catch (error) {
-      logger.error('Falha ao enviar resposta do agente', {
-        conversaId: job.conversaId,
-        kind: chunk.kind,
-        message: error.message,
+  for (const segment of segments) {
+    if (segment.type === 'text') {
+      const chunks = splitAgentOutput(segment.content, separarMensagens);
+      for (const chunk of chunks) {
+        try {
+          await sendAgentChunk(job, chunk, agentConfig);
+        } catch (error) {
+          logger.error('Falha ao enviar resposta do agente', {
+            conversaId: job.conversaId,
+            kind: chunk.kind,
+            message: error.message,
+          });
+        }
+      }
+      continue;
+    }
+
+    if (segment.type === 'action') {
+      const textoAnterior = segments
+        .slice(0, segments.indexOf(segment))
+        .filter((s) => s.type === 'text')
+        .map((s) => s.content)
+        .join('\n\n')
+        .trim();
+
+      const resultado = await executeAgentAction(segment.content, {
+        ...actionCtx,
+        textoContexto: textoAnterior,
       });
+
+      if (resultado?.tokensExtras) {
+        chatResult.totalTokens += resultado.tokensExtras;
+      }
     }
   }
 
@@ -122,7 +175,7 @@ export async function processAgentJob(job) {
   logger.info('Agente IA processado', {
     canal: job.canal,
     conversaId: job.conversaId,
-    chunks: chunks.length,
+    segments: segments.length,
     totalTokens: chatResult.totalTokens,
   });
 }
