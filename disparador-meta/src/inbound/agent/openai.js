@@ -1,5 +1,4 @@
 import { logger } from '../../logger.js';
-import { computeMaxTokens } from './config.js';
 import { executeTool, buildToolDefinitions } from './tools.js';
 import { searchKnowledge } from './rag.js';
 
@@ -18,17 +17,16 @@ export async function runAgentChat({
     { role: 'user', content: userMessage },
   ];
 
-  const maxTokens = Math.min(4096, computeMaxTokens(agente));
-
   let rounds = 0;
+  let totalTokens = 0;
+  let modelUsed = agente.modelo || 'gpt-4o-mini';
+
   while (rounds < agentConfig.maxToolRounds) {
     rounds += 1;
 
     const body = {
       model: agente.modelo || 'gpt-4o-mini',
       messages,
-      temperature: Number(agente.criatividade ?? 0.7),
-      max_tokens: maxTokens,
     };
 
     if (tools.length) body.tools = tools;
@@ -46,6 +44,9 @@ export async function runAgentChat({
     if (!response.ok) {
       throw new Error(json?.error?.message || 'Falha no chat OpenAI');
     }
+
+    if (json.model) modelUsed = json.model;
+    totalTokens += Number(json.usage?.total_tokens ?? 0);
 
     const choice = json.choices?.[0];
     const message = choice?.message;
@@ -86,7 +87,11 @@ export async function runAgentChat({
       continue;
     }
 
-    return message.content?.trim() || '';
+    return {
+      content: message.content?.trim() || '',
+      totalTokens,
+      model: modelUsed,
+    };
   }
 
   throw new Error('Limite de rodadas de ferramentas do agente atingido');

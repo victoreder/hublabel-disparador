@@ -1,5 +1,4 @@
 import { saveMensagemIA, updateConversaUltimaMensagem } from '../../supabase.js';
-import { logger } from '../../logger.js';
 import {
   classifyChunk,
   extractMediaUrl,
@@ -207,21 +206,4 @@ async function sendMetaChunk(job, kind, text, to, agentConfig) {
     }),
     agentConfig,
   );
-}
-
-export async function notifyTokenUsage(job, agentConfig) {
-  if (!agentConfig.calcularTokenUrl) return;
-  try {
-    await fetch(agentConfig.calcularTokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        idAgente: job.agenteId,
-        telefone: job.telefone,
-        origem: 'disparador-inbound',
-      }),
-    });
-  } catch (error) {
-    logger.warn('Falha ao notificar tokens', { message: error.message });
-  }
 }
