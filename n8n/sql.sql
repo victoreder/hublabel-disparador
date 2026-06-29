@@ -2308,6 +2308,7 @@
   BEGIN
     IF LOWER(TRIM(COALESCE(NEW."statusAtendimento", ''))) = 'fechado' THEN
       NEW."dataFechamento" := COALESCE(NEW."dataFechamento", now());
+      NEW."idAgente" := NULL;
     ELSE
       NEW."dataFechamento" := NULL;
     END IF;
@@ -2923,7 +2924,9 @@
     p_contato_telefone text,
     p_telefone_input text,
     p_from_me boolean,
-    p_nome_conversa text DEFAULT NULL
+    p_nome_conversa text DEFAULT NULL,
+    p_mensagem text DEFAULT NULL,
+    p_eh_primeira_mensagem boolean DEFAULT false
   )
   RETURNS jsonb
   LANGUAGE plpgsql
@@ -2935,6 +2938,9 @@
     v_agente jsonb;
     v_agente_id bigint;
     v_conversa_agente_id bigint;
+    v_setor_id bigint;
+    v_resolver jsonb;
+    v_motivo_ativacao text;
     v_agente_pausar boolean := false;
     v_conversa_pausada boolean := false;
     v_quadro_id bigint;
@@ -2961,7 +2967,8 @@
       RETURN jsonb_build_object('ok', false, 'error', 'conexao invalida');
     END IF;
 
-    SELECT ca."idAgente" INTO v_conversa_agente_id
+    SELECT ca."idAgente", ca."setorId"
+      INTO v_conversa_agente_id, v_setor_id
       FROM public."SAAS_Conversas_Agentes" ca
     WHERE ca.id = p_conversa_id
     LIMIT 1;
@@ -2973,15 +2980,33 @@
       WHERE a.id = v_conversa_agente_id
         AND COALESCE(a.ativo, true) = true
       LIMIT 1;
+      IF v_agente_id IS NOT NULL THEN
+        v_motivo_ativacao := 'conversa_existente';
+      END IF;
     END IF;
 
     IF v_agente_id IS NULL THEN
-      SELECT to_jsonb(a.*), a.id, COALESCE(a."pausarAtendimento", false)
-        INTO v_agente, v_agente_id, v_agente_pausar
-        FROM public."SAAS_AgentesIA" a
-      WHERE a.id = NULLIF(trim(v_conexao->>'idAgente'), '')::bigint
-        AND COALESCE(a.ativo, true) = true
-      LIMIT 1;
+      v_resolver := public.f_resolver_agente_ativacao(
+        p_conta_id,
+        p_conexao_id,
+        p_conversa_id,
+        p_mensagem,
+        p_contato_id,
+        v_setor_id,
+        COALESCE(p_eh_primeira_mensagem, false)
+      );
+
+      IF COALESCE(v_resolver->>'ok', 'false') = 'true'
+        AND NULLIF(trim(COALESCE(v_resolver->>'idAgente', '')), '') IS NOT NULL
+      THEN
+        v_motivo_ativacao := v_resolver->>'motivo';
+        SELECT to_jsonb(a.*), a.id, COALESCE(a."pausarAtendimento", false)
+          INTO v_agente, v_agente_id, v_agente_pausar
+          FROM public."SAAS_AgentesIA" a
+        WHERE a.id = NULLIF(trim(v_resolver->>'idAgente'), '')::bigint
+          AND COALESCE(a.ativo, true) = true
+        LIMIT 1;
+      END IF;
     END IF;
 
     IF v_agente_id IS NOT NULL THEN
@@ -3092,7 +3117,8 @@
       'segueFluxoIA', v_segue_fluxo_ia,
       'conexao', v_conexao,
       'agente', v_agente,
-      'agenteId', v_agente_id
+      'agenteId', v_agente_id,
+      'motivoAtivacao', v_motivo_ativacao
     );
   EXCEPTION WHEN OTHERS THEN
     RETURN jsonb_build_object('ok', false, 'error', SQLERRM);
@@ -3149,6 +3175,7 @@
     v_plano_qnt_creditos numeric;
     v_total_creditos numeric;
     v_agente_fluxo jsonb;
+    v_eh_primeira_mensagem boolean := false;
   BEGIN
     IF p_conexao_id IS NULL THEN
       RETURN jsonb_build_object('ok', false, 'error', 'conexaoId é obrigatório');
@@ -3328,6 +3355,14 @@
       v_mensagem_criada := true;
     END IF;
 
+    IF NOT COALESCE(p_from_me, false) THEN
+      SELECT COUNT(*) <= 1 INTO v_eh_primeira_mensagem
+        FROM public."SAAS_Mensagens" m
+      WHERE m."conversaId" = v_conversa_id
+        AND m."fromMe" = false
+        AND COALESCE(m.apagada, false) = false;
+    END IF;
+
     v_agente_fluxo := public.f_avaliar_fluxo_agente_ia(
       p_conexao_id,
       v_conta_id,
@@ -3336,7 +3371,9 @@
       v_contato_telefone,
       v_telefone_input,
       COALESCE(p_from_me, false),
-      p_nome_conversa
+      p_nome_conversa,
+      NULLIF(trim(COALESCE(p_mensagem, '')), ''),
+      v_eh_primeira_mensagem
     );
 
     RETURN jsonb_build_object(
@@ -4995,7 +5032,7 @@
   GRANT EXECUTE ON FUNCTION public.f_pausar_atendimento_por_mensagem(BIGINT) TO authenticated;
   GRANT EXECUTE ON FUNCTION public.f_resetar_creditos_agentes_mes() TO authenticated;
   GRANT EXECUTE ON FUNCTION public.f_ingestao_mensagem(jsonb) TO authenticated;
-  GRANT EXECUTE ON FUNCTION public.f_avaliar_fluxo_agente_ia(bigint, uuid, bigint, bigint, text, text, boolean, text) TO authenticated, service_role;
+  GRANT EXECUTE ON FUNCTION public.f_avaliar_fluxo_agente_ia(bigint, uuid, bigint, bigint, text, text, boolean, text, text, boolean) TO authenticated, service_role;
   GRANT EXECUTE ON FUNCTION public.f_vincular_contatos_conversas_por_telefone() TO authenticated;
   GRANT EXECUTE ON FUNCTION public.p_expire_contas_daily() TO authenticated;
   GRANT EXECUTE ON FUNCTION public.p_expire_contas_now() TO authenticated;
@@ -7100,6 +7137,7 @@
     v_telefone_whatsapp text;
     v_tipo text;
     v_fluxo jsonb;
+    v_eh_primeira_mensagem boolean := false;
   BEGIN
     v_telefone := regexp_replace(COALESCE(p_telefone, ''), '\D', '', 'g');
     IF v_telefone = '' OR p_conexao_id IS NULL OR p_conta_id IS NULL THEN
@@ -7232,6 +7270,12 @@
       AND lower(trim(COALESCE(v_tipo, ''))) NOT IN ('reaction', 'reactionmessage')
       AND lower(trim(COALESCE(p_tipo_mensagem, ''))) <> 'reaction'
     THEN
+      SELECT COUNT(*) <= 1 INTO v_eh_primeira_mensagem
+        FROM public."SAAS_Mensagens" m
+      WHERE m."conversaId" = v_conversa_id
+        AND m."fromMe" = false
+        AND COALESCE(m.apagada, false) = false;
+
       v_fluxo := public.f_avaliar_fluxo_agente_ia(
         p_conexao_id,
         p_conta_id,
@@ -7240,7 +7284,9 @@
         v_contato_telefone,
         v_telefone,
         false,
-        p_nome_contato
+        p_nome_contato,
+        NULLIF(trim(COALESCE(p_mensagem, '')), ''),
+        v_eh_primeira_mensagem
       );
     ELSE
       v_fluxo := jsonb_build_object('segueFluxoIA', false);
@@ -8770,3 +8816,323 @@
       );
     END IF;
   END$$;
+
+  -- =========================
+  -- Ativação / roteamento multi-agentes
+  -- =========================
+  DO $$
+  BEGIN
+    IF to_regclass('public."SAAS_Contas"') IS NOT NULL
+      AND to_regclass('public."SAAS_AgentesIA"') IS NOT NULL THEN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'SAAS_Contas' AND column_name = 'idAgentePadrao'
+      ) THEN
+        ALTER TABLE public."SAAS_Contas" ADD COLUMN "idAgentePadrao" BIGINT;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'SAAS_Contas_idAgentePadrao_fkey') THEN
+        ALTER TABLE public."SAAS_Contas"
+          ADD CONSTRAINT "SAAS_Contas_idAgentePadrao_fkey"
+          FOREIGN KEY ("idAgentePadrao") REFERENCES public."SAAS_AgentesIA"(id) ON UPDATE CASCADE ON DELETE SET NULL;
+      END IF;
+    END IF;
+
+    IF to_regclass('public."SAAS_AgentesIA_Ativacao"') IS NULL
+      AND to_regclass('public."SAAS_AgentesIA"') IS NOT NULL THEN
+      CREATE TABLE public."SAAS_AgentesIA_Ativacao" (
+        id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        "contaId" UUID NOT NULL REFERENCES public."SAAS_Contas"(id) ON UPDATE CASCADE ON DELETE CASCADE,
+        "idAgente" BIGINT NOT NULL REFERENCES public."SAAS_AgentesIA"(id) ON UPDATE CASCADE ON DELETE CASCADE,
+        tipo TEXT NOT NULL CHECK (tipo IN (
+          'palavra_chave', 'etiqueta', 'crm', 'setor', 'horario'
+        )),
+        prioridade INTEGER NOT NULL DEFAULT 0,
+        "conexoesModo" TEXT NOT NULL DEFAULT 'todas'
+          CHECK ("conexoesModo" IN ('todas', 'incluir', 'excluir')),
+        "conexoesIds" JSONB NOT NULL DEFAULT '[]'::jsonb,
+        condicao JSONB NOT NULL DEFAULT '{}'::jsonb,
+        "apenasPrimeiraMensagem" BOOLEAN NOT NULL DEFAULT true,
+        exclusivo BOOLEAN NOT NULL DEFAULT false,
+        ativo BOOLEAN NOT NULL DEFAULT true
+      );
+      CREATE INDEX IF NOT EXISTS idx_agentes_ia_ativacao_conta ON public."SAAS_AgentesIA_Ativacao"("contaId");
+      CREATE INDEX IF NOT EXISTS idx_agentes_ia_ativacao_agente ON public."SAAS_AgentesIA_Ativacao"("idAgente");
+      CREATE INDEX IF NOT EXISTS idx_agentes_ia_ativacao_tipo ON public."SAAS_AgentesIA_Ativacao"(tipo, ativo);
+    END IF;
+
+    IF to_regclass('public."SAAS_AgentesIA_Ativacao"') IS NOT NULL THEN
+      UPDATE public."SAAS_AgentesIA_Ativacao"
+      SET tipo = 'horario'
+      WHERE tipo IN ('horario_comercial', 'horario_intervalo');
+      ALTER TABLE public."SAAS_AgentesIA_Ativacao"
+        DROP CONSTRAINT IF EXISTS "SAAS_AgentesIA_Ativacao_tipo_check";
+      ALTER TABLE public."SAAS_AgentesIA_Ativacao"
+        ADD CONSTRAINT "SAAS_AgentesIA_Ativacao_tipo_check"
+        CHECK (tipo IN ('palavra_chave', 'etiqueta', 'crm', 'setor', 'horario'));
+
+      ALTER TABLE public."SAAS_AgentesIA_Ativacao" ENABLE ROW LEVEL SECURITY;
+      DROP POLICY IF EXISTS "select_agentes_ia_ativacao" ON public."SAAS_AgentesIA_Ativacao";
+      DROP POLICY IF EXISTS "insert_agentes_ia_ativacao" ON public."SAAS_AgentesIA_Ativacao";
+      DROP POLICY IF EXISTS "update_agentes_ia_ativacao" ON public."SAAS_AgentesIA_Ativacao";
+      DROP POLICY IF EXISTS "delete_agentes_ia_ativacao" ON public."SAAS_AgentesIA_Ativacao";
+      CREATE POLICY "select_agentes_ia_ativacao" ON public."SAAS_AgentesIA_Ativacao"
+        FOR SELECT TO authenticated USING (public.can_access_conta("contaId") OR public.is_super_admin());
+      CREATE POLICY "insert_agentes_ia_ativacao" ON public."SAAS_AgentesIA_Ativacao"
+        FOR INSERT TO authenticated WITH CHECK (public.can_access_conta("contaId") OR public.is_super_admin());
+      CREATE POLICY "update_agentes_ia_ativacao" ON public."SAAS_AgentesIA_Ativacao"
+        FOR UPDATE TO authenticated
+        USING (public.can_access_conta("contaId") OR public.is_super_admin())
+        WITH CHECK (public.can_access_conta("contaId") OR public.is_super_admin());
+      CREATE POLICY "delete_agentes_ia_ativacao" ON public."SAAS_AgentesIA_Ativacao"
+        FOR DELETE TO authenticated USING (public.can_access_conta("contaId") OR public.is_super_admin());
+      GRANT SELECT, INSERT, UPDATE, DELETE ON public."SAAS_AgentesIA_Ativacao" TO authenticated;
+      GRANT USAGE, SELECT ON SEQUENCE public."SAAS_AgentesIA_Ativacao_id_seq" TO authenticated;
+    END IF;
+  END$$;
+
+  CREATE OR REPLACE FUNCTION public.f_regra_ativacao_conexao_ok(
+    p_conexoes_modo text,
+    p_conexoes_ids jsonb,
+    p_conexao_id bigint
+  ) RETURNS boolean
+  LANGUAGE plpgsql IMMUTABLE AS $$
+  BEGIN
+    IF COALESCE(p_conexoes_modo, 'todas') = 'todas' THEN RETURN true; END IF;
+    IF p_conexao_id IS NULL THEN RETURN false; END IF;
+    IF p_conexoes_modo = 'incluir' THEN
+      RETURN COALESCE(p_conexoes_ids, '[]'::jsonb) @> to_jsonb(p_conexao_id);
+    END IF;
+    IF p_conexoes_modo = 'excluir' THEN
+      RETURN NOT (COALESCE(p_conexoes_ids, '[]'::jsonb) @> to_jsonb(p_conexao_id));
+    END IF;
+    RETURN true;
+  END;
+  $$;
+
+  CREATE OR REPLACE FUNCTION public.f_regra_horario_ativacao_ok(p_condicao jsonb)
+  RETURNS boolean
+  LANGUAGE plpgsql STABLE AS $$
+  DECLARE
+    v_tz text;
+    v_local timestamp;
+    v_dow int;
+    v_time time;
+    v_inicio time;
+    v_fim time;
+    v_dias jsonb;
+  BEGIN
+    v_tz := COALESCE(NULLIF(p_condicao->>'fuso', ''), 'America/Sao_Paulo');
+    v_local := (now() AT TIME ZONE v_tz)::timestamp;
+    v_dow := EXTRACT(ISODOW FROM v_local)::int;
+    v_time := v_local::time;
+    v_dias := COALESCE(p_condicao->'diasSemana', '[1,2,3,4,5]'::jsonb);
+    IF NOT (v_dias @> to_jsonb(v_dow)) THEN RETURN false; END IF;
+    BEGIN
+      v_inicio := NULLIF(p_condicao->>'horaInicio', '')::time;
+      v_fim := NULLIF(p_condicao->>'horaFim', '')::time;
+    EXCEPTION WHEN OTHERS THEN
+      RETURN false;
+    END;
+    IF v_inicio IS NULL OR v_fim IS NULL THEN RETURN true; END IF;
+    IF v_inicio <= v_fim THEN
+      RETURN v_time >= v_inicio AND v_time <= v_fim;
+    END IF;
+    RETURN v_time >= v_inicio OR v_time <= v_fim;
+  END;
+  $$;
+
+  CREATE OR REPLACE FUNCTION public.f_regra_ativacao_condicao_ok(
+    p_tipo text,
+    p_condicao jsonb,
+    p_mensagem text,
+    p_contato_id bigint,
+    p_setor_id bigint
+  ) RETURNS boolean
+  LANGUAGE plpgsql STABLE AS $$
+  DECLARE
+    v_palavra text;
+    v_modo text;
+    v_match boolean := false;
+    v_todas_ok boolean := true;
+    v_crm_modo text;
+  BEGIN
+    IF p_tipo IN ('horario', 'horario_comercial', 'horario_intervalo') THEN
+      RETURN public.f_regra_horario_ativacao_ok(p_condicao);
+    END IF;
+
+    IF p_tipo = 'palavra_chave' THEN
+      IF COALESCE(trim(p_mensagem), '') = '' THEN RETURN false; END IF;
+      v_modo := COALESCE(p_condicao->>'modo', 'qualquer');
+      FOR v_palavra IN SELECT jsonb_array_elements_text(COALESCE(p_condicao->'palavras', '[]'::jsonb))
+      LOOP
+        IF v_palavra IS NULL OR trim(v_palavra) = '' THEN CONTINUE; END IF;
+        IF position(lower(trim(v_palavra)) IN lower(p_mensagem)) > 0 THEN
+          v_match := true;
+          IF v_modo = 'qualquer' THEN RETURN true; END IF;
+        ELSE
+          v_todas_ok := false;
+        END IF;
+      END LOOP;
+      IF v_modo = 'todas' THEN RETURN v_todas_ok AND v_match; END IF;
+      RETURN v_match;
+    END IF;
+
+    IF p_tipo = 'etiqueta' THEN
+      IF p_contato_id IS NULL OR to_regclass('public."SAAS_Contatos_Etiquetas"') IS NULL THEN RETURN false; END IF;
+      RETURN EXISTS (
+        SELECT 1 FROM public."SAAS_Contatos_Etiquetas" ce
+        WHERE ce."contatoId" = p_contato_id
+          AND ce."etiquetaId" = NULLIF(p_condicao->>'etiquetaId', '')::bigint
+      );
+    END IF;
+
+    IF p_tipo = 'crm' THEN
+      IF p_contato_id IS NULL OR to_regclass('public."SAAS_Cards_Quadros"') IS NULL THEN RETURN false; END IF;
+      v_crm_modo := COALESCE(p_condicao->>'modo', 'na_etapa');
+      IF v_crm_modo = 'na_etapa' THEN
+        IF COALESCE(NULLIF(trim(p_condicao->>'etapaId'), ''), 'todas') IN ('todas', '*', 'all') THEN
+          RETURN EXISTS (
+            SELECT 1 FROM public."SAAS_Cards_Quadros" cq
+            WHERE cq."contatoId" = p_contato_id
+              AND cq."quadroId" = NULLIF(p_condicao->>'quadroId', '')::bigint
+          );
+        END IF;
+        RETURN EXISTS (
+          SELECT 1 FROM public."SAAS_Cards_Quadros" cq
+          WHERE cq."contatoId" = p_contato_id
+            AND cq."quadroId" = NULLIF(p_condicao->>'quadroId', '')::bigint
+            AND cq."etapaQuadroId" = NULLIF(p_condicao->>'etapaId', '')::bigint
+        );
+      ELSIF v_crm_modo = 'tem_card' THEN
+        RETURN EXISTS (
+          SELECT 1 FROM public."SAAS_Cards_Quadros" cq
+          WHERE cq."contatoId" = p_contato_id
+            AND (NULLIF(p_condicao->>'quadroId', '') IS NULL OR cq."quadroId" = NULLIF(p_condicao->>'quadroId', '')::bigint)
+        );
+      ELSIF v_crm_modo = 'sem_card' THEN
+        RETURN NOT EXISTS (
+          SELECT 1 FROM public."SAAS_Cards_Quadros" cq
+          WHERE cq."contatoId" = p_contato_id
+            AND (NULLIF(p_condicao->>'quadroId', '') IS NULL OR cq."quadroId" = NULLIF(p_condicao->>'quadroId', '')::bigint)
+        );
+      END IF;
+      RETURN false;
+    END IF;
+
+    IF p_tipo = 'setor' THEN
+      RETURN p_setor_id IS NOT NULL
+        AND p_setor_id = NULLIF(p_condicao->>'setorId', '')::bigint;
+    END IF;
+
+    RETURN false;
+  END;
+  $$;
+
+  CREATE OR REPLACE FUNCTION public.f_resolver_agente_ativacao(
+    p_conta_id uuid,
+    p_conexao_id bigint,
+    p_conversa_id bigint DEFAULT NULL,
+    p_mensagem text DEFAULT NULL,
+    p_contato_id bigint DEFAULT NULL,
+    p_setor_id bigint DEFAULT NULL,
+    p_eh_primeira_mensagem boolean DEFAULT true
+  ) RETURNS jsonb
+  LANGUAGE plpgsql STABLE SECURITY DEFINER
+  SET search_path = public
+  AS $$
+  DECLARE
+    v_conversa record;
+    v_agente_id bigint;
+    v_tipo text;
+    v_regra record;
+    v_tipos text[] := ARRAY[
+      'palavra_chave', 'etiqueta', 'crm', 'setor', 'horario'
+    ];
+  BEGIN
+    IF p_conta_id IS NULL THEN
+      RETURN jsonb_build_object('ok', false, 'erro', 'contaId obrigatório');
+    END IF;
+
+    IF p_conversa_id IS NOT NULL AND to_regclass('public."SAAS_Conversas_Agentes"') IS NOT NULL THEN
+      SELECT c."idAgente", c."setorId"
+      INTO v_conversa
+      FROM public."SAAS_Conversas_Agentes" c
+      WHERE c.id = p_conversa_id AND c."contaId" = p_conta_id
+      LIMIT 1;
+
+      IF FOUND AND v_conversa."idAgente" IS NOT NULL THEN
+        IF EXISTS (
+          SELECT 1 FROM public."SAAS_AgentesIA" a
+          WHERE a.id = v_conversa."idAgente" AND a.ativo IS NOT FALSE
+        ) THEN
+          RETURN jsonb_build_object(
+            'ok', true, 'idAgente', v_conversa."idAgente", 'motivo', 'conversa_existente'
+          );
+        END IF;
+      END IF;
+
+      IF FOUND AND v_conversa."setorId" IS NOT NULL AND p_setor_id IS NULL THEN
+        p_setor_id := v_conversa."setorId";
+      END IF;
+    END IF;
+
+    IF to_regclass('public."SAAS_AgentesIA_Ativacao"') IS NOT NULL THEN
+      FOREACH v_tipo IN ARRAY v_tipos LOOP
+        FOR v_regra IN
+          SELECT r.*
+          FROM public."SAAS_AgentesIA_Ativacao" r
+          JOIN public."SAAS_AgentesIA" a ON a.id = r."idAgente"
+          WHERE r."contaId" = p_conta_id
+            AND r.ativo IS TRUE
+            AND a.ativo IS NOT FALSE
+            AND r.tipo = v_tipo
+            AND public.f_regra_ativacao_conexao_ok(r."conexoesModo", r."conexoesIds", p_conexao_id)
+            AND public.f_regra_ativacao_condicao_ok(
+              r.tipo, r.condicao, p_mensagem, p_contato_id, p_setor_id
+            )
+            AND (
+              NOT COALESCE(r."apenasPrimeiraMensagem", false)
+              OR COALESCE(p_eh_primeira_mensagem, false)
+            )
+          ORDER BY r.prioridade DESC, r.id ASC
+        LOOP
+          RETURN jsonb_build_object(
+            'ok', true, 'idAgente', v_regra."idAgente",
+            'motivo', 'regra_' || v_tipo, 'regraId', v_regra.id
+          );
+        END LOOP;
+      END LOOP;
+    END IF;
+
+    IF p_conexao_id IS NOT NULL AND to_regclass('public."SAAS_Conexões"') IS NOT NULL THEN
+      SELECT cx."idAgente" INTO v_agente_id
+      FROM public."SAAS_Conexões" cx
+      JOIN public."SAAS_AgentesIA" a ON a.id = cx."idAgente"
+      WHERE cx.id = p_conexao_id AND cx."contaId" = p_conta_id AND a.ativo IS NOT FALSE
+      LIMIT 1;
+      IF v_agente_id IS NOT NULL THEN
+        RETURN jsonb_build_object('ok', true, 'idAgente', v_agente_id, 'motivo', 'padrao_conexao');
+      END IF;
+    END IF;
+
+    IF to_regclass('public."SAAS_Contas"') IS NOT NULL THEN
+      SELECT c."idAgentePadrao" INTO v_agente_id
+      FROM public."SAAS_Contas" c
+      JOIN public."SAAS_AgentesIA" a ON a.id = c."idAgentePadrao"
+      WHERE c.id = p_conta_id AND a.ativo IS NOT FALSE
+      LIMIT 1;
+      IF v_agente_id IS NOT NULL THEN
+        RETURN jsonb_build_object('ok', true, 'idAgente', v_agente_id, 'motivo', 'padrao_global');
+      END IF;
+    END IF;
+
+    RETURN jsonb_build_object('ok', true, 'idAgente', NULL, 'motivo', 'nenhum');
+  END;
+  $$;
+
+  GRANT EXECUTE ON FUNCTION public.f_regra_ativacao_conexao_ok(text, jsonb, bigint) TO authenticated;
+  GRANT EXECUTE ON FUNCTION public.f_regra_horario_ativacao_ok(jsonb) TO authenticated;
+  GRANT EXECUTE ON FUNCTION public.f_regra_ativacao_condicao_ok(text, jsonb, text, bigint, bigint) TO authenticated;
+  GRANT EXECUTE ON FUNCTION public.f_resolver_agente_ativacao(uuid, bigint, bigint, text, bigint, bigint, boolean) TO authenticated;
+  GRANT EXECUTE ON FUNCTION public.f_resolver_agente_ativacao(uuid, bigint, bigint, text, bigint, bigint, boolean) TO service_role;
