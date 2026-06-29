@@ -573,6 +573,23 @@ export async function buscarCardContato({ contatoId, quadroId = null }) {
   return data;
 }
 
+export async function criarCardCrm({ contatoId, quadroId, etapaId, nome, contato }) {
+  const { data, error } = await supabase
+    .from('SAAS_Cards_Quadros')
+    .insert({
+      quadroId,
+      contatoId,
+      etapaQuadroId: etapaId,
+      nome: nome ?? null,
+      contato: contato ?? null,
+    })
+    .select('id, quadroId, etapaQuadroId, observacoes, valor, tarefas')
+    .single();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao criar card CRM');
+  return data;
+}
+
 export async function moverCardCrm({ cardId, etapaId, quadroId }) {
   const { data: card, error: fetchError } = await supabase
     .from('SAAS_Cards_Quadros')

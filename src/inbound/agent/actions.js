@@ -5,6 +5,7 @@ import {
   buscarAtendenteAleatorio,
   buscarAtendenteAleatorioSetor,
   buscarCardContato,
+  criarCardCrm,
   moverCardCrm,
   preencherCardCrm,
   removerEtiquetaContato,
@@ -13,6 +14,7 @@ import {
   transferirConversaAgenteIA,
 } from '../../supabase.js';
 import { gerarPreenchimentoCrm } from './crmPreencher.js';
+import { executeNotificarHumano } from './notifyHuman.js';
 import { resolveMediaMarkdown } from './parseActions.js';
 import { classifyChunk } from './parseResponse.js';
 import { sendAgentChunk } from './sendReply.js';
@@ -21,6 +23,12 @@ function normalizeTipo(tipo) {
   const t = String(tipo || '').trim().toLowerCase();
   if (t === 'crm-movimentacao') return 'crm-mover';
   return t;
+}
+
+function telefoneFromJob(job) {
+  return String(job?.telefone || '')
+    .replace('@s.whatsapp.net', '')
+    .replace(/\D/g, '');
 }
 
 async function resolveAtendenteId(dados, { contaId, setorId = null }) {
@@ -150,37 +158,7 @@ async function executarTransferirAgenteIA(acao, ctx) {
   return { success: true, agenteId };
 }
 
-async function executarCrmMover(acao, ctx) {
-  const quadroId = Number(acao.dados?.quadroId);
-  const etapaId = Number(acao.dados?.etapaId);
-  if (!quadroId || !etapaId || !ctx.job.contatoId) {
-    return { success: false, error: 'quadroId, etapaId ou contatoId ausente' };
-  }
-
-  const card = await buscarCardContato({ contatoId: ctx.job.contatoId, quadroId });
-  if (!card?.id) {
-    return { success: false, error: 'Card CRM não encontrado para o contato' };
-  }
-
-  await moverCardCrm({ cardId: card.id, etapaId, quadroId });
-  return { success: true, cardId: card.id, etapaId };
-}
-
-async function executarCrmPreencher(acao, ctx) {
-  const dados = acao.dados ?? {};
-  const quadroId = Number(dados.quadroId) || null;
-
-  let card = null;
-  if (quadroId && ctx.job.contatoId) {
-    card = await buscarCardContato({ contatoId: ctx.job.contatoId, quadroId });
-  } else if (ctx.job.contatoId) {
-    card = await buscarCardContato({ contatoId: ctx.job.contatoId });
-  }
-
-  if (!card?.id) {
-    return { success: false, error: 'Card CRM não encontrado' };
-  }
-
+async function aplicarPreenchimentoCrmCard({ dados, card, ctx }) {
   const preenchimento = await gerarPreenchimentoCrm({
     agentConfig: ctx.agentConfig,
     agente: ctx.agente,
@@ -201,11 +179,102 @@ async function executarCrmPreencher(acao, ctx) {
   });
 
   return {
-    success: true,
     cardId: card.id,
     preenchimento,
     tokensExtras: preenchimento.totalTokens ?? 0,
   };
+}
+
+async function executarCrmMover(acao, ctx) {
+  const dados = acao.dados ?? {};
+  const quadroId = Number(dados.quadroId);
+  const etapaId = Number(dados.etapaId);
+  if (!quadroId || !etapaId || !ctx.job.contatoId) {
+    return { success: false, error: 'quadroId, etapaId ou contatoId ausente' };
+  }
+
+  const card = await buscarCardContato({ contatoId: ctx.job.contatoId, quadroId });
+  if (!card?.id) {
+    return { success: false, error: 'Card CRM não encontrado para o contato' };
+  }
+
+  await moverCardCrm({ cardId: card.id, etapaId, quadroId });
+  return { success: true, cardId: card.id, etapaId, modo: 'mover' };
+}
+
+async function executarCrmPreencher(acao, ctx) {
+  const dados = acao.dados ?? {};
+  const quadroId = Number(dados.quadroId) || null;
+
+  let card = null;
+  if (quadroId && ctx.job.contatoId) {
+    card = await buscarCardContato({ contatoId: ctx.job.contatoId, quadroId });
+  } else if (ctx.job.contatoId) {
+    card = await buscarCardContato({ contatoId: ctx.job.contatoId });
+  }
+
+  if (!card?.id) {
+    return { success: false, error: 'Card CRM não encontrado' };
+  }
+
+  const resultado = await aplicarPreenchimentoCrmCard({ dados, card, ctx });
+
+  return {
+    success: true,
+    modo: 'preencher',
+    ...resultado,
+  };
+}
+
+async function executarCrmCriar(acao, ctx) {
+  const dados = acao.dados ?? {};
+  const quadroId = Number(dados.quadroId);
+  const etapaId = Number(dados.etapaId);
+
+  if (!quadroId || !etapaId || !ctx.job.contatoId) {
+    return { success: false, error: 'quadroId, etapaId ou contatoId ausente' };
+  }
+
+  let card = await buscarCardContato({ contatoId: ctx.job.contatoId, quadroId });
+  let cardCriado = false;
+
+  if (!card?.id) {
+    const telefone = telefoneFromJob(ctx.job);
+    card = await criarCardCrm({
+      contatoId: ctx.job.contatoId,
+      quadroId,
+      etapaId,
+      nome: ctx.job.nomeContato || telefone,
+      contato: telefone,
+    });
+    cardCriado = true;
+  }
+
+  const temPreenchimento =
+    dados.observacoes === true || dados.valor === true || dados.tarefa === true;
+
+  let preenchimentoResultado = null;
+  if (temPreenchimento) {
+    preenchimentoResultado = await aplicarPreenchimentoCrmCard({ dados, card, ctx });
+  }
+
+  return {
+    success: true,
+    modo: 'criar',
+    cardId: card.id,
+    cardCriado,
+    ...preenchimentoResultado,
+  };
+}
+
+async function executarCrm(acao, ctx) {
+  const modo = String(acao.dados?.modo || '').toLowerCase();
+
+  if (modo === 'criar') return executarCrmCriar(acao, ctx);
+  if (modo === 'mover') return executarCrmMover(acao, ctx);
+  if (modo === 'preencher') return executarCrmPreencher(acao, ctx);
+
+  return { success: false, error: `modo CRM inválido: ${modo || '(vazio)'}` };
 }
 
 const EXECUTORES = {
@@ -217,6 +286,7 @@ const EXECUTORES = {
   'notificar-humano': executarNotificarHumano,
   'transferir-setor': executarTransferirSetor,
   'transferir-agente-ia': executarTransferirAgenteIA,
+  crm: executarCrm,
   'crm-mover': executarCrmMover,
   'crm-preencher': executarCrmPreencher,
 };

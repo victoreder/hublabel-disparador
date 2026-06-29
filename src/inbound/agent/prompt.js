@@ -34,7 +34,7 @@ export function buildSystemPrompt(job, agente) {
     '- Os marcadores [[acao:...]] são processados pelo sistema e NÃO devem ser mostrados ao cliente — inclua-os na resposta, o sistema remove antes de enviar.',
     '- Execute apenas as ações cujas condições foram realmente atendidas nesta conversa.',
     '- Para enviar mídia, inclua o marcador enviar-midia e também o markdown do arquivo conforme as instruções.',
-    '- Em crm-preencher, siga as instrucaoObservacoes, instrucaoValor, instrucaoTarefa e instrucaoTarefaData definidas na ação; o sistema usa a conversa para gerar o conteúdo.',
+    '- Para ações CRM (tipo crm), use o marcador exatamente como nas instruções: modo criar (quadro+etapa+ campos opcionais), mover (quadro+etapa destino) ou preencher (quadro+campos com instruções de IA). Chips legados crm-mover e crm-preencher também funcionam.',
     '- Para ferramenta-http nas instruções: chame a tool ferramenta_http com o httpIndex indicado, use o retorno (data) na sua resposta. NÃO inclua [[acao:{"tipo":"ferramenta-http"...}]] na resposta ao cliente.',
     '',
     '## ENVIO DE MIDIAS',
