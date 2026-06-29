@@ -17,6 +17,15 @@ import { sendAgentChunk } from './sendReply.js';
 import { saveAgentTokenUsage } from './tokens.js';
 
 async function resolveAgenteAtivo(job) {
+  if (job.agente?.id && job.agente.ativo !== false) {
+    return job.agente;
+  }
+
+  if (job.agenteId) {
+    const agente = await fetchAgente(job.agenteId);
+    if (agente) return agente;
+  }
+
   if (job.conversaId) {
     const conversa = await fetchConversaAgente(job.conversaId);
     job.conversa = conversa;
@@ -28,12 +37,10 @@ async function resolveAgenteAtivo(job) {
     }
   }
 
-  const agenteIdConexao =
-    job.conexao?.idAgente ?? job.agenteId ?? job.agente?.id ?? null;
+  const agenteIdConexao = job.agenteId ?? job.agente?.id ?? null;
 
-  if (job.agente?.id === agenteIdConexao) return job.agente;
   if (agenteIdConexao) return fetchAgente(agenteIdConexao);
-  return job.agente ?? null;
+  return null;
 }
 
 export async function processAgentJob(job) {
