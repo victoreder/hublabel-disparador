@@ -1,5 +1,10 @@
 import { abrirAtendimentoHumano } from '../../supabase.js';
 import { logger } from '../../logger.js';
+import {
+  agenteTemFerramentaHttpNasInstrucoes,
+  buildFerramentaHttpToolSchema,
+  executeFerramentaHttpTool,
+} from './httpTool.js';
 
 function agenteTemConhecimentoLocal(agente) {
   const conhecimento = agente?.conhecimento;
@@ -40,6 +45,11 @@ export function buildToolDefinitions(job, agente) {
     });
   }
 
+  if (agenteTemFerramentaHttpNasInstrucoes(agente)) {
+    const httpTool = buildFerramentaHttpToolSchema(agente);
+    if (httpTool) tools.push(httpTool);
+  }
+
   return tools;
 }
 
@@ -47,6 +57,16 @@ export async function executeTool(name, args, { job, agente, agentConfig, search
   if (name === 'consultar_conhecimento') {
     const docs = await searchKnowledge(agentConfig, agente.id, args.pergunta);
     return JSON.stringify({ documentos: docs });
+  }
+
+  if (name === 'ferramenta_http') {
+    try {
+      const resultado = await executeFerramentaHttpTool(agente, args);
+      return JSON.stringify(resultado);
+    } catch (error) {
+      logger.warn('ferramenta_http falhou', { message: error.message });
+      return JSON.stringify({ success: false, error: error.message });
+    }
   }
 
   if (name === 'ABRIR_ATENDIMENTO') {

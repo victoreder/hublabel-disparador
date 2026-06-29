@@ -155,6 +155,10 @@ export async function processAgentJob(job) {
     }
 
     if (segment.type === 'action') {
+      if (String(segment.content?.tipo || '').toLowerCase() === 'ferramenta-http') {
+        continue;
+      }
+
       const textoAnterior = segments
         .slice(0, segments.indexOf(segment))
         .filter((s) => s.type === 'text')

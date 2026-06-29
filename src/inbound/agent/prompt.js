@@ -35,6 +35,7 @@ export function buildSystemPrompt(job, agente) {
     '- Execute apenas as ações cujas condições foram realmente atendidas nesta conversa.',
     '- Para enviar mídia, inclua o marcador enviar-midia e também o markdown do arquivo conforme as instruções.',
     '- Em crm-preencher, siga as instrucaoObservacoes, instrucaoValor, instrucaoTarefa e instrucaoTarefaData definidas na ação; o sistema usa a conversa para gerar o conteúdo.',
+    '- Para ferramenta-http nas instruções: chame a tool ferramenta_http com o httpIndex indicado, use o retorno (data) na sua resposta. NÃO inclua [[acao:{"tipo":"ferramenta-http"...}]] na resposta ao cliente.',
     '',
     '## ENVIO DE MIDIAS',
     '- Envie as midias no mesmo formato em markdown que está na instrução, nunca altere a extensão de um arquivo, quando tiver mais de 1 arquivo junto, separe com 2 enters, sempre separe o arquivo dos textos com 2 enters',

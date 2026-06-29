@@ -17,45 +17,6 @@ import { resolveMediaMarkdown } from './parseActions.js';
 import { classifyChunk } from './parseResponse.js';
 import { sendAgentChunk } from './sendReply.js';
 
-const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
-
-async function dynamicHttpRequest({ url, method, headers, body, queryParams }) {
-  const upperMethod = String(method || 'GET').toUpperCase();
-  if (!url?.trim()) {
-    return { success: false, error: "Campo 'url' é obrigatório." };
-  }
-  if (!VALID_METHODS.has(upperMethod)) {
-    return { success: false, error: `Método '${upperMethod}' inválido.` };
-  }
-
-  const targetUrl = new URL(url);
-  if (queryParams && typeof queryParams === 'object') {
-    for (const [key, value] of Object.entries(queryParams)) {
-      if (value != null) targetUrl.searchParams.set(key, String(value));
-    }
-  }
-
-  const init = { method: upperMethod, headers: headers ?? undefined };
-  if (!['GET', 'DELETE'].includes(upperMethod) && body != null) {
-    init.headers = { 'Content-Type': 'application/json', ...headers };
-    init.body = JSON.stringify(body);
-  }
-
-  try {
-    const response = await fetch(targetUrl.toString(), init);
-    const text = await response.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = text ? { message: text } : null;
-    }
-    return { success: response.ok, status: response.status, data };
-  } catch (error) {
-    return { success: false, status: null, error: error.message, data: null };
-  }
-}
-
 function normalizeTipo(tipo) {
   const t = String(tipo || '').trim().toLowerCase();
   if (t === 'crm-movimentacao') return 'crm-mover';
@@ -247,26 +208,6 @@ async function executarCrmPreencher(acao, ctx) {
   };
 }
 
-async function executarFerramentaHttp(acao, ctx) {
-  const httpIndex = Number(acao.dados?.httpIndex ?? 0);
-  const itens = ctx.agente?.requisicaoHTTP?.itens ?? [];
-  const item = itens[httpIndex];
-
-  if (!item) {
-    return { success: false, error: `Ferramenta HTTP índice ${httpIndex} não encontrada` };
-  }
-
-  const result = await dynamicHttpRequest({
-    url: item.url,
-    method: item.method || item.metodo || 'GET',
-    headers: item.headers ?? {},
-    body: item.body ?? item.corpo ?? {},
-    queryParams: item.queryParams ?? item.params ?? {},
-  });
-
-  return result;
-}
-
 const EXECUTORES = {
   'enviar-midia': executarEnviarMidia,
   'adicionar-etiqueta': executarAdicionarEtiqueta,
@@ -278,11 +219,15 @@ const EXECUTORES = {
   'transferir-agente-ia': executarTransferirAgenteIA,
   'crm-mover': executarCrmMover,
   'crm-preencher': executarCrmPreencher,
-  'ferramenta-http': executarFerramentaHttp,
 };
 
 export async function executeAgentAction(acao, ctx) {
   const tipo = normalizeTipo(acao?.tipo);
+
+  if (tipo === 'ferramenta-http') {
+    return { success: true, ignorado: true, motivo: 'ferramenta_http_via_tool_openai' };
+  }
+
   const executor = EXECUTORES[tipo];
 
   if (!executor) {
