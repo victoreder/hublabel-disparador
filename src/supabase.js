@@ -255,15 +255,102 @@ export async function markDetailFailed(detailId, { statusHttp, mensagemErro, res
   if (error) throw mapSupabaseError(error, `Erro ao marcar detalhe ${detailId} como failed`);
 }
 
-export async function fetchConfigApiOficial() {
+export async function fetchConfigApiOficial(fields = 'verifyToken') {
   const { data, error } = await supabase
     .from('SAAS_Config_ApiOficial')
-    .select('verifyToken')
+    .select(fields)
     .eq('id', 1)
     .maybeSingle();
 
   if (error) throw mapSupabaseError(error, 'Erro ao buscar SAAS_Config_ApiOficial');
   return data;
+}
+
+export async function fetchOpenAIApiKey() {
+  const { data, error } = await supabase
+    .from('SAAS_Config_IA')
+    .select('apikey, tipoIA')
+    .eq('id', 1)
+    .eq('tipoIA', 'openai')
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar SAAS_Config_IA');
+  if (!data?.apikey?.trim()) {
+    throw new Error('apikey OpenAI não configurada em SAAS_Config_IA (id=1, tipoIA=openai).');
+  }
+  return data.apikey.trim();
+}
+
+export async function fetchConexaoApiOficialById(conexaoId) {
+  const { data, error } = await supabase
+    .from('SAAS_Conexões')
+    .select('*')
+    .eq('id', conexaoId)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, `Erro ao buscar conexão ${conexaoId}`);
+  return data;
+}
+
+export async function fetchConexaoApiOficialByPhone(phoneNumberId) {
+  const { data, error } = await supabase
+    .from('SAAS_Conexões')
+    .select('*')
+    .eq('phone_number_id', phoneNumberId)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, `Erro ao buscar conexão por phone ${phoneNumberId}`);
+  return data;
+}
+
+export async function fetchAllConexoesApiOficial() {
+  const { data, error } = await supabase
+    .from('SAAS_Conexões')
+    .select('id, NomeConexao, access_token, expires_at, apiOficial, phone_number_id')
+    .eq('apiOficial', true);
+
+  if (error) throw mapSupabaseError(error, 'Erro ao listar conexões API Oficial');
+  return data ?? [];
+}
+
+export async function createConexaoApiOficial(payload) {
+  const { data, error } = await supabase
+    .from('SAAS_Conexões')
+    .insert(payload)
+    .select('id, contaId, NomeConexao, business_id, waba_id, phone_number_id, Telefone, expires_in, apiOficial, metaPhoneStatus')
+    .single();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao criar conexão API Oficial');
+  return data;
+}
+
+export async function updateConexaoApiOficial(conexaoId, payload) {
+  const { data, error } = await supabase
+    .from('SAAS_Conexões')
+    .update(payload)
+    .eq('id', conexaoId)
+    .select('id, contaId, NomeConexao, business_id, waba_id, phone_number_id, Telefone, expires_in, apiOficial, metaPhoneStatus')
+    .single();
+
+  if (error) throw mapSupabaseError(error, `Erro ao atualizar conexão ${conexaoId}`);
+  return data;
+}
+
+export async function insertTemplateMeta(payload) {
+  const { data, error } = await supabase
+    .from('SAAS_Templates_Meta')
+    .insert(payload)
+    .select('id, status')
+    .single();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao salvar template em SAAS_Templates_Meta');
+  return data;
+}
+
+export async function deleteTemplateMetaRow(templateId) {
+  const { error } = await supabase.from('SAAS_Templates_Meta').delete().eq('id', templateId);
+
+  if (error) throw mapSupabaseError(error, `Erro ao excluir template ${templateId}`);
 }
 
 export async function fetchConfigIA() {
