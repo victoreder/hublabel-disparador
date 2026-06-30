@@ -362,12 +362,49 @@ export async function saveMetaMediaJob({
 export async function fetchConexaoById(idConexao) {
   const { data, error } = await supabase
     .from('SAAS_Conexões')
-    .select('id, contaId, apiOficial, access_token, phone_number_id, NomeConexao, idAgente')
+    .select('id, contaId, apiOficial, access_token, phone_number_id, NomeConexao, idAgente, instanceName, Apikey')
     .eq('id', idConexao)
     .maybeSingle();
 
   if (error) throw mapSupabaseError(error, `Erro ao buscar conexão ${idConexao}`);
   return data;
+}
+
+export async function fetchEvolutionConexaoDaConta(contaId) {
+  if (!contaId) return null;
+
+  const { data, error } = await supabase
+    .from('SAAS_Conexões')
+    .select('id, instanceName, Apikey')
+    .eq('contaId', contaId)
+    .eq('apiOficial', false)
+    .not('instanceName', 'is', null)
+    .order('id', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar conexão Evolution da conta');
+  return data;
+}
+
+export async function fetchContatoFotoPerfil(contatoId) {
+  const { data, error } = await supabase
+    .from('SAAS_Contatos')
+    .select('fotoPerfil')
+    .eq('id', contatoId)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, `Erro ao buscar fotoPerfil do contato ${contatoId}`);
+  return data?.fotoPerfil ?? null;
+}
+
+export async function atualizarContatoFotoPerfil(contatoId, fotoPerfil) {
+  const { error } = await supabase
+    .from('SAAS_Contatos')
+    .update({ fotoPerfil })
+    .eq('id', contatoId);
+
+  if (error) throw mapSupabaseError(error, `Erro ao atualizar fotoPerfil do contato ${contatoId}`);
 }
 
 export async function ingestaoMensagem(payload) {

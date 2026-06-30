@@ -1,9 +1,39 @@
 import { logger } from '../../logger.js';
-import { processMetaEvent } from '../../supabase.js';
+import { fetchConexaoById, processMetaEvent } from '../../supabase.js';
 import { buildAgentJobFromMetaResult } from '../agent/job.js';
 import { enqueueAgentJob } from '../agent/queue.js';
+import { scheduleContatoFotoPerfilSync } from '../contato/fotoPerfil.js';
 import { extractMediaJobs } from './parseEvents.js';
 import { processMediaJob } from './mediaPipeline.js';
+
+function scheduleFotoPerfilFromMetaResult(result, inboundConfig, conexao) {
+  if (!result?.contatoId || !result?.telefone) return;
+
+  scheduleContatoFotoPerfilSync({
+    contatoId: result.contatoId,
+    contatoCriado: Boolean(result.contatoCriado),
+    telefone: result.telefone,
+    fromMe: false,
+    canal: 'meta',
+    conexaoId: result.conexaoId,
+    contaId: result.contaId,
+    conexao,
+    s3Config: inboundConfig.s3,
+  });
+}
+
+async function loadConexaoForFotoPerfil(result) {
+  if (!result?.conexaoId) return null;
+  try {
+    return await fetchConexaoById(result.conexaoId);
+  } catch (error) {
+    logger.warn('fotoPerfil: falha ao buscar conexão Meta', {
+      conexaoId: result.conexaoId,
+      message: error.message,
+    });
+    return null;
+  }
+}
 
 /** Processa eventos em background (após responder 200 à Meta). */
 export async function processEventsAsync(events, inboundConfig) {
@@ -12,12 +42,12 @@ export async function processEventsAsync(events, inboundConfig) {
   const mediaJobs = extractMediaJobs(events);
 
   await Promise.all([
-    processAllEvents(events),
+    processAllEvents(events, inboundConfig),
     processAllMediaJobs(mediaJobs, inboundConfig),
   ]);
 }
 
-async function processAllEvents(events) {
+async function processAllEvents(events, inboundConfig) {
   for (const event of events) {
     try {
       const result = await processMetaEvent({
@@ -33,25 +63,14 @@ async function processAllEvents(events) {
           waba_id: event.waba_id,
           error: result.error,
         });
-      } else if (result?.segueFluxoIA) {
-        const queueSize = enqueueAgentJob(buildAgentJobFromMetaResult(result));
-        logger.info('Meta → agente enfileirado', {
-          field: event.field,
-          waba_id: event.waba_id,
-          conversaId: result?.conversaId,
-          agenteId: result?.agenteId,
-          queueSize,
-        });
-      } else if (result?.ok !== false) {
-        logger.info('Meta → fluxo IA não acionado', {
-          field: event.field,
-          waba_id: event.waba_id,
-          conversaId: result?.conversaId,
-          segueFluxoIA: Boolean(result?.segueFluxoIA),
-          creditoEsgotado: Boolean(result?.creditoEsgotado),
-          parouPorPausado: Boolean(result?.parouPorPausado),
-          agenteId: result?.agenteId,
-        });
+        continue;
+      }
+
+      const conexao = await loadConexaoForFotoPerfil(result);
+      scheduleFotoPerfilFromMetaResult(result, inboundConfig, conexao);
+
+      if (result?.segueFluxoIA) {
+        enqueueAgentJob(buildAgentJobFromMetaResult(result));
       }
     } catch (error) {
       logger.error('Erro ao processar evento Meta', {
@@ -69,6 +88,19 @@ async function processAllMediaJobs(jobs, inboundConfig) {
       const result = await processMediaJob(job, {
         s3Config: inboundConfig.s3,
         metaGraphApiVersion: inboundConfig.metaGraphApiVersion,
+      });
+
+      const conexao = await loadConexaoForFotoPerfil(result);
+      scheduleContatoFotoPerfilSync({
+        contatoId: result?.contatoId,
+        contatoCriado: Boolean(result?.contatoCriado),
+        telefone: result?.telefone || job.telefone,
+        fromMe: false,
+        canal: 'meta',
+        conexaoId: result?.conexaoId,
+        contaId: result?.contaId,
+        conexao,
+        s3Config: inboundConfig.s3,
       });
 
       if (result?.segueFluxoIA) {
