@@ -6,6 +6,7 @@ import {
 import { logger } from '../../logger.js';
 import { exchangeCodeForToken, exchangeLongLivedToken, metaGet, metaPost } from './graph.js';
 import { HttpError } from './httpError.js';
+import { getInboundConfig } from '../config.js';
 
 function parseConnectBody(body) {
   logger.info('[meta-token] parse body', {
@@ -149,11 +150,16 @@ export async function handleConnectMeta(body, { metaGraphApiVersion }) {
   }
 
   logger.info('[meta-token] trocando code por token curto', { appId: config.app_id });
+  
+  const inboundConfig = getInboundConfig();
+  const redirectUri = inboundConfig.publicWebhookUrls?.metaToken || '';
+  
   const curto = await exchangeCodeForToken({
     version: metaGraphApiVersion,
     appId: config.app_id,
     appSecret: config.app_secret,
     code: entrada.code,
+    redirectUri,
   });
 
   logger.info('[meta-token] token curto obtido', {

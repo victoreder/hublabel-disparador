@@ -100,11 +100,11 @@ export async function metaUploadBinary({ version, sessionId, accessToken, buffer
   return data;
 }
 
-export async function exchangeCodeForToken({ version, appId, appSecret, code }) {
+export async function exchangeCodeForToken({ version, appId, appSecret, code, redirectUri = '' }) {
   const params = new URLSearchParams({
     client_id: appId,
     client_secret: appSecret,
-    redirect_uri: '',
+    redirect_uri: redirectUri,
     code,
   });
 
