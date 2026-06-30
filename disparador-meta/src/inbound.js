@@ -4,14 +4,16 @@ import { drainAgentQueue, getAgentQueueSize, startAgentQueueLoop } from './inbou
 import { getInboundConfig } from './inbound/config.js';
 import { registerEventsMetaRoutes } from './inbound/routes/eventsmeta.js';
 import { registerEvolutionRoutes } from './inbound/routes/evolution.js';
+import { registerMetaApiRoutes, startMetaTokenRenewalCron } from './inbound/routes/metaApi.js';
 import { logger } from './logger.js';
-import { getSupabaseKeyInfo, validateSupabaseConnection } from './supabase.js';
+import { getSupabaseKeyInfo, validateSupabaseConnection, fetchOpenAIApiKey } from './supabase.js';
 
 const startedAt = new Date().toISOString();
 
 async function main() {
   const inboundConfig = getInboundConfig();
   await validateSupabaseConnection();
+  await fetchOpenAIApiKey();
   logger.info('Supabase conectado (inbound)', getSupabaseKeyInfo());
 
   const app = express();
@@ -25,9 +27,13 @@ async function main() {
       service: 'hublabel-disparador-inbound',
       startedAt,
       agentQueue: getAgentQueueSize(),
+      backUrl: inboundConfig.backUrl,
+      publicWebhookUrls: inboundConfig.publicWebhookUrls,
       routes: {
         eventsMeta: inboundConfig.eventsMetaPath,
         evolution: inboundConfig.evolutionWebhookPath,
+        metaApi: inboundConfig.metaApiPaths,
+        slugs: inboundConfig.webhookPaths,
       },
     });
   });
@@ -45,6 +51,13 @@ async function main() {
     path: inboundConfig.evolutionWebhookPath,
   });
 
+  registerMetaApiRoutes(app, {
+    paths: inboundConfig.metaApiPaths,
+    inboundConfig,
+  });
+
+  startMetaTokenRenewalCron(inboundConfig);
+
   startAgentQueueLoop(async (job) => {
     await processAgentJob(job);
   }, inboundConfig.agentPollMs);
@@ -52,9 +65,9 @@ async function main() {
   app.listen(inboundConfig.port, () => {
     logger.info('Inbound server ouvindo', {
       port: inboundConfig.port,
+      backUrl: inboundConfig.backUrl,
       health: '/health',
-      eventsMeta: inboundConfig.eventsMetaPath,
-      evolution: inboundConfig.evolutionWebhookPath,
+      publicWebhookUrls: inboundConfig.publicWebhookUrls,
     });
   });
 

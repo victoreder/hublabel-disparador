@@ -1,3 +1,6 @@
+import { fetchOpenAIApiKey } from '../../supabase.js';
+import { buildPublicWebhookUrl, parseBackUrl, WEBHOOK_PATHS } from '../config.js';
+
 function optionalInt(name, fallback) {
   const raw = process.env[name];
   if (raw == null || raw === '') return fallback;
@@ -6,16 +9,13 @@ function optionalInt(name, fallback) {
   return parsed;
 }
 
-export function getAgentConfig() {
-  const openaiApiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!openaiApiKey) {
-    throw new Error('Variável de ambiente obrigatória ausente: OPENAI_API_KEY');
-  }
+export async function getAgentConfig() {
+  const openaiApiKey = await fetchOpenAIApiKey();
 
   return {
     openaiApiKey,
     redisUrl: process.env.REDIS_URL?.trim() || null,
-    calcularTokenUrl: process.env.CALCULAR_TOKEN_URL?.trim() || null,
+    calcularTokenUrl: buildPublicWebhookUrl(parseBackUrl().backUrl, WEBHOOK_PATHS.calcularToken),
     metaGraphApiVersion: process.env.META_GRAPH_API_VERSION?.trim() || 'v25.0',
     whisperModel: process.env.OPENAI_WHISPER_MODEL?.trim() || 'whisper-1',
     visionModel: process.env.OPENAI_VISION_MODEL?.trim() || 'gpt-4o-mini',

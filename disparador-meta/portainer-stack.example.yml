@@ -1,7 +1,9 @@
 version: "3.7"
-services:
 
-## --------------------------- HUBLABEL DISPARADOR META --------------------------- ##
+## Ajuste Host nos labels Traefik se BACK_URL for outro domínio.
+## Paths fixos no código (WEBHOOK_PATHS em src/inbound/config.js).
+
+services:
 
   disparador-meta:
     image: ghcr.io/victoreder/hublabel-disparador:latest
@@ -9,19 +11,10 @@ services:
     environment:
       SUPABASE_URL: https://SEU-PROJETO.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_SUA_SERVICE_ROLE_KEY
-      META_GRAPH_API_VERSION: v25.0
-      PORT: "3080"
-      SEND_INTERVAL_MS: "2000"
-      POLL_IDLE_MS: "2000"
-      MAX_RETRIES: "3"
       NODE_ENV: production
 
     networks:
       - RedeVictor
-
-    ## Descomente para expor o health check fora da rede
-    #ports:
-    #  - 3080:3080
 
     deploy:
       placement:
@@ -41,8 +34,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-
-## --------------------------- HUBLABEL DISPARADOR EVOLUTION --------------------------- ##
 
   disparador-evolution:
     image: ghcr.io/victoreder/hublabel-disparador:latest
@@ -73,8 +64,6 @@ services:
     healthcheck:
       disable: true
 
-## --------------------------- HUBLABEL DISPARADOR INBOUND --------------------------- ##
-
   disparador-inbound:
     image: ghcr.io/victoreder/hublabel-disparador:latest
     command: ["node", "src/inbound.js"]
@@ -82,21 +71,12 @@ services:
     environment:
       SUPABASE_URL: https://SEU-PROJETO.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_SUA_SERVICE_ROLE_KEY
-      META_GRAPH_API_VERSION: v25.0
-      INBOUND_PORT: "3090"
-      EVENTS_META_PATH: /backend/webhook-eventsmeta
-      EVOLUTION_WEBHOOK_PATH: /backend/webhook-mensagens
-      AGENT_POLL_MS: "500"
+      BACK_URL: https://webhook2.victoreder.com.br
       S3_ENDPOINT: https://s32.victoreder.com.br
       S3_ACCESS_KEY_ID: COLE_S3_ACCESS_KEY
       S3_SECRET_ACCESS_KEY: COLE_S3_SECRET_KEY
-      S3_BUCKET: n8n
       S3_PUBLIC_BASE_URL: https://s32.victoreder.com.br/n8n
-      S3_REGION: us-east-1
-      S3_FORCE_PATH_STYLE: "true"
-      OPENAI_API_KEY: COLE_OPENAI_API_KEY
       REDIS_URL: redis://redis:6379
-      CALCULAR_TOKEN_URL: https://webhook2.victoreder.com.br/webhook/calcular-token
       NODE_ENV: production
 
     networks:
@@ -104,20 +84,37 @@ services:
 
     labels:
       - traefik.enable=true
-      - traefik.http.routers.disparador_inbound_meta.rule=Host(`webhook2.victoreder.com.br`) && PathPrefix(`/backend/webhook-eventsmeta`)
-      - traefik.http.routers.disparador_inbound_meta.entrypoints=websecure
-      - traefik.http.routers.disparador_inbound_meta.priority=100
-      - traefik.http.routers.disparador_inbound_meta.tls.certresolver=letsencryptresolver
-      - traefik.http.routers.disparador_inbound_meta.service=disparador_inbound
-      - traefik.http.routers.disparador_inbound_evo.rule=Host(`webhook2.victoreder.com.br`) && PathPrefix(`/backend/webhook-mensagens`)
+      ## Paths fixos — prioridade 200 (antes do n8n)
+      - traefik.http.routers.disparador_inbound_eventsmeta.rule=Host(`webhook2.victoreder.com.br`) && Path(`/eventsmeta`)
+      - traefik.http.routers.disparador_inbound_eventsmeta.entrypoints=websecure
+      - traefik.http.routers.disparador_inbound_eventsmeta.priority=200
+      - traefik.http.routers.disparador_inbound_eventsmeta.tls.certresolver=letsencryptresolver
+      - traefik.http.routers.disparador_inbound_eventsmeta.service=disparador_inbound
+      - traefik.http.routers.disparador_inbound_evo.rule=Host(`webhook2.victoreder.com.br`) && Path(`/webhook-mensagens`)
       - traefik.http.routers.disparador_inbound_evo.entrypoints=websecure
-      - traefik.http.routers.disparador_inbound_evo.priority=100
+      - traefik.http.routers.disparador_inbound_evo.priority=200
       - traefik.http.routers.disparador_inbound_evo.tls.certresolver=letsencryptresolver
       - traefik.http.routers.disparador_inbound_evo.service=disparador_inbound
-      - traefik.http.routers.disparador_inbound_meta.entrypoints=websecure
-      - traefik.http.routers.disparador_inbound_meta.priority=100
-      - traefik.http.routers.disparador_inbound_meta.tls.certresolver=letsencryptresolver
-      - traefik.http.routers.disparador_inbound_meta.service=disparador_inbound
+      - traefik.http.routers.disparador_inbound_meta_token.rule=Host(`webhook2.victoreder.com.br`) && Path(`/meta-token`)
+      - traefik.http.routers.disparador_inbound_meta_token.entrypoints=websecure
+      - traefik.http.routers.disparador_inbound_meta_token.priority=200
+      - traefik.http.routers.disparador_inbound_meta_token.tls.certresolver=letsencryptresolver
+      - traefik.http.routers.disparador_inbound_meta_token.service=disparador_inbound
+      - traefik.http.routers.disparador_inbound_meta_criar_tpl.rule=Host(`webhook2.victoreder.com.br`) && Path(`/meta-criar-template`)
+      - traefik.http.routers.disparador_inbound_meta_criar_tpl.entrypoints=websecure
+      - traefik.http.routers.disparador_inbound_meta_criar_tpl.priority=200
+      - traefik.http.routers.disparador_inbound_meta_criar_tpl.tls.certresolver=letsencryptresolver
+      - traefik.http.routers.disparador_inbound_meta_criar_tpl.service=disparador_inbound
+      - traefik.http.routers.disparador_inbound_meta_excluir_tpl.rule=Host(`webhook2.victoreder.com.br`) && Path(`/meta-excluir-template`)
+      - traefik.http.routers.disparador_inbound_meta_excluir_tpl.entrypoints=websecure
+      - traefik.http.routers.disparador_inbound_meta_excluir_tpl.priority=200
+      - traefik.http.routers.disparador_inbound_meta_excluir_tpl.tls.certresolver=letsencryptresolver
+      - traefik.http.routers.disparador_inbound_meta_excluir_tpl.service=disparador_inbound
+      - traefik.http.routers.disparador_inbound_meta_perfil.rule=Host(`webhook2.victoreder.com.br`) && Path(`/meta-perfil`)
+      - traefik.http.routers.disparador_inbound_meta_perfil.entrypoints=websecure
+      - traefik.http.routers.disparador_inbound_meta_perfil.priority=200
+      - traefik.http.routers.disparador_inbound_meta_perfil.tls.certresolver=letsencryptresolver
+      - traefik.http.routers.disparador_inbound_meta_perfil.service=disparador_inbound
       - traefik.http.services.disparador_inbound.loadbalancer.server.port=3090
       - traefik.http.services.disparador_inbound.loadbalancer.passHostHeader=1
 
@@ -139,8 +136,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-
-## --------------------------- NETWORKS --------------------------- ##
 
 networks:
   RedeVictor:

@@ -538,6 +538,28 @@
 
   CREATE INDEX IF NOT EXISTS idx_Cards_Quadros_etapaQuadroId ON public."SAAS_Cards_Quadros"("etapaQuadroId");
   CREATE INDEX IF NOT EXISTS idx_Cards_Quadros_contatoId ON public."SAAS_Cards_Quadros"("contatoId");
+  -- Um contato só pode ter 1 card por quadro CRM
+  DROP INDEX IF EXISTS public.uq_cards_quadro_contato;
+  DO $$
+  BEGIN
+    IF to_regclass('public."SAAS_Cards_Quadros"') IS NULL THEN
+      RETURN;
+    END IF;
+    DELETE FROM public."SAAS_Cards_Quadros" c
+    USING (
+      SELECT id,
+        row_number() OVER (
+          PARTITION BY "quadroId", "contatoId"
+          ORDER BY id
+        ) AS rn
+      FROM public."SAAS_Cards_Quadros"
+      WHERE "contatoId" IS NOT NULL AND "quadroId" IS NOT NULL
+    ) t
+    WHERE c.id = t.id AND t.rn > 1;
+  END$$;
+  CREATE UNIQUE INDEX IF NOT EXISTS uq_cards_quadro_contato
+    ON public."SAAS_Cards_Quadros" ("quadroId", "contatoId")
+    WHERE "contatoId" IS NOT NULL AND "quadroId" IS NOT NULL;
   CREATE INDEX IF NOT EXISTS idx_AgentesIA_conexaoId ON public."SAAS_AgentesIA"("conexaoId");
   CREATE INDEX IF NOT EXISTS idx_Conversas_Agentes_idAgente ON public."SAAS_Conversas_Agentes"("idAgente");
   CREATE INDEX IF NOT EXISTS idx_Conversas_Agentes_idConexao ON public."SAAS_Conversas_Agentes"("idConexao");
@@ -1064,13 +1086,50 @@
     END IF;
   END$$;
 
-  -- Retorna true se o usuário atual pode ver a conversa (atendente vinculado OU admin da conta).
-  -- p_conta_id = contaId. Super_admin vê apenas conversas das contas em que está vinculado.
-  CREATE OR REPLACE FUNCTION public.can_see_conversa(p_conta_id uuid, p_atendente uuid)
+  -- Retorna true se o usuário atual pode ver a conversa (atendente vinculado, setor ou admin da conta).
+  -- Remove policies que referenciam assinaturas antigas antes de recriar a função.
+  DO $$
+  BEGIN
+    IF to_regclass('public."SAAS_Conversas_Agentes"') IS NOT NULL THEN
+      DROP POLICY IF EXISTS "select_conversas" ON public."SAAS_Conversas_Agentes";
+      DROP POLICY IF EXISTS "update_conversas" ON public."SAAS_Conversas_Agentes";
+      DROP POLICY IF EXISTS "usuario_crud_conversas_agentes" ON public."SAAS_Conversas_Agentes";
+    END IF;
+    IF to_regclass('public."SAAS_Mensagens"') IS NOT NULL THEN
+      DROP POLICY IF EXISTS "select_mensagens" ON public."SAAS_Mensagens";
+      DROP POLICY IF EXISTS "update_mensagens" ON public."SAAS_Mensagens";
+      DROP POLICY IF EXISTS "usuario_crud_mensagens" ON public."SAAS_Mensagens";
+    END IF;
+  END$$;
+
+  DROP FUNCTION IF EXISTS public.can_see_conversa(uuid, uuid);
+  DROP FUNCTION IF EXISTS public.can_see_conversa(uuid, uuid, bigint);
+
+  CREATE OR REPLACE FUNCTION public.usuario_pertence_setor(p_setor_id bigint)
+  RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+    SELECT false;
+  $$;
+
+  CREATE OR REPLACE FUNCTION public.can_see_conversa(p_conta_id uuid, p_atendente uuid, p_setor_id bigint)
   RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
     SELECT public.is_admin(p_conta_id)
-      OR (p_atendente IS NULL AND public.can_access_conta(p_conta_id))
-      OR (p_atendente IS NOT NULL AND EXISTS (SELECT 1 FROM public."SAAS_Usuarios" u WHERE u.auth_user_id = auth.uid() AND u.id = p_atendente));
+      OR (
+        p_atendente IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM public."SAAS_Usuarios" u
+          WHERE u.auth_user_id = auth.uid() AND u.id = p_atendente
+        )
+      )
+      OR (
+        p_atendente IS NULL
+        AND p_setor_id IS NOT NULL
+        AND public.usuario_pertence_setor(p_setor_id)
+      )
+      OR (
+        p_atendente IS NULL
+        AND p_setor_id IS NULL
+        AND public.can_access_conta(p_conta_id)
+      );
   $$;
 
   -- Compatibilidade com ambientes que já usam can_see_mensagem nas policies de SAAS_Mensagens.
@@ -1091,7 +1150,7 @@
     END IF;
 
     -- Regra principal: mesma regra de visualização da conversa.
-    IF public.can_see_conversa(v_conv_conta_id, v_conv_atendente) THEN
+    IF public.can_see_conversa(v_conv_conta_id, v_conv_atendente, NULL::bigint) THEN
       RETURN true;
     END IF;
 
@@ -2943,10 +3002,6 @@
     v_motivo_ativacao text;
     v_agente_pausar boolean := false;
     v_conversa_pausada boolean := false;
-    v_quadro_id bigint;
-    v_etapa_id bigint;
-    v_card_id bigint;
-    v_card_criado boolean := false;
     v_credito_esgotado boolean := false;
     v_segue_fluxo_ia boolean := false;
     v_parou_por_pausado boolean := false;
@@ -3014,62 +3069,6 @@
         SET "idAgente" = v_agente_id
       WHERE id = p_conversa_id
         AND "idAgente" IS NULL;
-
-      v_quadro_id := COALESCE(
-        NULLIF(v_agente->'CRM'->>'idCRM', '')::bigint,
-        NULLIF(v_agente->'CRM'->>'quadroId', '')::bigint
-      );
-      v_etapa_id := COALESCE(
-        NULLIF(v_agente->'CRM'->>'idEtapaInicial', '')::bigint,
-        NULLIF(v_agente->'CRM'->>'idEtapa', '')::bigint,
-        NULLIF(v_agente->'CRM'->>'etapaId', '')::bigint
-      );
-
-      IF v_quadro_id IS NOT NULL AND v_etapa_id IS NOT NULL THEN
-        SELECT q.id INTO v_card_id
-          FROM public."SAAS_Cards_Quadros" q
-        WHERE q."quadroId" = v_quadro_id
-          AND q."contatoId" = p_contato_id
-        LIMIT 1;
-
-        IF v_card_id IS NULL THEN
-          SELECT q.id INTO v_card_id
-            FROM public."SAAS_Cards_Quadros" q
-          WHERE q."quadroId" = v_quadro_id
-            AND (
-              NULLIF(trim(COALESCE(q.contato, '')), '') IS NOT NULL
-              AND (
-                trim(COALESCE(q.contato, '')) = trim(COALESCE(p_contato_telefone, p_telefone_input, ''))
-                OR trim(COALESCE(q.contato, '')) = trim(COALESCE(p_telefone_input, ''))
-                OR (p_contato_telefone IS NOT NULL AND trim(COALESCE(q.contato, '')) = trim(COALESCE(p_contato_telefone, '')))
-              )
-            )
-          ORDER BY CASE WHEN q."contatoId" IS NULL THEN 0 ELSE 1 END, q.id DESC
-          LIMIT 1;
-
-          IF v_card_id IS NOT NULL THEN
-            UPDATE public."SAAS_Cards_Quadros" c
-              SET "contatoId" = p_contato_id,
-                  nome = COALESCE(NULLIF(trim(COALESCE(c.nome, '')), ''), NULLIF(trim(COALESCE(p_nome_conversa, '')), ''), c.nome),
-                  contato = COALESCE(NULLIF(trim(COALESCE(p_contato_telefone, '')), ''), NULLIF(trim(COALESCE(p_telefone_input, '')), ''), c.contato)
-            WHERE c.id = v_card_id
-              AND (c."contatoId" IS DISTINCT FROM p_contato_id OR c."contatoId" IS NULL);
-          END IF;
-        END IF;
-
-        IF v_card_id IS NULL THEN
-          INSERT INTO public."SAAS_Cards_Quadros" ("quadroId", "contatoId", "etapaQuadroId", nome, contato)
-          VALUES (
-            v_quadro_id,
-            p_contato_id,
-            v_etapa_id,
-            COALESCE(NULLIF(trim(COALESCE(p_nome_conversa, '')), ''), COALESCE(p_contato_telefone, p_telefone_input)),
-            COALESCE(p_contato_telefone, p_telefone_input)
-          )
-          RETURNING id INTO v_card_id;
-          v_card_criado := true;
-        END IF;
-      END IF;
     END IF;
 
     SELECT v."planoQntCreditos", v.total_creditos
@@ -3109,8 +3108,6 @@
 
     RETURN jsonb_build_object(
       'ok', true,
-      'cardCriado', v_card_criado,
-      'cardId', v_card_id,
       'creditoEsgotado', v_credito_esgotado,
       'parouPorPausado', v_parou_por_pausado,
       'abriuAtendimentoHumano', v_abriu_atendimento_humano,
@@ -4058,11 +4055,11 @@
     DROP POLICY IF EXISTS "usuario_crud_conversas_agentes" ON public."SAAS_Conversas_Agentes";
     CREATE POLICY "service_role_full_access" ON public."SAAS_Conversas_Agentes" TO service_role USING (true) WITH CHECK (true);
     CREATE POLICY "select_conversas" ON public."SAAS_Conversas_Agentes" FOR SELECT TO authenticated
-      USING (public.can_see_conversa("contaId", "atendente"));
+      USING (public.can_see_conversa("contaId", "atendente", NULL::bigint));
     CREATE POLICY "insert_conversas" ON public."SAAS_Conversas_Agentes" FOR INSERT TO authenticated
       WITH CHECK (public.can_access_conta("contaId"));
     CREATE POLICY "update_conversas" ON public."SAAS_Conversas_Agentes" FOR UPDATE TO authenticated
-      USING (public.can_see_conversa("contaId", "atendente")) WITH CHECK (public.can_see_conversa("contaId", "atendente"));
+      USING (public.can_see_conversa("contaId", "atendente", NULL::bigint)) WITH CHECK (public.can_see_conversa("contaId", "atendente", NULL::bigint));
     CREATE POLICY "delete_conversas_admin" ON public."SAAS_Conversas_Agentes" FOR DELETE TO authenticated
       USING (public.is_admin("contaId"));
     GRANT SELECT, INSERT, UPDATE, DELETE ON public."SAAS_Conversas_Agentes" TO authenticated;
@@ -4084,7 +4081,7 @@
       USING (EXISTS (
         SELECT 1 FROM public."SAAS_Conversas_Agentes" c
         WHERE c.id = "SAAS_Mensagens"."conversaId"
-          AND public.can_see_conversa(c."contaId", c."atendente")
+          AND public.can_see_conversa(c."contaId", c."atendente", NULL::bigint)
       ));
     CREATE POLICY "insert_mensagens" ON public."SAAS_Mensagens" FOR INSERT TO authenticated
       WITH CHECK (EXISTS (
@@ -4096,7 +4093,7 @@
       USING (EXISTS (
         SELECT 1 FROM public."SAAS_Conversas_Agentes" c
         WHERE c.id = "SAAS_Mensagens"."conversaId"
-          AND public.can_see_conversa(c."contaId", c."atendente")
+          AND public.can_see_conversa(c."contaId", c."atendente", NULL::bigint)
       ));
     CREATE POLICY "delete_mensagens" ON public."SAAS_Mensagens" FOR DELETE TO authenticated
       USING (EXISTS (
@@ -4206,13 +4203,6 @@
   BEGIN
     RETURN EXISTS (SELECT 1 FROM public."SAAS_Usuarios" WHERE auth_user_id = auth.uid() AND super_admin = true);
   END;
-  $$;
-
-  CREATE OR REPLACE FUNCTION public.can_see_conversa(p_conta_id uuid, p_atendente uuid)
-  RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-    SELECT public.is_admin(p_conta_id)
-      OR (p_atendente IS NULL AND public.can_access_conta(p_conta_id))
-      OR (p_atendente IS NOT NULL AND EXISTS (SELECT 1 FROM public."SAAS_Usuarios" u WHERE u.auth_user_id = auth.uid() AND u.id = p_atendente));
   $$;
 
   DO $$
@@ -4813,7 +4803,8 @@
     "abrirAtendimento" JSONB,
     "notificarHumano" JSONB,
     "requisicaoHTTP" JSONB,
-    "CRM" JSONB
+    "CRM" JSONB,
+    "ativacaoRegras" JSONB DEFAULT '[]'::jsonb
   );
   CREATE INDEX IF NOT EXISTS idx_modelos_agentes_modeloId ON public."SAAS_Modelos_AgentesIA"("modeloId");
 
@@ -4832,6 +4823,17 @@
     CREATE POLICY "insert_modelos_agentes_ia" ON public."SAAS_Modelos_AgentesIA" FOR INSERT TO authenticated WITH CHECK (public.is_super_admin());
     CREATE POLICY "update_modelos_agentes_ia" ON public."SAAS_Modelos_AgentesIA" FOR UPDATE TO authenticated USING (public.is_super_admin()) WITH CHECK (public.is_super_admin());
     CREATE POLICY "delete_modelos_agentes_ia" ON public."SAAS_Modelos_AgentesIA" FOR DELETE TO authenticated USING (public.is_super_admin());
+  END$$;
+
+  DO $$
+  BEGIN
+    IF to_regclass('public."SAAS_Modelos_AgentesIA"') IS NULL THEN RETURN; END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'SAAS_Modelos_AgentesIA' AND column_name = 'ativacaoRegras'
+    ) THEN
+      ALTER TABLE public."SAAS_Modelos_AgentesIA" ADD COLUMN "ativacaoRegras" JSONB DEFAULT '[]'::jsonb;
+    END IF;
   END$$;
 
   -- =========================
@@ -8599,7 +8601,7 @@
     );
   $$;
 
-  CREATE OR REPLACE FUNCTION public.can_see_conversa(p_conta_id uuid, p_atendente uuid, p_setor_id bigint DEFAULT NULL)
+  CREATE OR REPLACE FUNCTION public.can_see_conversa(p_conta_id uuid, p_atendente uuid, p_setor_id bigint)
   RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
     SELECT public.is_admin(p_conta_id)
       OR (

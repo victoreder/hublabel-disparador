@@ -14,7 +14,7 @@ import {
 import { sendAgentChunk, notifyTokenUsage } from './sendReply.js';
 
 export async function processAgentJob(job) {
-  const agentConfig = getAgentConfig();
+  const agentConfig = await getAgentConfig();
   const agente = job.agente ?? (job.agenteId ? await fetchAgente(job.agenteId) : null);
 
   if (!agente) {
