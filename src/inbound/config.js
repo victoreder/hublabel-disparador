@@ -102,7 +102,7 @@ export function getInboundConfig() {
       renovarToken: expressPath(p.metaRenovarToken),
       renovarTokenCron: expressPath(p.metaRenovarTokenCron),
     },
-    metaRedirectUri: process.env.META_REDIRECT_URI?.trim() || publicUrl('conexoes'),
+    metaRedirectUri: `${back.backUrl}/conexoes`,
     traefikPaths: {
       health: traefikPath('health'),
       eventsMeta: traefikPath(p.eventsMeta),
