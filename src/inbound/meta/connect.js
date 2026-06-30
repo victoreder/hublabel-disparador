@@ -152,7 +152,9 @@ export async function handleConnectMeta(body, { metaGraphApiVersion }) {
   logger.info('[meta-token] trocando code por token curto', { appId: config.app_id });
   
   const inboundConfig = getInboundConfig();
-  const redirectUri = inboundConfig.publicWebhookUrls?.metaToken || '';
+  const redirectUri = inboundConfig.metaRedirectUri || '';
+  
+  logger.info('[meta-token] usando redirect_uri', { redirectUri });
   
   const curto = await exchangeCodeForToken({
     version: metaGraphApiVersion,
