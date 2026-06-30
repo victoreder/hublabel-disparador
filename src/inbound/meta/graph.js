@@ -108,6 +108,12 @@ export async function exchangeCodeForToken({ version, appId, appSecret, code, re
     code,
   });
 
+  logger.info('[meta-graph] exchangeCodeForToken params', {
+    client_id: appId,
+    redirect_uri: redirectUri,
+    code_present: Boolean(code),
+  });
+
   const response = await fetch(`${graphBase(version)}/oauth/access_token?${params.toString()}`);
   const data = await response.json().catch(() => ({}));
 
