@@ -1,4 +1,5 @@
 import { HttpError } from './httpError.js';
+import { logger } from '../../logger.js';
 
 function graphBase(version) {
   return `https://graph.facebook.com/${version}`;
@@ -20,6 +21,12 @@ export async function metaGet({ version, path, accessToken, query = {}, optional
 
   if (!response.ok || data.error) {
     if (optional) return { error: data.error || { message: metaErrorMessage(data, 'Falha na Meta API.') } };
+    logger.warn('[meta-graph] GET erro', {
+      path,
+      status: response.status,
+      message: metaErrorMessage(data, 'Falha na Meta API.'),
+      code: data?.error?.code ?? null,
+    });
     throw new HttpError(metaErrorMessage(data, 'Falha na Meta API.'), response.status >= 400 ? response.status : 502);
   }
 
@@ -43,6 +50,12 @@ export async function metaPost({ version, path, accessToken, body, query = {}, h
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok || data.error) {
+    logger.warn('[meta-graph] POST erro', {
+      path,
+      status: response.status,
+      message: metaErrorMessage(data, 'Falha na Meta API.'),
+      code: data?.error?.code ?? null,
+    });
     throw new HttpError(metaErrorMessage(data, 'Falha na Meta API.'), response.status >= 400 ? response.status : 502);
   }
 

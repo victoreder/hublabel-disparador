@@ -5,6 +5,7 @@ import {
   fetchConexaoApiOficialByPhone,
   updateConexaoApiOficial,
 } from '../../supabase.js';
+import { logger } from '../../logger.js';
 import { exchangeLongLivedToken } from './graph.js';
 import { HttpError } from './httpError.js';
 
@@ -20,6 +21,14 @@ export function parseRenewInput(body) {
 }
 
 export async function renewConexaoToken(conexao, { metaGraphApiVersion }) {
+  logger.info('[meta-renovar-token] iniciando', {
+    conexaoId: conexao?.id,
+    NomeConexao: conexao?.NomeConexao,
+    phone_number_id: conexao?.phone_number_id,
+    expires_at: conexao?.expires_at ?? null,
+    temAccessToken: Boolean(conexao?.access_token),
+  });
+
   const config = await fetchConfigApiOficial('app_id, app_secret');
 
   if (!config?.app_id || !config?.app_secret) {
@@ -42,6 +51,12 @@ export async function renewConexaoToken(conexao, { metaGraphApiVersion }) {
   const expiresAt = tokenRes.expires_in
     ? new Date(Date.now() + Number(tokenRes.expires_in) * 1000).toISOString()
     : null;
+
+  logger.info('[meta-renovar-token] token renovado', {
+    conexaoId: conexao.id,
+    expires_in: tokenRes.expires_in || null,
+    expires_at: expiresAt,
+  });
 
   return {
     conexaoId: conexao.id,
@@ -91,6 +106,11 @@ export async function runTokenRenewalCron(opts) {
   const rows = await fetchAllConexoesApiOficial();
   const toRenew = filterConexoesExpiring(rows);
 
+  logger.info('[meta-renovar-token-cron] verificacao', {
+    totalConexoes: rows?.length ?? 0,
+    paraRenovar: toRenew.length,
+  });
+
   if (!toRenew.length) {
     return {
       ok: true,
@@ -120,11 +140,17 @@ export async function runTokenRenewalCron(opts) {
         renewed_at: new Date().toISOString(),
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao renovar token';
+      logger.warn('[meta-renovar-token-cron] falha em conexao', {
+        conexaoId: row.id,
+        NomeConexao: row.NomeConexao || null,
+        message,
+      });
       results.push({
         ok: false,
         conexaoId: row.id,
         NomeConexao: row.NomeConexao || null,
-        error: error instanceof Error ? error.message : 'Falha ao renovar token',
+        error: message,
       });
     }
   }
