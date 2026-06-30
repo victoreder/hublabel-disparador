@@ -16,7 +16,11 @@ function optionalInt(name, fallback) {
   return parsed;
 }
 
-/** Paths fixos na raiz do BACK_URL (/{slug}). */
+/**
+ * Slugs fixos — sem prefixo. O prefixo vem do path do BACK_URL (ex.: /webhook).
+ * URL pública: {BACK_URL}/{slug} → https://dominio/webhook/meta-token
+ * Rota Express: /{slug} → /meta-token (Traefik remove o prefixo do BACK_URL antes de encaminhar)
+ */
 export const WEBHOOK_PATHS = {
   eventsMeta: 'eventsmeta',
   evolution: 'webhook-mensagens',
@@ -30,26 +34,44 @@ export const WEBHOOK_PATHS = {
 };
 
 /**
- * URL base (só origem).
- * Ex.: https://webhook2.victoreder.com.br ou https://app.viziom.com.br
+ * BACK_URL = origem + path opcional (ex.: https://webhook2.victoreder.com.br/webhook).
+ * basePath vazio quando BACK_URL não tem path (rotas na raiz do domínio).
  */
+export function normalizeBasePath(pathname) {
+  if (!pathname || pathname === '/') return '';
+  return `/${pathname.replace(/^\/+|\/+$/g, '')}`;
+}
+
 export function parseBackUrl() {
   const raw = required('BACK_URL');
   const url = new URL(raw.includes('://') ? raw : `https://${raw}`);
+  const basePath = normalizeBasePath(url.pathname);
+  const backUrl = `${url.origin}${basePath}`;
 
   return {
-    backUrl: url.origin,
+    origin: url.origin,
+    backUrl,
+    basePath,
     host: url.hostname,
   };
 }
 
+/** Rota interna do Express — sempre /{slug}, sem prefixo do BACK_URL. */
 export function buildWebhookExpressPath(slug) {
   return `/${slug.replace(/^\/+/, '')}`;
 }
 
+/** URL pública exposta ao front / Meta — BACK_URL + slug. */
 export function buildPublicWebhookUrl(backUrl, slug) {
   const base = backUrl.replace(/\/$/, '');
   return `${base}/${slug.replace(/^\/+/, '')}`;
+}
+
+/** Path externo no Traefik (antes do StripPrefix): basePath + slug. */
+export function buildTraefikExternalPath(basePath, slug) {
+  const cleanSlug = slug.replace(/^\/+/, '');
+  if (!basePath) return `/${cleanSlug}`;
+  return `${basePath}/${cleanSlug}`;
 }
 
 /** Config do serviço inbound (webhooks Meta + Evolution). */
@@ -59,10 +81,13 @@ export function getInboundConfig() {
 
   const expressPath = (slug) => buildWebhookExpressPath(slug);
   const publicUrl = (slug) => buildPublicWebhookUrl(back.backUrl, slug);
+  const traefikPath = (slug) => buildTraefikExternalPath(back.basePath, slug);
 
   return {
     port: optionalInt('INBOUND_PORT', 3090),
     backUrl: back.backUrl,
+    basePath: back.basePath,
+    traefikStripPrefix: back.basePath || null,
     backHost: back.host,
     webhookPaths: p,
     eventsMetaPath: expressPath(p.eventsMeta),
@@ -76,6 +101,17 @@ export function getInboundConfig() {
       perfil: expressPath(p.metaPerfil),
       renovarToken: expressPath(p.metaRenovarToken),
       renovarTokenCron: expressPath(p.metaRenovarTokenCron),
+    },
+    traefikPaths: {
+      health: traefikPath('health'),
+      eventsMeta: traefikPath(p.eventsMeta),
+      evolution: traefikPath(p.evolution),
+      metaToken: traefikPath(p.metaToken),
+      metaCriarTemplate: traefikPath(p.metaCriarTemplate),
+      metaExcluirTemplate: traefikPath(p.metaExcluirTemplate),
+      metaPerfil: traefikPath(p.metaPerfil),
+      metaRenovarToken: traefikPath(p.metaRenovarToken),
+      metaRenovarTokenCron: traefikPath(p.metaRenovarTokenCron),
     },
     publicWebhookUrls: {
       eventsMeta: publicUrl(p.eventsMeta),

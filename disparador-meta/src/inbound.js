@@ -63,14 +63,17 @@ async function main() {
   app.use(express.json({ limit: '5mb' }));
   app.locals.inboundConfig = inboundConfig;
 
-  app.get('/health', (_req, res) => {
+  const healthHandler = (_req, res) => {
     res.status(200).json({
       ok: true,
       service: 'hublabel-disparador-inbound',
       startedAt,
       agentQueue: getAgentQueueSize(),
       backUrl: inboundConfig.backUrl,
+      basePath: inboundConfig.basePath || null,
+      traefikStripPrefix: inboundConfig.traefikStripPrefix || null,
       publicWebhookUrls: inboundConfig.publicWebhookUrls,
+      traefikPaths: inboundConfig.traefikPaths,
       routes: {
         eventsMeta: inboundConfig.eventsMetaPath,
         evolution: inboundConfig.evolutionWebhookPath,
@@ -78,7 +81,9 @@ async function main() {
         slugs: inboundConfig.webhookPaths,
       },
     });
-  });
+  };
+
+  app.get('/health', healthHandler);
 
   app.get('/', (_req, res) => {
     res.redirect('/health');
@@ -141,8 +146,14 @@ async function main() {
     logger.info('Inbound server ouvindo', {
       port: inboundConfig.port,
       backUrl: inboundConfig.backUrl,
-      health: '/health',
+      basePath: inboundConfig.basePath || null,
+      traefikStripPrefix: inboundConfig.traefikStripPrefix || null,
+      expressRoutes: {
+        metaToken: inboundConfig.metaApiPaths.token,
+        eventsMeta: inboundConfig.eventsMetaPath,
+      },
       publicWebhookUrls: inboundConfig.publicWebhookUrls,
+      traefikPaths: inboundConfig.traefikPaths,
     });
   });
 
