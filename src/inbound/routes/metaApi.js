@@ -31,9 +31,14 @@ function asyncRoute(handler, { routeName, sanitizeBody } = {}) {
     const startedAt = Date.now();
     const safeBody = sanitizeBody ? sanitizeBody(req.body) : undefined;
 
-    if (routeName) {
-      logger.info(`[${routeName}] request`, safeBody ?? {});
-    }
+    logger.info(`[${routeName || 'meta-api'}] hit`, {
+      method: req.method,
+      path: req.path,
+      originalUrl: req.originalUrl,
+      contentType: req.headers['content-type'] || null,
+      body: safeBody ?? {},
+      bodyKeys: req.body && typeof req.body === 'object' ? Object.keys(req.body) : [],
+    });
 
     try {
       const result = await handler(req.body ?? {}, req.app.locals.inboundConfig);
@@ -73,6 +78,8 @@ function asyncRoute(handler, { routeName, sanitizeBody } = {}) {
 }
 
 export function registerMetaApiRoutes(app, { paths, inboundConfig }) {
+  logger.info('[meta-api] registrando rotas', paths);
+
   app.post(
     paths.token,
     asyncRoute(handleConnectMeta, { routeName: 'meta-token', sanitizeBody: sanitizeMetaTokenBody }),

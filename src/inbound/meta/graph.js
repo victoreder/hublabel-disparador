@@ -112,7 +112,14 @@ export async function exchangeCodeForToken({ version, appId, appSecret, code }) 
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok || data.error) {
-    throw new HttpError(metaErrorMessage(data, 'Falha ao trocar code por token curto.'), 502);
+    const message = metaErrorMessage(data, 'Falha ao trocar code por token curto.');
+    logger.warn('[meta-graph] oauth code->token erro', {
+      status: response.status,
+      message,
+      code: data?.error?.code ?? null,
+      type: data?.error?.type ?? null,
+    });
+    throw new HttpError(message, 502);
   }
   if (!data.access_token) {
     throw new HttpError('Resposta da Meta sem access_token (curto).', 502);
@@ -133,7 +140,14 @@ export async function exchangeLongLivedToken({ version, appId, appSecret, shortL
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok || data.error) {
-    throw new HttpError(metaErrorMessage(data, 'Falha ao trocar por token longo.'), 502);
+    const message = metaErrorMessage(data, 'Falha ao trocar por token longo.');
+    logger.warn('[meta-graph] oauth token longo erro', {
+      status: response.status,
+      message,
+      code: data?.error?.code ?? null,
+      type: data?.error?.type ?? null,
+    });
+    throw new HttpError(message, 502);
   }
   if (!data.access_token) {
     throw new HttpError('Resposta da Meta sem access_token (longo).', 502);

@@ -8,18 +8,26 @@ import { exchangeCodeForToken, exchangeLongLivedToken, metaGet, metaPost } from 
 import { HttpError } from './httpError.js';
 
 function parseConnectBody(body) {
-  const code = body.code;
-  const wabaId = body.waba_id || null;
-  const phoneNumberId = body.phone_number_id || null;
-  const businessId = body.business_id || null;
-  const conexaoId = body.conexaoId || body.conexao_id || null;
-  const contaId = body.contaId || body.conta_id || null;
-  const nome = body.NomeConexao || body.nome || 'WhatsApp API Oficial';
+  logger.info('[meta-token] parse body', {
+    temBody: body != null,
+    tipoBody: typeof body,
+    keys: body && typeof body === 'object' ? Object.keys(body) : [],
+  });
+
+  const code = body?.code;
+  const wabaId = body?.waba_id || null;
+  const phoneNumberId = body?.phone_number_id || null;
+  const businessId = body?.business_id || null;
+  const conexaoId = body?.conexaoId || body?.conexao_id || null;
+  const contaId = body?.contaId || body?.conta_id || null;
+  const nome = body?.NomeConexao || body?.nome || 'WhatsApp API Oficial';
 
   if (!code || typeof code !== 'string') {
+    logger.warn('[meta-token] validacao falhou', { motivo: 'code ausente ou invalido', conexaoId, contaId });
     throw new HttpError('Campo code obrigatorio.');
   }
   if (!conexaoId && !contaId) {
+    logger.warn('[meta-token] validacao falhou', { motivo: 'conexaoId e contaId ausentes' });
     throw new HttpError('Informe conexaoId (atualizar) ou contaId (criar nova conexao).');
   }
 
