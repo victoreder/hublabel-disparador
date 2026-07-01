@@ -77,6 +77,7 @@ async function main() {
       routes: {
         eventsMeta: inboundConfig.eventsMetaPath,
         evolution: inboundConfig.evolutionWebhookPath,
+        evolutionLegacy: inboundConfig.evolutionWebhookLegacyPath,
         metaApi: inboundConfig.metaApiPaths,
         slugs: inboundConfig.webhookPaths,
       },
@@ -95,7 +96,8 @@ async function main() {
   });
 
   registerEvolutionRoutes(app, {
-    path: inboundConfig.evolutionWebhookPath,
+    paths: [inboundConfig.evolutionWebhookPath, inboundConfig.evolutionWebhookLegacyPath],
+    inboundConfig,
   });
 
   registerMetaApiRoutes(app, {

@@ -23,7 +23,8 @@ function optionalInt(name, fallback) {
  */
 export const WEBHOOK_PATHS = {
   eventsMeta: 'eventsmeta',
-  evolution: 'webhook-mensagens',
+  evolution: 'agente-no-whatsapp',
+  evolutionLegacy: 'webhook-mensagens',
   metaToken: 'meta-token',
   metaCriarTemplate: 'meta-criar-template',
   metaExcluirTemplate: 'meta-excluir-template',
@@ -92,6 +93,7 @@ export function getInboundConfig() {
     webhookPaths: p,
     eventsMetaPath: expressPath(p.eventsMeta),
     evolutionWebhookPath: expressPath(p.evolution),
+    evolutionWebhookLegacyPath: expressPath(p.evolutionLegacy),
     agentPollMs: optionalInt('AGENT_POLL_MS', 500),
     metaGraphApiVersion: process.env.META_GRAPH_API_VERSION?.trim() || 'v25.0',
     metaApiPaths: {
@@ -102,11 +104,11 @@ export function getInboundConfig() {
       renovarToken: expressPath(p.metaRenovarToken),
       renovarTokenCron: expressPath(p.metaRenovarTokenCron),
     },
-    metaRedirectUri: `${back.backUrl}/conexoes`,
     traefikPaths: {
       health: traefikPath('health'),
       eventsMeta: traefikPath(p.eventsMeta),
       evolution: traefikPath(p.evolution),
+      evolutionLegacy: traefikPath(p.evolutionLegacy),
       metaToken: traefikPath(p.metaToken),
       metaCriarTemplate: traefikPath(p.metaCriarTemplate),
       metaExcluirTemplate: traefikPath(p.metaExcluirTemplate),
@@ -117,6 +119,7 @@ export function getInboundConfig() {
     publicWebhookUrls: {
       eventsMeta: publicUrl(p.eventsMeta),
       evolution: publicUrl(p.evolution),
+      evolutionLegacy: publicUrl(p.evolutionLegacy),
       metaToken: publicUrl(p.metaToken),
       metaCriarTemplate: publicUrl(p.metaCriarTemplate),
       metaExcluirTemplate: publicUrl(p.metaExcluirTemplate),
