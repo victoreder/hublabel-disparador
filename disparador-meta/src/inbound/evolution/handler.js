@@ -12,6 +12,7 @@ import {
 } from '../storage/s3.js';
 import {
   buildIngestaoPayload,
+  extractOriginalFileName,
   isAllowedEvolutionChat,
   isMediaMessageType,
   organizeEvolutionWebhook,
@@ -111,7 +112,8 @@ async function processEvolutionMedia(body, organized, inboundConfig) {
   const buffer = Buffer.from(json.base64, 'base64');
   const ext = guessExtension(organized.messageType, json);
   const safeMessageId = organized.messageId.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const originalFileName = organized.arquivoNomeOriginal || json.fileName || json.filename || json.file_name;
+  const originalFileName =
+    organized.arquivoNomeOriginal || extractOriginalFileName(body) || extractOriginalFileName(json);
   const originalName = withFileExtension(
     sanitizeS3FileName(originalFileName, `${safeMessageId}.${ext}`),
     ext,
