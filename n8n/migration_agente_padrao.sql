@@ -1,9 +1,13 @@
--- Integração: f_avaliar_fluxo_agente_ia chama f_resolver_agente_ativacao
--- Aplicar após tabelas SAAS_AgentesIA_Ativacao e f_resolver_agente_ativacao existirem
+-- Agente IA: gatilhos por prioridade global + fallback agente padrão (conexão → global)
+-- Aplicar no Supabase SQL Editor em bancos que ainda não têm f_resolver_agente_ativacao atualizado.
+--
+-- Ordem de resolução:
+-- 1. Agente já vinculado à conversa (conversa_existente)
+-- 2. Gatilhos SAAS_AgentesIA_Ativacao (prioridade DESC, qualquer tipo)
+-- 3. Agente padrão da conexão (SAAS_Conexões.idAgente)
+-- 4. Agente padrão global (SAAS_Contas.idAgentePadrao)
+-- 5. Nenhum (não ativa)
 
-DROP FUNCTION IF EXISTS public.f_avaliar_fluxo_agente_ia(bigint, uuid, bigint, bigint, text, text, boolean, text);
-
--- Atualiza resolver: respeita apenasPrimeiraMensagem nas regras
 CREATE OR REPLACE FUNCTION public.f_resolver_agente_ativacao(
   p_conta_id uuid,
   p_conexao_id bigint,
@@ -99,8 +103,4 @@ BEGIN
 END;
 $$;
 
--- Copie o corpo completo de f_avaliar_fluxo_agente_ia do n8n/sql.sql (versão com resolver integrado)
--- ou execute o bloco CREATE OR REPLACE correspondente no Supabase SQL Editor a partir do sql.sql atualizado.
-
 GRANT EXECUTE ON FUNCTION public.f_resolver_agente_ativacao(uuid, bigint, bigint, text, bigint, bigint, boolean) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.f_avaliar_fluxo_agente_ia(bigint, uuid, bigint, bigint, text, text, boolean, text, text, boolean) TO authenticated, service_role;

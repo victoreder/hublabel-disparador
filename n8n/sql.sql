@@ -3466,61 +3466,6 @@
       v_lid
     );
 
-    -- Busca foto de perfil via Evolution API se contato novo ou sem foto
-    IF (v_resultado->>'ok')::boolean
-      AND v_evolu IS NOT NULL
-      AND v_evolu->>'server_url' IS NOT NULL
-      AND v_evolu->>'instance' IS NOT NULL
-      AND v_evolu->>'apikey' IS NOT NULL
-      AND v_telefone IS NOT NULL
-    THEN
-      v_contato_id := (v_resultado->>'contatoId')::bigint;
-      v_contato_criado := COALESCE((v_resultado->>'contatoCriado')::boolean, false);
-
-      -- Verifica se foto está vazia
-      SELECT NULLIF(trim(COALESCE("fotoPerfil", '')), '')
-        INTO v_foto_atual
-        FROM public."SAAS_Contatos"
-      WHERE id = v_contato_id;
-
-      IF v_contato_criado OR v_foto_atual IS NULL THEN
-        BEGIN
-          v_evolu_url := rtrim(v_evolu->>'server_url', '/')
-                        || '/chat/fetchProfilePictureUrl/'
-                        || (v_evolu->>'instance');
-
-          -- SQL dinâmico: usa schema public (Supabase costuma instalar pg_http em public, não em extensions).
-          EXECUTE format(
-            'SELECT CASE WHEN (r.resp).status = 200
-                        THEN NULLIF(trim(COALESCE(((r.resp).content::jsonb)->>''profilePictureUrl'', '''')), '''')
-                        ELSE NULL
-                  END
-            FROM (
-              SELECT public.http(
-                (''POST'', %L,
-                  ARRAY[public.http_header(''apikey'', %L)],
-                  ''application/json'',
-                  %L
-                )::public.http_request
-              ) AS resp
-            ) r',
-            v_evolu_url,
-            v_evolu->>'apikey',
-            jsonb_build_object('number', v_telefone)::text
-          ) INTO v_foto_url;
-
-          IF v_foto_url IS NOT NULL THEN
-            UPDATE public."SAAS_Contatos"
-              SET "fotoPerfil" = v_foto_url
-            WHERE id = v_contato_id;
-          END IF;
-        EXCEPTION
-          WHEN OTHERS THEN
-            NULL;
-        END;
-      END IF;
-    END IF;
-
     RETURN v_resultado;
   END;
   $$;
@@ -7140,6 +7085,7 @@
     v_tipo text;
     v_fluxo jsonb;
     v_eh_primeira_mensagem boolean := false;
+    v_contato_criado boolean := false;
   BEGIN
     v_telefone := regexp_replace(COALESCE(p_telefone, ''), '\D', '', 'g');
     IF v_telefone = '' OR p_conexao_id IS NULL OR p_conta_id IS NULL THEN
@@ -7177,6 +7123,7 @@
         p_conta_id
       )
       RETURNING id, telefone INTO v_contato_id, v_contato_telefone;
+      v_contato_criado := true;
     ELSIF NULLIF(trim(COALESCE(p_nome_contato, '')), '') IS NOT NULL THEN
       UPDATE public."SAAS_Contatos"
         SET nome = COALESCE(NULLIF(trim(nome), ''), trim(p_nome_contato))
@@ -7299,6 +7246,7 @@
       'conversaId', v_conversa_id,
       'mensagemId', v_mensagem_id,
       'contatoId', v_contato_id,
+      'contatoCriado', v_contato_criado,
       'contaId', p_conta_id,
       'conexaoId', p_conexao_id,
       'tipoMensagem', v_tipo,
@@ -9046,11 +8994,7 @@
   DECLARE
     v_conversa record;
     v_agente_id bigint;
-    v_tipo text;
     v_regra record;
-    v_tipos text[] := ARRAY[
-      'palavra_chave', 'etiqueta', 'crm', 'setor', 'horario'
-    ];
   BEGIN
     IF p_conta_id IS NULL THEN
       RETURN jsonb_build_object('ok', false, 'erro', 'contaId obrigatório');
@@ -9080,30 +9024,27 @@
     END IF;
 
     IF to_regclass('public."SAAS_AgentesIA_Ativacao"') IS NOT NULL THEN
-      FOREACH v_tipo IN ARRAY v_tipos LOOP
-        FOR v_regra IN
-          SELECT r.*
-          FROM public."SAAS_AgentesIA_Ativacao" r
-          JOIN public."SAAS_AgentesIA" a ON a.id = r."idAgente"
-          WHERE r."contaId" = p_conta_id
-            AND r.ativo IS TRUE
-            AND a.ativo IS NOT FALSE
-            AND r.tipo = v_tipo
-            AND public.f_regra_ativacao_conexao_ok(r."conexoesModo", r."conexoesIds", p_conexao_id)
-            AND public.f_regra_ativacao_condicao_ok(
-              r.tipo, r.condicao, p_mensagem, p_contato_id, p_setor_id
-            )
-            AND (
-              NOT COALESCE(r."apenasPrimeiraMensagem", false)
-              OR COALESCE(p_eh_primeira_mensagem, false)
-            )
-          ORDER BY r.prioridade DESC, r.id ASC
-        LOOP
-          RETURN jsonb_build_object(
-            'ok', true, 'idAgente', v_regra."idAgente",
-            'motivo', 'regra_' || v_tipo, 'regraId', v_regra.id
-          );
-        END LOOP;
+      FOR v_regra IN
+        SELECT r.*
+        FROM public."SAAS_AgentesIA_Ativacao" r
+        JOIN public."SAAS_AgentesIA" a ON a.id = r."idAgente"
+        WHERE r."contaId" = p_conta_id
+          AND r.ativo IS TRUE
+          AND a.ativo IS NOT FALSE
+          AND public.f_regra_ativacao_conexao_ok(r."conexoesModo", r."conexoesIds", p_conexao_id)
+          AND public.f_regra_ativacao_condicao_ok(
+            r.tipo, r.condicao, p_mensagem, p_contato_id, p_setor_id
+          )
+          AND (
+            NOT COALESCE(r."apenasPrimeiraMensagem", false)
+            OR COALESCE(p_eh_primeira_mensagem, false)
+          )
+        ORDER BY r.prioridade DESC, r.id ASC
+      LOOP
+        RETURN jsonb_build_object(
+          'ok', true, 'idAgente', v_regra."idAgente",
+          'motivo', 'regra_' || v_regra.tipo, 'regraId', v_regra.id
+        );
       END LOOP;
     END IF;
 
@@ -9133,8 +9074,50 @@
   END;
   $$;
 
+  CREATE OR REPLACE FUNCTION public.f_salvar_agente_padrao_global(
+    p_conta_id uuid,
+    p_id_agente bigint DEFAULT NULL
+  ) RETURNS jsonb
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = public
+  AS $$
+  BEGIN
+    IF p_conta_id IS NULL THEN
+      RETURN jsonb_build_object('ok', false, 'erro', 'contaId obrigatório');
+    END IF;
+
+    IF NOT public.can_access_conta(p_conta_id) AND NOT public.is_super_admin() THEN
+      RETURN jsonb_build_object('ok', false, 'erro', 'sem_permissao');
+    END IF;
+
+    IF p_id_agente IS NOT NULL THEN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM public."SAAS_AgentesIA" a
+        WHERE a.id = p_id_agente
+          AND a."contaId" = p_conta_id
+      ) THEN
+        RETURN jsonb_build_object('ok', false, 'erro', 'agente_invalido');
+      END IF;
+    END IF;
+
+    UPDATE public."SAAS_Contas"
+    SET "idAgentePadrao" = p_id_agente
+    WHERE id = p_conta_id;
+
+    IF NOT FOUND THEN
+      RETURN jsonb_build_object('ok', false, 'erro', 'conta_nao_encontrada');
+    END IF;
+
+    RETURN jsonb_build_object('ok', true, 'idAgentePadrao', p_id_agente);
+  END;
+  $$;
+
   GRANT EXECUTE ON FUNCTION public.f_regra_ativacao_conexao_ok(text, jsonb, bigint) TO authenticated;
   GRANT EXECUTE ON FUNCTION public.f_regra_horario_ativacao_ok(jsonb) TO authenticated;
   GRANT EXECUTE ON FUNCTION public.f_regra_ativacao_condicao_ok(text, jsonb, text, bigint, bigint) TO authenticated;
   GRANT EXECUTE ON FUNCTION public.f_resolver_agente_ativacao(uuid, bigint, bigint, text, bigint, bigint, boolean) TO authenticated;
   GRANT EXECUTE ON FUNCTION public.f_resolver_agente_ativacao(uuid, bigint, bigint, text, bigint, bigint, boolean) TO service_role;
+  GRANT EXECUTE ON FUNCTION public.f_salvar_agente_padrao_global(uuid, bigint) TO authenticated;
+  GRANT EXECUTE ON FUNCTION public.f_salvar_agente_padrao_global(uuid, bigint) TO service_role;

@@ -2,6 +2,7 @@ import { logger } from '../../logger.js';
 import { fetchConexaoById, ingestaoMensagem } from '../../supabase.js';
 import { buildAgentJobFromIngestao } from '../agent/job.js';
 import { enqueueAgentJob } from '../agent/queue.js';
+import { scheduleContatoFotoPerfilSync } from '../contato/fotoPerfil.js';
 import {
   buildPublicS3Url,
   createS3Client,
@@ -52,6 +53,21 @@ export async function handleEvolutionWebhook(req, inboundConfig) {
   if (resultado?.ok === false) {
     logger.warn('f_ingestao_mensagem retornou erro', { error: resultado.error, conexaoId: idConexao });
     return { status: 200, body: resultado };
+  }
+
+  if (resultado?.contatoId && !organized.fromMe) {
+    scheduleContatoFotoPerfilSync({
+      contatoId: resultado.contatoId,
+      contatoCriado: Boolean(resultado.contatoCriado),
+      telefone: organized.remoteJid,
+      fromMe: organized.fromMe,
+      canal: 'evolution',
+      conexaoId: idConexao,
+      contaId: conexao.contaId,
+      conexao,
+      evolution: payload.evolu,
+      s3Config: inboundConfig.s3,
+    });
   }
 
   if (resultado?.segueFluxoIA) {
