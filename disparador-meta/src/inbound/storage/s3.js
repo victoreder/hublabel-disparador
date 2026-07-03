@@ -22,3 +22,27 @@ export async function uploadBuffer({ client, bucket, key, body, contentType }) {
     }),
   );
 }
+
+export function sanitizeS3FileName(fileName, fallback = 'arquivo') {
+  const cleaned = String(fileName || '')
+    .trim()
+    .replace(/[\\/:*?"<>|\x00-\x1F\x7F]/g, '_');
+
+  if (!cleaned || cleaned === '.' || cleaned === '..') return fallback;
+  return cleaned;
+}
+
+export function withFileExtension(fileName, ext) {
+  const cleanExt = String(ext || '').replace(/^\.+/, '').trim();
+  if (!cleanExt || /\.[^./\\]+$/.test(fileName)) return fileName;
+  return `${fileName}.${cleanExt}`;
+}
+
+export function buildPublicS3Url(publicBaseUrl, key) {
+  const encodedKey = String(key || '')
+    .split('/')
+    .map((part) => encodeURIComponent(part))
+    .join('/');
+
+  return `${String(publicBaseUrl || '').replace(/\/+$/, '')}/${encodedKey}`;
+}
