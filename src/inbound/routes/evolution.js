@@ -1,5 +1,6 @@
 import { logger } from '../../logger.js';
 import { handleEvolutionWebhook } from '../evolution/handler.js';
+import { handleRagIngestRequest, isRagIngestRequest } from './rag.js';
 
 function evolutionHandler(inboundConfig) {
   return async (req, res) => {
@@ -11,7 +12,12 @@ function evolutionHandler(inboundConfig) {
       idConexao: req.query?.idConexao ?? req.body?.idConexao ?? null,
       event: req.body?.event ?? null,
       instance: req.body?.instance ?? null,
+      acao: req.body?.acao ?? null,
     });
+
+    if (isRagIngestRequest(req)) {
+      return handleRagIngestRequest(req, res);
+    }
 
     try {
       const result = await handleEvolutionWebhook(req, inboundConfig);

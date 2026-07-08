@@ -141,6 +141,7 @@ export function getInboundConfig() {
         back.backUrl,
         `${p.evolution}/${RAG_INSERIR_CONHECIMENTO_SUFFIX}`,
       ),
+      inserirConhecimentoFallback: publicUrl(p.evolution),
     },
     calcularTokenUrl: publicUrl(p.calcularToken),
     tokenRenewalCronHour: 3,

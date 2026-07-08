@@ -10,17 +10,41 @@ const upload = multer({
   },
 });
 
+const uploadFields = upload.fields([
+  { name: 'data', maxCount: 1 },
+  { name: 'file', maxCount: 1 },
+  { name: 'documento', maxCount: 1 },
+]);
+
 function sanitizeBody(body = {}) {
   return {
     userId: body.userId ?? body.contaId ?? null,
     idAgente: body.idAgente ?? body.id_agente ?? null,
     idUnico: body.idUnico ?? body.id_unico ?? null,
-    hasText: Boolean(body.text ?? body.conteudo),
+    acao: body.acao ?? null,
+    hasText: Boolean(
+      body.text ?? body.conteudo ?? body.descricao ?? body.documentoTexto ?? body.conhecimento,
+    ),
   };
 }
 
 function pickUploadedFile(req) {
-  return req.file ?? req.files?.data?.[0] ?? req.files?.file?.[0] ?? null;
+  return (
+    req.file ??
+    req.files?.data?.[0] ??
+    req.files?.file?.[0] ??
+    req.files?.documento?.[0] ??
+    null
+  );
+}
+
+export function isRagIngestRequest(req) {
+  const path = String(req.path || req.originalUrl || '');
+  if (path.includes('inserir-conhecimento')) return true;
+
+  const body = req.body ?? {};
+  const acao = String(body.acao ?? body.action ?? '').toLowerCase();
+  return acao === 'inserirdocumento' || acao === 'inserir-conhecimento' || acao === 'inserir_conhecimento';
 }
 
 function handleIngest(req, res) {
@@ -30,6 +54,7 @@ function handleIngest(req, res) {
   logger.info('[rag-inserir-conhecimento] hit', {
     method: req.method,
     path: req.path,
+    originalUrl: req.originalUrl,
     contentType: req.headers['content-type'] || null,
     body: safeBody,
     hasFile: Boolean(pickUploadedFile(req)),
@@ -73,25 +98,34 @@ function handleIngest(req, res) {
     });
 }
 
+function runWithMulter(req, res) {
+  uploadFields(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      const message =
+        err.code === 'LIMIT_FILE_SIZE'
+          ? 'Arquivo excede o tamanho máximo permitido'
+          : err.message;
+      return res.status(400).json({ ok: false, error: message });
+    }
+    if (err) {
+      logger.error('[rag-inserir-conhecimento] multer erro', {
+        message: err instanceof Error ? err.message : String(err),
+      });
+      return res.status(500).json({ ok: false, error: 'Falha ao processar upload' });
+    }
+    return handleIngest(req, res);
+  });
+}
+
+export function handleRagIngestRequest(req, res) {
+  const contentType = String(req.headers['content-type'] || '').toLowerCase();
+  if (contentType.includes('multipart/form-data')) {
+    return runWithMulter(req, res);
+  }
+  return handleIngest(req, res);
+}
+
 export function registerRagRoutes(app, { path, parentPath }) {
   logger.info('[rag] registrando sub-rota', { path, parentPath });
-
-  const uploadFields = upload.fields([
-    { name: 'data', maxCount: 1 },
-    { name: 'file', maxCount: 1 },
-  ]);
-
-  app.post(path, (req, res, next) => {
-    uploadFields(req, res, (err) => {
-      if (err instanceof multer.MulterError) {
-        const message =
-          err.code === 'LIMIT_FILE_SIZE'
-            ? 'Arquivo excede o tamanho máximo permitido'
-            : err.message;
-        return res.status(400).json({ ok: false, error: message });
-      }
-      if (err) return next(err);
-      return handleIngest(req, res);
-    });
-  });
+  app.post(path, handleRagIngestRequest);
 }
