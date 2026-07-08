@@ -45,13 +45,14 @@ export async function markSent(id) {
   throwIfError(error, `Erro ao marcar detalhe ${id} como sent`);
 }
 
-export async function markFailed(id, { errorMessage, userMessage }) {
+export async function markFailed(id, { userMessage, statusHttp, respostaHttp }) {
   const { error } = await supabase
     .from('SAAS_Detalhes_Disparos')
     .update({
       Status: 'failed',
-      Payload: errorMessage ?? null,
+      statusHttp: statusHttp != null ? String(statusHttp) : null,
       mensagemErro: userMessage ?? null,
+      respostaHttp: respostaHttp ?? null,
     })
     .eq('id', id);
 
