@@ -13,6 +13,7 @@ import {
   transferirConversaAgenteIA,
 } from '../../supabase.js';
 import { gerarPreenchimentoCrm } from './crmPreencher.js';
+import { executeNotificarHumano } from './notifyHuman.js';
 import { resolveMediaMarkdown } from './parseActions.js';
 import { classifyChunk } from './parseResponse.js';
 import { sendAgentChunk } from './sendReply.js';
@@ -144,10 +145,7 @@ async function executarNotificarHumano(acao, ctx) {
     const resultado = await executeNotificarHumano({
       job: ctx.job,
       agente: ctx.agente,
-      args: {
-        mensagem: acao.dados?.mensagem,
-        indice: acao.dados?.indice ?? 0,
-      },
+      args: acao.dados ?? {},
     });
     return resultado;
   } catch (error) {

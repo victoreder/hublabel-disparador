@@ -113,7 +113,7 @@ async function processEvolutionMedia(body, organized, inboundConfig) {
   const ext = guessExtension(organized.messageType, json);
   const safeMessageId = organized.messageId.replace(/[^a-zA-Z0-9._-]/g, '_');
   const originalFileName =
-    organized.arquivoNomeOriginal || extractOriginalFileName(body) || extractOriginalFileName(json);
+    extractOriginalFileName(json) || organized.arquivoNomeOriginal || extractOriginalFileName(body);
   const originalName = withFileExtension(
     sanitizeS3FileName(originalFileName, `${safeMessageId}.${ext}`),
     ext,

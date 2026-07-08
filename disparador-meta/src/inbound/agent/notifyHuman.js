@@ -95,9 +95,22 @@ async function sendNotificationEmail(smtpConfig, { to, subject, text }) {
   }
 }
 
+function temDestinosNoArgs(args) {
+  if (!args || typeof args !== 'object') return false;
+  return (
+    args.whatsapp != null ||
+    Array.isArray(args.whatsapps) ||
+    args.email != null ||
+    Array.isArray(args.emails) ||
+    args.whatsappAtivo != null ||
+    args.emailAtivo != null
+  );
+}
+
 export async function executeNotificarHumano({ job, agente, args }) {
   const itens = getNotificarItens(agente);
-  const item = resolveNotificarItem(agente, args?.indice ?? 0);
+  const itemInline = temDestinosNoArgs(args) ? args : null;
+  const item = itemInline || resolveNotificarItem(agente, args?.indice ?? 0);
 
   if (!item) {
     return {
@@ -121,7 +134,7 @@ export async function executeNotificarHumano({ job, agente, args }) {
 
   const resultado = {
     success: true,
-    indice: itens.indexOf(item),
+    indice: itemInline ? null : itens.indexOf(item),
     whatsappsEnviados: [],
     emailsEnviados: [],
     erros: [],

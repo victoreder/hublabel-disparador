@@ -8939,32 +8939,35 @@
 
     IF p_tipo = 'crm' THEN
       IF p_contato_id IS NULL OR to_regclass('public."SAAS_Cards_Quadros"') IS NULL THEN RETURN false; END IF;
-      v_crm_modo := COALESCE(p_condicao->>'modo', 'na_etapa');
+      v_crm_modo := COALESCE(NULLIF(trim(p_condicao->>'modo'), ''), 'na_etapa');
+      -- Compat: "qualquer" / "todas" / vazio = sem filtro de etapa
+      IF v_crm_modo IN ('na_etapa', 'tem_card')
+         AND COALESCE(NULLIF(trim(p_condicao->>'etapaId'), ''), 'qualquer')
+             IN ('qualquer', 'todas', '*', 'all') THEN
+        v_crm_modo := 'tem_card';
+      END IF;
       IF v_crm_modo = 'na_etapa' THEN
-        IF COALESCE(NULLIF(trim(p_condicao->>'etapaId'), ''), 'todas') IN ('todas', '*', 'all') THEN
-          RETURN EXISTS (
-            SELECT 1 FROM public."SAAS_Cards_Quadros" cq
-            WHERE cq."contatoId" = p_contato_id
-              AND cq."quadroId" = NULLIF(p_condicao->>'quadroId', '')::bigint
-          );
-        END IF;
         RETURN EXISTS (
           SELECT 1 FROM public."SAAS_Cards_Quadros" cq
           WHERE cq."contatoId" = p_contato_id
-            AND cq."quadroId" = NULLIF(p_condicao->>'quadroId', '')::bigint
-            AND cq."etapaQuadroId" = NULLIF(p_condicao->>'etapaId', '')::bigint
+            AND (NULLIF(trim(p_condicao->>'quadroId'), '') IS NULL
+                 OR cq."quadroId" = NULLIF(trim(p_condicao->>'quadroId'), '')::bigint)
+            AND cq."etapaQuadroId" = NULLIF(trim(p_condicao->>'etapaId'), '')::bigint
         );
       ELSIF v_crm_modo = 'tem_card' THEN
         RETURN EXISTS (
           SELECT 1 FROM public."SAAS_Cards_Quadros" cq
           WHERE cq."contatoId" = p_contato_id
-            AND (NULLIF(p_condicao->>'quadroId', '') IS NULL OR cq."quadroId" = NULLIF(p_condicao->>'quadroId', '')::bigint)
+            AND (NULLIF(trim(p_condicao->>'quadroId'), '') IS NULL
+                 OR cq."quadroId" = NULLIF(trim(p_condicao->>'quadroId'), '')::bigint)
         );
       ELSIF v_crm_modo = 'sem_card' THEN
+        -- Legado: regras antigas ainda validam
         RETURN NOT EXISTS (
           SELECT 1 FROM public."SAAS_Cards_Quadros" cq
           WHERE cq."contatoId" = p_contato_id
-            AND (NULLIF(p_condicao->>'quadroId', '') IS NULL OR cq."quadroId" = NULLIF(p_condicao->>'quadroId', '')::bigint)
+            AND (NULLIF(trim(p_condicao->>'quadroId'), '') IS NULL
+                 OR cq."quadroId" = NULLIF(trim(p_condicao->>'quadroId'), '')::bigint)
         );
       END IF;
       RETURN false;
