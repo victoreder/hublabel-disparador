@@ -100,18 +100,12 @@ export async function metaUploadBinary({ version, sessionId, accessToken, buffer
   return data;
 }
 
-export async function exchangeCodeForToken({ version, appId, appSecret, code, redirectUri = '' }) {
+export async function exchangeCodeForToken({ version, appId, appSecret, code }) {
   const params = new URLSearchParams({
     client_id: appId,
     client_secret: appSecret,
-    redirect_uri: redirectUri,
+    redirect_uri: '',
     code,
-  });
-
-  logger.info('[meta-graph] exchangeCodeForToken params', {
-    client_id: appId,
-    redirect_uri: redirectUri,
-    code_present: Boolean(code),
   });
 
   const response = await fetch(`${graphBase(version)}/oauth/access_token?${params.toString()}`);

@@ -1,11 +1,16 @@
 import { logger } from '../../logger.js';
-import { fetchAgente, fetchConfigIA, fetchConversaAgente } from '../../supabase.js';
+import { fetchAgente } from '../../supabase.js';
 import { executeAgentAction } from './actions.js';
 import { getAgentConfig } from './config.js';
 import { loadChatHistory } from './memory.js';
+import { notifyOpenAiSemSaldo } from './notifyHuman.js';
 import { runAgentChat } from './openai.js';
+import {
+  buildArquivoMapFromInstrucoes,
+  parseAgentOutputWithActions,
+  stripActionMarkers,
+} from './parseActions.js';
 import { splitAgentOutput } from './parseResponse.js';
-import { buildArquivoMapFromInstrucoes, parseAgentOutputWithActions } from './parseActions.js';
 import { buildSystemPrompt } from './prompt.js';
 import { preprocessInput } from './preprocess.js';
 import {
@@ -13,66 +18,19 @@ import {
   pushGroupingMessage,
   waitForGroupedText,
 } from './redis.js';
-import { sendAgentChunk } from './sendReply.js';
-import { saveAgentTokenUsage } from './tokens.js';
-
-async function resolveAgenteAtivo(job) {
-  if (job.agente?.id && job.agente.ativo !== false) {
-    return job.agente;
-  }
-
-  if (job.agenteId) {
-    const agente = await fetchAgente(job.agenteId);
-    if (agente) return agente;
-  }
-
-  if (job.conversaId) {
-    const conversa = await fetchConversaAgente(job.conversaId);
-    job.conversa = conversa;
-
-    const agenteIdConversa = conversa?.idAgente;
-    if (agenteIdConversa) {
-      const agente = await fetchAgente(agenteIdConversa);
-      if (agente) return agente;
-    }
-  }
-
-  const agenteIdConexao = job.agenteId ?? job.agente?.id ?? null;
-
-  if (agenteIdConexao) return fetchAgente(agenteIdConexao);
-  return null;
-}
+import { sendAgentChunk, notifyTokenUsage } from './sendReply.js';
 
 export async function processAgentJob(job) {
-  logger.info('Agent worker: iniciando', {
-    canal: job?.canal,
-    conexaoId: job?.conexaoId,
-    conversaId: job?.conversaId,
-    agenteId: job?.agenteId,
-    messageType: job?.messageType,
-    telefone: job?.telefone,
-  });
-
-  let agentConfig;
-  try {
-    agentConfig = getAgentConfig(await fetchConfigIA());
-  } catch (error) {
-    logger.error('Agent worker: falha ao carregar SAAS_Config_IA', { message: error.message });
-    throw error;
-  }
-
-  const agente = await resolveAgenteAtivo(job);
+  const agentConfig = await getAgentConfig();
+  const agente = job.agente ?? (job.agenteId ? await fetchAgente(job.agenteId) : null);
 
   if (!agente) {
-    logger.warn('Agent worker: agente não encontrado', {
-      agenteId: job.agenteId,
-      conversaId: job.conversaId,
-    });
+    logger.warn('Agente IA não encontrado', { agenteId: job.agenteId });
     return;
   }
 
   if (agente.ativo === false) {
-    logger.info('Agent worker: agente inativo', { agenteId: agente.id, conversaId: job.conversaId });
+    logger.info('Agente IA inativo', { agenteId: agente.id });
     return;
   }
 
@@ -80,13 +38,7 @@ export async function processAgentJob(job) {
   job.agenteId = agente.id;
 
   const textoPreprocessado = await preprocessInput(job, agente, agentConfig);
-  if (textoPreprocessado == null) {
-    logger.info('Agent worker: preprocess abortou (fallback enviado ou mídia ignorada)', {
-      conversaId: job.conversaId,
-      messageType: job.messageType,
-    });
-    return;
-  }
+  if (textoPreprocessado == null) return;
 
   let inputText = textoPreprocessado;
 
@@ -98,10 +50,7 @@ export async function processAgentJob(job) {
       agente.intervaloEntreMensagens ?? 3,
     );
     if (!grouped) {
-      logger.info('Agent worker: aguardando agrupamento de mensagens', {
-        telefone: job.telefone,
-        intervaloSeg: agente.intervaloEntreMensagens ?? 3,
-      });
+      logger.debug('Mensagem agrupada — aguardando próxima', { telefone: job.telefone });
       return;
     }
     inputText = grouped;
@@ -110,21 +59,33 @@ export async function processAgentJob(job) {
   const systemPrompt = buildSystemPrompt(job, agente);
   const history = await loadChatHistory(job.conversaId, agente.qntMsgHistorico ?? 20);
 
-  const chatResult = await runAgentChat({
-    agentConfig,
-    job,
-    agente,
-    systemPrompt,
-    history,
-    userMessage: inputText,
-  });
+  let output;
+  try {
+    output = await runAgentChat({
+      agentConfig,
+      job,
+      agente,
+      systemPrompt,
+      history,
+      userMessage: inputText,
+    });
+  } catch (error) {
+    try {
+      await notifyOpenAiSemSaldo({ job, error });
+    } catch (notifyError) {
+      logger.warn('Falha ao notificar super admin sobre saldo OpenAI', {
+        message: notifyError.message,
+      });
+    }
+    throw error;
+  }
 
-  if (!chatResult?.content) {
+  if (!output) {
     logger.warn('Agente IA sem resposta', { conversaId: job.conversaId });
     return;
   }
 
-  const segments = parseAgentOutputWithActions(chatResult.content);
+  const segments = parseAgentOutputWithActions(output);
   const arquivoMap = buildArquivoMapFromInstrucoes(agente.instrucoes);
   const actionCtx = {
     job,
@@ -133,46 +94,44 @@ export async function processAgentJob(job) {
     arquivoMap,
     history,
     userMessage: inputText,
-    respostaAgente: chatResult.content,
+    respostaAgente: stripActionMarkers(output),
+    textoContexto: inputText,
   };
-  const separarMensagens = agente.separarMensagens !== false;
+
+  let chunksEnviados = 0;
+  let acoesExecutadas = 0;
 
   for (const segment of segments) {
-    if (segment.type === 'text') {
-      const chunks = splitAgentOutput(segment.content, separarMensagens);
-      for (const chunk of chunks) {
-        try {
-          await sendAgentChunk(job, chunk, agentConfig);
-        } catch (error) {
-          logger.error('Falha ao enviar resposta do agente', {
-            conversaId: job.conversaId,
-            kind: chunk.kind,
-            message: error.message,
-          });
-        }
+    if (segment.type === 'action') {
+      try {
+        await executeAgentAction(segment.content, actionCtx);
+        acoesExecutadas += 1;
+      } catch (error) {
+        logger.warn('Falha ao executar ação do agente — ignorado', {
+          conversaId: job.conversaId,
+          tipo: segment.content?.tipo,
+          message: error.message,
+        });
       }
       continue;
     }
 
-    if (segment.type === 'action') {
-      if (String(segment.content?.tipo || '').toLowerCase() === 'ferramenta-http') {
-        continue;
-      }
+    const textoLimpo = stripActionMarkers(segment.content);
+    if (!textoLimpo) continue;
 
-      const textoAnterior = segments
-        .slice(0, segments.indexOf(segment))
-        .filter((s) => s.type === 'text')
-        .map((s) => s.content)
-        .join('\n\n')
-        .trim();
-
-      const resultado = await executeAgentAction(segment.content, {
-        ...actionCtx,
-        textoContexto: textoAnterior,
-      });
-
-      if (resultado?.tokensExtras) {
-        chatResult.totalTokens += resultado.tokensExtras;
+    const chunks = splitAgentOutput(textoLimpo, agente.separarMensagens !== false);
+    for (const chunk of chunks) {
+      const textoChunk = stripActionMarkers(chunk.text);
+      if (!textoChunk) continue;
+      try {
+        await sendAgentChunk(job, { ...chunk, text: textoChunk }, agentConfig);
+        chunksEnviados += 1;
+      } catch (error) {
+        logger.error('Falha ao enviar resposta do agente', {
+          conversaId: job.conversaId,
+          kind: chunk.kind,
+          message: error.message,
+        });
       }
     }
   }
@@ -181,13 +140,13 @@ export async function processAgentJob(job) {
     await clearGroupingKey(agentConfig.redisUrl, job.telefone);
   }
 
-  await saveAgentTokenUsage(agente.id, chatResult.totalTokens, chatResult.model);
+  await notifyTokenUsage(job, agentConfig);
 
   logger.info('Agente IA processado', {
     canal: job.canal,
     conversaId: job.conversaId,
-    segments: segments.length,
-    totalTokens: chatResult.totalTokens,
+    chunks: chunksEnviados,
+    acoes: acoesExecutadas,
   });
 }
 

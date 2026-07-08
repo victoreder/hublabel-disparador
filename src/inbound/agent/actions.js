@@ -5,7 +5,6 @@ import {
   buscarAtendenteAleatorio,
   buscarAtendenteAleatorioSetor,
   buscarCardContato,
-  criarCardCrm,
   moverCardCrm,
   preencherCardCrm,
   removerEtiquetaContato,
@@ -19,16 +18,49 @@ import { resolveMediaMarkdown } from './parseActions.js';
 import { classifyChunk } from './parseResponse.js';
 import { sendAgentChunk } from './sendReply.js';
 
+const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
+
+async function dynamicHttpRequest({ url, method, headers, body, queryParams }) {
+  const upperMethod = String(method || 'GET').toUpperCase();
+  if (!url?.trim()) {
+    return { success: false, error: "Campo 'url' é obrigatório." };
+  }
+  if (!VALID_METHODS.has(upperMethod)) {
+    return { success: false, error: `Método '${upperMethod}' inválido.` };
+  }
+
+  const targetUrl = new URL(url);
+  if (queryParams && typeof queryParams === 'object') {
+    for (const [key, value] of Object.entries(queryParams)) {
+      if (value != null) targetUrl.searchParams.set(key, String(value));
+    }
+  }
+
+  const init = { method: upperMethod, headers: headers ?? undefined };
+  if (!['GET', 'DELETE'].includes(upperMethod) && body != null) {
+    init.headers = { 'Content-Type': 'application/json', ...headers };
+    init.body = JSON.stringify(body);
+  }
+
+  try {
+    const response = await fetch(targetUrl.toString(), init);
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text ? { message: text } : null;
+    }
+    return { success: response.ok, status: response.status, data };
+  } catch (error) {
+    return { success: false, status: null, error: error.message, data: null };
+  }
+}
+
 function normalizeTipo(tipo) {
   const t = String(tipo || '').trim().toLowerCase();
   if (t === 'crm-movimentacao') return 'crm-mover';
   return t;
-}
-
-function telefoneFromJob(job) {
-  return String(job?.telefone || '')
-    .replace('@s.whatsapp.net', '')
-    .replace(/\D/g, '');
 }
 
 async function resolveAtendenteId(dados, { contaId, setorId = null }) {
@@ -113,10 +145,7 @@ async function executarNotificarHumano(acao, ctx) {
     const resultado = await executeNotificarHumano({
       job: ctx.job,
       agente: ctx.agente,
-      args: {
-        mensagem: acao.dados?.mensagem,
-        indice: acao.dados?.indice ?? 0,
-      },
+      args: acao.dados ?? {},
     });
     return resultado;
   } catch (error) {
@@ -158,7 +187,37 @@ async function executarTransferirAgenteIA(acao, ctx) {
   return { success: true, agenteId };
 }
 
-async function aplicarPreenchimentoCrmCard({ dados, card, ctx }) {
+async function executarCrmMover(acao, ctx) {
+  const quadroId = Number(acao.dados?.quadroId);
+  const etapaId = Number(acao.dados?.etapaId);
+  if (!quadroId || !etapaId || !ctx.job.contatoId) {
+    return { success: false, error: 'quadroId, etapaId ou contatoId ausente' };
+  }
+
+  const card = await buscarCardContato({ contatoId: ctx.job.contatoId, quadroId });
+  if (!card?.id) {
+    return { success: false, error: 'Card CRM não encontrado para o contato' };
+  }
+
+  await moverCardCrm({ cardId: card.id, etapaId, quadroId });
+  return { success: true, cardId: card.id, etapaId };
+}
+
+async function executarCrmPreencher(acao, ctx) {
+  const dados = acao.dados ?? {};
+  const quadroId = Number(dados.quadroId) || null;
+
+  let card = null;
+  if (quadroId && ctx.job.contatoId) {
+    card = await buscarCardContato({ contatoId: ctx.job.contatoId, quadroId });
+  } else if (ctx.job.contatoId) {
+    card = await buscarCardContato({ contatoId: ctx.job.contatoId });
+  }
+
+  if (!card?.id) {
+    return { success: false, error: 'Card CRM não encontrado' };
+  }
+
   const preenchimento = await gerarPreenchimentoCrm({
     agentConfig: ctx.agentConfig,
     agente: ctx.agente,
@@ -179,102 +238,31 @@ async function aplicarPreenchimentoCrmCard({ dados, card, ctx }) {
   });
 
   return {
+    success: true,
     cardId: card.id,
     preenchimento,
     tokensExtras: preenchimento.totalTokens ?? 0,
   };
 }
 
-async function executarCrmMover(acao, ctx) {
-  const dados = acao.dados ?? {};
-  const quadroId = Number(dados.quadroId);
-  const etapaId = Number(dados.etapaId);
-  if (!quadroId || !etapaId || !ctx.job.contatoId) {
-    return { success: false, error: 'quadroId, etapaId ou contatoId ausente' };
+async function executarFerramentaHttp(acao, ctx) {
+  const httpIndex = Number(acao.dados?.httpIndex ?? 0);
+  const itens = ctx.agente?.requisicaoHTTP?.itens ?? [];
+  const item = itens[httpIndex];
+
+  if (!item) {
+    return { success: false, error: `Ferramenta HTTP índice ${httpIndex} não encontrada` };
   }
 
-  const card = await buscarCardContato({ contatoId: ctx.job.contatoId, quadroId });
-  if (!card?.id) {
-    return { success: false, error: 'Card CRM não encontrado para o contato' };
-  }
+  const result = await dynamicHttpRequest({
+    url: item.url,
+    method: item.method || item.metodo || 'GET',
+    headers: item.headers ?? {},
+    body: item.body ?? item.corpo ?? {},
+    queryParams: item.queryParams ?? item.params ?? {},
+  });
 
-  await moverCardCrm({ cardId: card.id, etapaId, quadroId });
-  return { success: true, cardId: card.id, etapaId, modo: 'mover' };
-}
-
-async function executarCrmPreencher(acao, ctx) {
-  const dados = acao.dados ?? {};
-  const quadroId = Number(dados.quadroId) || null;
-
-  let card = null;
-  if (quadroId && ctx.job.contatoId) {
-    card = await buscarCardContato({ contatoId: ctx.job.contatoId, quadroId });
-  } else if (ctx.job.contatoId) {
-    card = await buscarCardContato({ contatoId: ctx.job.contatoId });
-  }
-
-  if (!card?.id) {
-    return { success: false, error: 'Card CRM não encontrado' };
-  }
-
-  const resultado = await aplicarPreenchimentoCrmCard({ dados, card, ctx });
-
-  return {
-    success: true,
-    modo: 'preencher',
-    ...resultado,
-  };
-}
-
-async function executarCrmCriar(acao, ctx) {
-  const dados = acao.dados ?? {};
-  const quadroId = Number(dados.quadroId);
-  const etapaId = Number(dados.etapaId);
-
-  if (!quadroId || !etapaId || !ctx.job.contatoId) {
-    return { success: false, error: 'quadroId, etapaId ou contatoId ausente' };
-  }
-
-  let card = await buscarCardContato({ contatoId: ctx.job.contatoId, quadroId });
-  let cardCriado = false;
-
-  if (!card?.id) {
-    const telefone = telefoneFromJob(ctx.job);
-    card = await criarCardCrm({
-      contatoId: ctx.job.contatoId,
-      quadroId,
-      etapaId,
-      nome: ctx.job.nomeContato || telefone,
-      contato: telefone,
-    });
-    cardCriado = true;
-  }
-
-  const temPreenchimento =
-    dados.observacoes === true || dados.valor === true || dados.tarefa === true;
-
-  let preenchimentoResultado = null;
-  if (temPreenchimento) {
-    preenchimentoResultado = await aplicarPreenchimentoCrmCard({ dados, card, ctx });
-  }
-
-  return {
-    success: true,
-    modo: 'criar',
-    cardId: card.id,
-    cardCriado,
-    ...preenchimentoResultado,
-  };
-}
-
-async function executarCrm(acao, ctx) {
-  const modo = String(acao.dados?.modo || '').toLowerCase();
-
-  if (modo === 'criar') return executarCrmCriar(acao, ctx);
-  if (modo === 'mover') return executarCrmMover(acao, ctx);
-  if (modo === 'preencher') return executarCrmPreencher(acao, ctx);
-
-  return { success: false, error: `modo CRM inválido: ${modo || '(vazio)'}` };
+  return result;
 }
 
 const EXECUTORES = {
@@ -286,18 +274,13 @@ const EXECUTORES = {
   'notificar-humano': executarNotificarHumano,
   'transferir-setor': executarTransferirSetor,
   'transferir-agente-ia': executarTransferirAgenteIA,
-  crm: executarCrm,
   'crm-mover': executarCrmMover,
   'crm-preencher': executarCrmPreencher,
+  'ferramenta-http': executarFerramentaHttp,
 };
 
 export async function executeAgentAction(acao, ctx) {
   const tipo = normalizeTipo(acao?.tipo);
-
-  if (tipo === 'ferramenta-http') {
-    return { success: true, ignorado: true, motivo: 'ferramenta_http_via_tool_openai' };
-  }
-
   const executor = EXECUTORES[tipo];
 
   if (!executor) {

@@ -4,7 +4,15 @@ import { buildAgentJobFromIngestao } from '../agent/job.js';
 import { enqueueAgentJob } from '../agent/queue.js';
 import { scheduleContatoFotoPerfilSync } from '../contato/fotoPerfil.js';
 import {
+  buildPublicS3Url,
+  createS3Client,
+  sanitizeS3FileName,
+  uploadBuffer,
+  withFileExtension,
+} from '../storage/s3.js';
+import {
   buildIngestaoPayload,
+  extractOriginalFileName,
   isAllowedEvolutionChat,
   isMediaMessageType,
   organizeEvolutionWebhook,
@@ -103,10 +111,15 @@ async function processEvolutionMedia(body, organized, inboundConfig) {
 
   const buffer = Buffer.from(json.base64, 'base64');
   const ext = guessExtension(organized.messageType, json);
-  const safeName = `${organized.messageId.replace(/[^a-zA-Z0-9._-]/g, '_')}.${ext}`;
-  const s3Key = `evo/${organized.instance}/${safeName}`;
+  const safeMessageId = organized.messageId.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const originalFileName =
+    extractOriginalFileName(json) || organized.arquivoNomeOriginal || extractOriginalFileName(body);
+  const originalName = withFileExtension(
+    sanitizeS3FileName(originalFileName, `${safeMessageId}.${ext}`),
+    ext,
+  );
+  const s3Key = `evo/${organized.instance}/${safeMessageId}/${originalName}`;
 
-  const { createS3Client, uploadBuffer } = await import('../storage/s3.js');
   const client = createS3Client(inboundConfig.s3);
   await uploadBuffer({
     client,
@@ -116,7 +129,7 @@ async function processEvolutionMedia(body, organized, inboundConfig) {
     contentType: json.mimetype || 'application/octet-stream',
   });
 
-  return `${inboundConfig.s3.publicBaseUrl}/${s3Key}`;
+  return buildPublicS3Url(inboundConfig.s3.publicBaseUrl, s3Key);
 }
 
 function guessExtension(messageType, json) {
@@ -127,6 +140,15 @@ function guessExtension(messageType, json) {
   if (mime.includes('mp4')) return 'mp4';
   if (mime.includes('ogg')) return 'ogg';
   if (mime.includes('pdf')) return 'pdf';
+  if (mime.includes('msword')) return 'doc';
+  if (mime.includes('wordprocessingml')) return 'docx';
+  if (mime.includes('ms-excel')) return 'xls';
+  if (mime.includes('spreadsheetml')) return 'xlsx';
+  if (mime.includes('ms-powerpoint')) return 'ppt';
+  if (mime.includes('presentationml')) return 'pptx';
+  if (mime.includes('zip')) return 'zip';
+  if (mime.includes('csv')) return 'csv';
+  if (mime.includes('plain')) return 'txt';
   if (messageType === 'audioMessage') return 'ogg';
   if (messageType === 'videoMessage') return 'mp4';
   if (messageType === 'documentMessage') return 'pdf';

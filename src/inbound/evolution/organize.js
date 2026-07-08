@@ -57,6 +57,7 @@ export function organizeEvolutionWebhook(body) {
     conversation:
       data.message?.conversation || data.message?.imageMessage?.caption || data.message?.extendedTextMessage?.text || '',
     messageType: data.messageType || 'conversation',
+    arquivoNomeOriginal: extractOriginalFileName(data.message),
     source: data.source ?? null,
     serverUrl: body.server_url ?? null,
     instance: body.instance ?? null,
@@ -75,4 +76,30 @@ export function isMediaMessageType(messageType) {
   return ['imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage'].includes(
     messageType || '',
   );
+}
+
+export function extractOriginalFileName(source) {
+  if (!source || typeof source !== 'object') return null;
+
+  const stack = [source];
+  const seen = new Set();
+
+  while (stack.length) {
+    const current = stack.pop();
+    if (!current || typeof current !== 'object' || seen.has(current)) continue;
+    seen.add(current);
+
+    const fileName = current.fileName || current.filename || current.file_name || current.originalFileName;
+    if (typeof fileName === 'string' && fileName.trim()) {
+      return fileName.trim();
+    }
+
+    for (const value of Object.values(current)) {
+      if (value && typeof value === 'object') {
+        stack.push(value);
+      }
+    }
+  }
+
+  return null;
 }

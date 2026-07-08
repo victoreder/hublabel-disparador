@@ -5,6 +5,7 @@ import { getInboundConfig } from './inbound/config.js';
 import { registerEventsMetaRoutes } from './inbound/routes/eventsmeta.js';
 import { registerEvolutionRoutes } from './inbound/routes/evolution.js';
 import { registerMetaApiRoutes, startMetaTokenRenewalCron } from './inbound/routes/metaApi.js';
+import { registerRagRoutes } from './inbound/routes/rag.js';
 import { logger } from './logger.js';
 import { getSupabaseKeyInfo, validateSupabaseConnection, fetchOpenAIApiKey } from './supabase.js';
 
@@ -79,6 +80,7 @@ async function main() {
         evolution: inboundConfig.evolutionWebhookPath,
         evolutionLegacy: inboundConfig.evolutionWebhookLegacyPath,
         metaApi: inboundConfig.metaApiPaths,
+        rag: inboundConfig.ragPath,
         slugs: inboundConfig.webhookPaths,
       },
     });
@@ -105,7 +107,16 @@ async function main() {
     inboundConfig,
   });
 
+  registerRagRoutes(app, {
+    path: inboundConfig.ragPath,
+    parentPath: inboundConfig.evolutionWebhookPath,
+  });
+
   logger.info('[inbound] rotas Meta registradas', inboundConfig.metaApiPaths);
+  logger.info('[inbound] rota RAG registrada', {
+    path: inboundConfig.ragPath,
+    publicUrl: inboundConfig.publicWebhookUrls.inserirConhecimento,
+  });
 
   startMetaTokenRenewalCron(inboundConfig);
 

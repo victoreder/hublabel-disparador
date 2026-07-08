@@ -217,7 +217,7 @@ export async function fetchCamposPersonalizados(contaId) {
 export async function fetchTemplateMeta(templateId) {
   const { data, error } = await supabase
     .from('SAAS_Templates_Meta')
-    .select('id, nome, idioma, status, conexaoId, componentes, variaveisCampos')
+    .select('id, nome, idioma, status, conexaoId, componentes, variaveisCampos, metaTemplateId')
     .eq('id', templateId)
     .maybeSingle();
 
@@ -281,6 +281,34 @@ export async function fetchOpenAIApiKey() {
   return data.apikey.trim();
 }
 
+export async function fetchConfigEmails() {
+  const { data, error } = await supabase
+    .from('SAAS_Config_Emails')
+    .select('smtp_email, smtp_name, smtp_host, smtp_port, smtp_user, smtp_apikey')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar SAAS_Config_Emails');
+  return data;
+}
+
+export async function fetchEmailsSuperAdmin() {
+  const { data, error } = await supabase
+    .from('SAAS_Usuarios')
+    .select('"Email"')
+    .eq('super_admin', true);
+
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar e-mails dos super admins');
+
+  return [
+    ...new Set(
+      (data || [])
+        .map((row) => String(row?.Email ?? '').trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ];
+}
+
 export async function fetchConexaoApiOficialById(conexaoId) {
   const { data, error } = await supabase
     .from('SAAS_Conexões')
@@ -306,7 +334,7 @@ export async function fetchConexaoApiOficialByPhone(phoneNumberId) {
 export async function fetchAllConexoesApiOficial() {
   const { data, error } = await supabase
     .from('SAAS_Conexões')
-    .select('id, NomeConexao, access_token, expires_at, apiOficial, phone_number_id')
+    .select('id, NomeConexao, access_token, expires_at, apiOficial')
     .eq('apiOficial', true);
 
   if (error) throw mapSupabaseError(error, 'Erro ao listar conexões API Oficial');
@@ -351,28 +379,6 @@ export async function deleteTemplateMetaRow(templateId) {
   const { error } = await supabase.from('SAAS_Templates_Meta').delete().eq('id', templateId);
 
   if (error) throw mapSupabaseError(error, `Erro ao excluir template ${templateId}`);
-}
-
-export async function fetchConfigIA() {
-  const { data, error } = await supabase
-    .from('SAAS_Config_IA')
-    .select('tipoIA, apikey')
-    .eq('id', 1)
-    .maybeSingle();
-
-  if (error) throw mapSupabaseError(error, 'Erro ao buscar SAAS_Config_IA');
-  return data;
-}
-
-export async function fetchConfigEmails() {
-  const { data, error } = await supabase
-    .from('SAAS_Config_Emails')
-    .select('smtp_email, smtp_name, smtp_host, smtp_port, smtp_user, smtp_apikey')
-    .eq('id', 1)
-    .maybeSingle();
-
-  if (error) throw mapSupabaseError(error, 'Erro ao buscar SAAS_Config_Emails');
-  return data;
 }
 
 export async function processMetaEvent(evento) {
@@ -514,15 +520,6 @@ export async function fetchAgente(idAgente) {
   return data;
 }
 
-export async function addTokensUsuarioPorAgente(params) {
-  const { data, error } = await supabase.rpc('f_add_tokens_usuario_por_agente', {
-    p_params: params,
-  });
-
-  if (error) throw mapSupabaseError(error, 'Erro em f_add_tokens_usuario_por_agente');
-  return data;
-}
-
 export async function saveMensagemIA({
   contaId,
   conexaoId,
@@ -572,214 +569,6 @@ export async function abrirAtendimentoHumano({ telefone, conexaoId }) {
     .eq('idConexao', conexaoId);
 
   if (error) throw mapSupabaseError(error, 'Erro ao abrir atendimento humano');
-}
-
-export async function fetchConversaAgente(conversaId) {
-  const { data, error } = await supabase
-    .from('SAAS_Conversas_Agentes')
-    .select('id, idAgente, atendente, setorId, pausado, statusAtendimento, contatoId')
-    .eq('id', conversaId)
-    .maybeSingle();
-
-  if (error) throw mapSupabaseError(error, `Erro ao buscar conversa ${conversaId}`);
-  return data;
-}
-
-export async function buscarAtendenteAleatorio(contaId) {
-  if (!contaId) return null;
-
-  const { data, error } = await supabase
-    .from('SAAS_Usuarios')
-    .select('id')
-    .eq('contaId', contaId);
-
-  if (error) throw mapSupabaseError(error, 'Erro ao buscar atendentes da conta');
-  if (!data?.length) return null;
-
-  return data[Math.floor(Math.random() * data.length)].id;
-}
-
-export async function buscarAtendenteAleatorioSetor(setorId, contaId) {
-  if (!setorId) return buscarAtendenteAleatorio(contaId);
-
-  const { data, error } = await supabase
-    .from('SAAS_Setores_Usuarios')
-    .select('usuarioId')
-    .eq('setorId', setorId);
-
-  if (error) throw mapSupabaseError(error, 'Erro ao buscar membros do setor');
-  if (!data?.length) return null;
-
-  return data[Math.floor(Math.random() * data.length)].usuarioId;
-}
-
-export async function transferirConversaHumano({ conversaId, atendenteId, pausado = true, statusAtendimento = 'aberto' }) {
-  const update = {
-    atendente: atendenteId ?? null,
-    pausado,
-    statusAtendimento,
-  };
-
-  const { error } = await supabase.from('SAAS_Conversas_Agentes').update(update).eq('id', conversaId);
-  if (error) throw mapSupabaseError(error, 'Erro ao transferir conversa para atendente');
-}
-
-export async function transferirConversaSetor({ conversaId, setorId, atendenteId, pausado, statusAtendimento }) {
-  const update = {
-    setorId,
-    atendente: atendenteId ?? null,
-  };
-
-  if (pausado != null) update.pausado = pausado;
-  if (statusAtendimento) update.statusAtendimento = statusAtendimento;
-
-  const { error } = await supabase.from('SAAS_Conversas_Agentes').update(update).eq('id', conversaId);
-  if (error) throw mapSupabaseError(error, 'Erro ao transferir conversa para setor');
-}
-
-export async function transferirConversaAgenteIA({ conversaId, agenteId }) {
-  const { error } = await supabase
-    .from('SAAS_Conversas_Agentes')
-    .update({ idAgente: agenteId })
-    .eq('id', conversaId);
-
-  if (error) throw mapSupabaseError(error, 'Erro ao transferir conversa para agente IA');
-}
-
-export async function atualizarConversaAgente({ conversaId, patch }) {
-  const { error } = await supabase.from('SAAS_Conversas_Agentes').update(patch).eq('id', conversaId);
-  if (error) throw mapSupabaseError(error, 'Erro ao atualizar conversa');
-}
-
-export async function adicionarEtiquetaContato({ contatoId, etiquetaId, contaId }) {
-  const { error } = await supabase.from('SAAS_Contatos_Etiquetas').insert({
-    contatoId,
-    etiquetaId,
-    contaId,
-  });
-
-  if (error && error.code !== '23505') {
-    throw mapSupabaseError(error, 'Erro ao adicionar etiqueta');
-  }
-}
-
-export async function removerEtiquetaContato({ contatoId, etiquetaId }) {
-  const { error } = await supabase
-    .from('SAAS_Contatos_Etiquetas')
-    .delete()
-    .eq('contatoId', contatoId)
-    .eq('etiquetaId', etiquetaId);
-
-  if (error) throw mapSupabaseError(error, 'Erro ao remover etiqueta');
-}
-
-export async function atualizarCampoPersonalizado({ contatoId, campoId, contaId, valor }) {
-  const { error } = await supabase.from('SAAS_Valores_Campos_Personalizados').upsert(
-    { idContato: contatoId, idCampo: campoId, contaId, valor },
-    { onConflict: 'idContato,idCampo' },
-  );
-
-  if (error) throw mapSupabaseError(error, 'Erro ao salvar campo personalizado');
-}
-
-export async function buscarCardContato({ contatoId, quadroId = null }) {
-  let query = supabase
-    .from('SAAS_Cards_Quadros')
-    .select('id, quadroId, etapaQuadroId, observacoes, valor, tarefas')
-    .eq('contatoId', contatoId)
-    .order('id', { ascending: false })
-    .limit(1);
-
-  if (quadroId) query = query.eq('quadroId', quadroId);
-
-  const { data, error } = await query.maybeSingle();
-  if (error) throw mapSupabaseError(error, 'Erro ao buscar card CRM');
-  return data;
-}
-
-export async function criarCardCrm({ contatoId, quadroId, etapaId, nome, contato }) {
-  const { data, error } = await supabase
-    .from('SAAS_Cards_Quadros')
-    .insert({
-      quadroId,
-      contatoId,
-      etapaQuadroId: etapaId,
-      nome: nome ?? null,
-      contato: contato ?? null,
-    })
-    .select('id, quadroId, etapaQuadroId, observacoes, valor, tarefas')
-    .single();
-
-  if (error) throw mapSupabaseError(error, 'Erro ao criar card CRM');
-  return data;
-}
-
-export async function moverCardCrm({ cardId, etapaId, quadroId }) {
-  const { data: card, error: fetchError } = await supabase
-    .from('SAAS_Cards_Quadros')
-    .select('historicoCRM, etapaQuadroId, quadroId')
-    .eq('id', cardId)
-    .maybeSingle();
-
-  if (fetchError) throw mapSupabaseError(fetchError, 'Erro ao buscar card para mover');
-
-  const historico = Array.isArray(card?.historicoCRM) ? card.historicoCRM : [];
-  historico.push({
-    tipo: 'movimentacao',
-    de: card?.etapaQuadroId ?? null,
-    para: etapaId,
-    em: new Date().toISOString(),
-    origem: 'agenteIA',
-  });
-
-  const { error } = await supabase
-    .from('SAAS_Cards_Quadros')
-    .update({
-      etapaQuadroId: etapaId,
-      quadroId: quadroId ?? card?.quadroId,
-      historicoCRM: historico,
-    })
-    .eq('id', cardId);
-
-  if (error) throw mapSupabaseError(error, 'Erro ao mover card CRM');
-}
-
-export async function preencherCardCrm({ cardId, observacoes, valor, criarTarefa, textoTarefa, prazoTarefa }) {
-  const { data: card, error: fetchError } = await supabase
-    .from('SAAS_Cards_Quadros')
-    .select('observacoes, valor, tarefas')
-    .eq('id', cardId)
-    .maybeSingle();
-
-  if (fetchError) throw mapSupabaseError(fetchError, 'Erro ao buscar card para preencher');
-
-  const update = {};
-
-  if (observacoes) {
-    const atual = String(card?.observacoes || '').trim();
-    update.observacoes = atual ? `${atual}\n\n${observacoes}` : observacoes;
-  }
-
-  if (valor != null && valor !== '' && Number.isFinite(Number(valor))) {
-    update.valor = Number(valor);
-  }
-
-  if (criarTarefa) {
-    const tarefas = Array.isArray(card?.tarefas) ? [...card.tarefas] : [];
-    tarefas.push({
-      texto: textoTarefa || 'Tarefa criada pelo agente IA',
-      prazo: prazoTarefa || null,
-      concluida: false,
-      criadaEm: new Date().toISOString(),
-      origem: 'agenteIA',
-    });
-    update.tarefas = tarefas;
-  }
-
-  if (!Object.keys(update).length) return;
-
-  const { error } = await supabase.from('SAAS_Cards_Quadros').update(update).eq('id', cardId);
-  if (error) throw mapSupabaseError(error, 'Erro ao preencher card CRM');
 }
 
 export async function notificarHumanoWhatsapp({ job, whatsappDestino, mensagem }) {

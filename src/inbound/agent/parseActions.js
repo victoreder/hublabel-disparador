@@ -70,13 +70,12 @@ export function parseAgentOutputWithActions(output) {
     const extracted = extractActionJson(text, jsonStart);
 
     if (!extracted) {
-      segments.push({ type: 'text', content: text.slice(actionStart) });
+      // Marcador incompleto — descarta do [[acao: até o fim (nunca vaza ao usuário)
       break;
     }
 
     const suffixStart = extracted.endIndex;
     if (text.slice(suffixStart, suffixStart + ACTION_SUFFIX.length) !== ACTION_SUFFIX) {
-      segments.push({ type: 'text', content: text.slice(actionStart, suffixStart) });
       cursor = suffixStart;
       continue;
     }
@@ -85,11 +84,9 @@ export function parseAgentOutputWithActions(output) {
       const parsed = JSON.parse(extracted.jsonText);
       if (parsed?.tipo) {
         segments.push({ type: 'action', content: parsed });
-      } else {
-        segments.push({ type: 'text', content: text.slice(actionStart, suffixStart + ACTION_SUFFIX.length) });
       }
     } catch {
-      segments.push({ type: 'text', content: text.slice(actionStart, suffixStart + ACTION_SUFFIX.length) });
+      // JSON inválido — descarta o marcador silenciosamente
     }
 
     cursor = suffixStart + ACTION_SUFFIX.length;
@@ -98,13 +95,22 @@ export function parseAgentOutputWithActions(output) {
   return segments;
 }
 
+/** Remove qualquer resíduo de [[acao:...]] que ainda possa ter sobrado no texto. */
+export function stripActionMarkers(text) {
+  return String(text || '')
+    .replace(/\[\[acao:[\s\S]*?\]\]/g, '')
+    .replace(/\[\[acao:[\s\S]*$/g, '')
+    .trim();
+}
+
 export function stripActionsFromText(text) {
   const segments = parseAgentOutputWithActions(text);
-  return segments
-    .filter((segment) => segment.type === 'text')
-    .map((segment) => segment.content)
-    .join('\n\n')
-    .trim();
+  return stripActionMarkers(
+    segments
+      .filter((segment) => segment.type === 'text')
+      .map((segment) => segment.content)
+      .join('\n\n'),
+  );
 }
 
 const MEDIA_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/;

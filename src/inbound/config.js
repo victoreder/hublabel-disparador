@@ -34,6 +34,8 @@ export const WEBHOOK_PATHS = {
   calcularToken: 'calcular-token',
 };
 
+const RAG_INSERIR_CONHECIMENTO_SUFFIX = 'inserir-conhecimento';
+
 /**
  * BACK_URL = origem + path opcional (ex.: https://webhook2.victoreder.com.br/webhook).
  * basePath vazio quando BACK_URL não tem path (rotas na raiz do domínio).
@@ -60,6 +62,13 @@ export function parseBackUrl() {
 /** Rota interna do Express — sempre /{slug}, sem prefixo do BACK_URL. */
 export function buildWebhookExpressPath(slug) {
   return `/${slug.replace(/^\/+/, '')}`;
+}
+
+/** Sub-rota sob slug já exposto no Traefik (ex.: /agente-no-whatsapp/inserir-conhecimento). */
+export function buildWebhookSubPath(parentSlug, childSlug) {
+  const parent = String(parentSlug).replace(/^\/+|\/+$/g, '');
+  const child = String(childSlug).replace(/^\/+|\/+$/g, '');
+  return `/${parent}/${child}`;
 }
 
 /** URL pública exposta ao front / Meta — BACK_URL + slug. */
@@ -96,6 +105,7 @@ export function getInboundConfig() {
     evolutionWebhookLegacyPath: expressPath(p.evolutionLegacy),
     agentPollMs: optionalInt('AGENT_POLL_MS', 500),
     metaGraphApiVersion: process.env.META_GRAPH_API_VERSION?.trim() || 'v25.0',
+    ragPath: buildWebhookSubPath(p.evolution, RAG_INSERIR_CONHECIMENTO_SUFFIX),
     metaApiPaths: {
       token: expressPath(p.metaToken),
       criarTemplate: expressPath(p.metaCriarTemplate),
@@ -127,6 +137,10 @@ export function getInboundConfig() {
       metaRenovarToken: publicUrl(p.metaRenovarToken),
       metaRenovarTokenCron: publicUrl(p.metaRenovarTokenCron),
       calcularToken: publicUrl(p.calcularToken),
+      inserirConhecimento: buildPublicWebhookUrl(
+        back.backUrl,
+        `${p.evolution}/${RAG_INSERIR_CONHECIMENTO_SUFFIX}`,
+      ),
     },
     calcularTokenUrl: publicUrl(p.calcularToken),
     tokenRenewalCronHour: 3,

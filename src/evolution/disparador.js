@@ -3,6 +3,7 @@ import { probeMedia } from './mediaType.js';
 import {
   createEvolutionClient,
   classifyEvolutionError,
+  EvolutionError,
   mapMessageType,
 } from './client.js';
 import { ensureContactValidatedForDispatch } from './validarContato.js';
@@ -33,6 +34,22 @@ function getDestino(detalhe, telefoneOverride) {
 
 function hasMedia(detalhe) {
   return Boolean(detalhe.KeyRedis && String(detalhe.KeyRedis).trim());
+}
+
+function getEvolutionErrorDetails(err) {
+  if (err instanceof EvolutionError) {
+    return {
+      statusHttp: err.status,
+      respostaHttp: err.body ?? null,
+      errorMessage: err.message,
+    };
+  }
+
+  return {
+    statusHttp: null,
+    respostaHttp: null,
+    errorMessage: err instanceof Error ? err.message : 'Erro desconhecido ao disparar',
+  };
 }
 
 export function createDisparadorEvolution(config) {
@@ -98,7 +115,6 @@ export function createDisparadorEvolution(config) {
 
   async function markInvalidContact(detalhe) {
     await evolutionDb.markFailed(detalhe.id, {
-      errorMessage: 'Número inexistente no WhatsApp',
       userMessage: MSG_INEXISTENTE,
     });
     logger.info('Disparo marcado como falho — contato inválido', {
@@ -109,23 +125,25 @@ export function createDisparadorEvolution(config) {
 
   async function handleFailure(detalhe, err) {
     const kind = classifyEvolutionError(err);
-    const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido ao disparar';
+    const { statusHttp, respostaHttp, errorMessage } = getEvolutionErrorDetails(err);
 
     if (kind === 'disconnected') {
       await evolutionDb.swapConnection(detalhe.idDisparo, detalhe.idConexao);
       logger.warn('Conexão trocada após desconexão Evolution', {
         disparoId: detalhe.idDisparo,
         detailId: detalhe.id,
+        statusHttp,
+        respostaHttp,
       });
       return;
     }
 
     let userMessage = errorMessage;
-    if (kind === 'numberNotExists') userMessage = MSG_INEXISTENTE;
+    if (kind === 'apiError') userMessage = 'Erro na API';
     else if (kind === 'timeout') userMessage = 'Timeout ao enviar mensagem';
     else if (kind === 'offline') userMessage = 'Servidor Evolution indisponivel';
 
-    await evolutionDb.markFailed(detalhe.id, { errorMessage, userMessage });
+    await evolutionDb.markFailed(detalhe.id, { userMessage, statusHttp, respostaHttp });
   }
 
   async function processDetalhe(detalhe) {
@@ -176,11 +194,14 @@ export function createDisparadorEvolution(config) {
       });
     } catch (err) {
       await handleFailure(detalhe, err);
+      const { statusHttp, respostaHttp } = getEvolutionErrorDetails(err);
       logger.error('Falha ao enviar Evolution', {
         detailId: detalhe.id,
         disparoId: detalhe.idDisparo,
         tipo,
         message: err instanceof Error ? err.message : String(err),
+        statusHttp,
+        respostaHttp,
       });
     }
   }
@@ -188,11 +209,8 @@ export function createDisparadorEvolution(config) {
   async function runTick(now = new Date()) {
     const pendentes = await evolutionDb.fetchDisparosEvolutionJanela(now);
     if (pendentes.length === 0) {
-      logger.info('Nenhum disparo Evolution na janela do minuto');
       return { total: 0, processados: 0 };
     }
-
-    logger.info('Disparos Evolution na janela', { total: pendentes.length });
     await Promise.allSettled(pendentes.map((detalhe) => processDetalhe(detalhe)));
     return { total: pendentes.length, processados: pendentes.length };
   }

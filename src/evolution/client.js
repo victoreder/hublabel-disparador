@@ -81,7 +81,7 @@ export function classifyEvolutionError(err) {
 
   if (status === 504) return 'timeout';
   if (status === 502) return 'offline';
-  if (status === 400) return 'numberNotExists';
+  if (status === 400) return 'apiError';
   if (status === 500) return 'disconnected';
   if (message.includes('connection closed')) return 'disconnected';
   if (message === 'exist') return 'disconnected';
