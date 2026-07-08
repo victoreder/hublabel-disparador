@@ -281,6 +281,34 @@ export async function fetchOpenAIApiKey() {
   return data.apikey.trim();
 }
 
+export async function fetchConfigEmails() {
+  const { data, error } = await supabase
+    .from('SAAS_Config_Emails')
+    .select('smtp_email, smtp_name, smtp_host, smtp_port, smtp_user, smtp_apikey')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar SAAS_Config_Emails');
+  return data;
+}
+
+export async function fetchEmailsSuperAdmin() {
+  const { data, error } = await supabase
+    .from('SAAS_Usuarios')
+    .select('"Email"')
+    .eq('super_admin', true);
+
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar e-mails dos super admins');
+
+  return [
+    ...new Set(
+      (data || [])
+        .map((row) => String(row?.Email ?? '').trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ];
+}
+
 export async function fetchConexaoApiOficialById(conexaoId) {
   const { data, error } = await supabase
     .from('SAAS_Conexões')

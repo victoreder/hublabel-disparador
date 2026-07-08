@@ -1786,6 +1786,7 @@
         cx."NomeConexao" AS conexao_nome,
         cx."Telefone" AS conexao_telefone,
         cx."idAgente" AS conexao_id_agente,
+        c."idAgente" AS conversa_id_agente,
         ag.id AS agente_id,
         ag.nome AS agente_nome,
         ag."pausarAtendimento" AS agente_pausar,
@@ -1794,7 +1795,7 @@
         au.nome AS atendente_nome
       FROM public."SAAS_Conversas_Agentes" c
       LEFT JOIN public."SAAS_Conexões" cx ON cx.id = c."idConexao"
-      LEFT JOIN public."SAAS_AgentesIA" ag ON ag.id = cx."idAgente"
+      LEFT JOIN public."SAAS_AgentesIA" ag ON ag.id = c."idAgente"
       LEFT JOIN public."SAAS_Contatos" ct ON ct.id = c."contatoId"
       LEFT JOIN public."SAAS_Usuarios" au ON au.id = c.atendente
       WHERE c."contaId" = p_conta_id
@@ -1820,19 +1821,14 @@
         (LOWER(TRIM(COALESCE(b."statusAtendimento", ''))) = 'aberto') AS is_aberto,
         (LOWER(TRIM(COALESCE(b."statusAtendimento", ''))) = 'fechado') AS is_fechado,
         (LOWER(TRIM(COALESCE(b."statusAtendimento", ''))) = 'aguardando') AS is_aguardando,
-        (
-          LOWER(TRIM(COALESCE(b."statusAtendimento", ''))) = 'aguardando'
-          AND COALESCE(b.pausado, false) = false
-          AND b.conexao_id_agente IS NOT NULL
-          AND COALESCE(b.agente_ativo, false) = true
-        ) AS is_agente_ia
+        (b.conversa_id_agente IS NOT NULL) AS is_agente_ia
       FROM base b
     ),
     filtered AS (
       SELECT *
       FROM flagged f
       WHERE (
-        (v_status = 'aberto' AND f.is_aberto)
+        (v_status = 'aberto' AND f.is_aberto AND NOT f.is_agente_ia)
         OR (v_status = 'fechado' AND f.is_fechado)
         OR (v_status = 'agente-ia' AND f.is_agente_ia)
         OR (v_status = 'aguardando' AND f.is_aguardando AND NOT f.is_agente_ia)
@@ -1864,7 +1860,7 @@
       OFFSET v_offset
     )
     SELECT
-      COALESCE(SUM(CASE WHEN is_aberto THEN 1 ELSE 0 END), 0),
+      COALESCE(SUM(CASE WHEN is_aberto AND NOT is_agente_ia THEN 1 ELSE 0 END), 0),
       COALESCE(SUM(CASE WHEN is_aguardando AND NOT is_agente_ia THEN 1 ELSE 0 END), 0),
       COALESCE(SUM(CASE WHEN is_fechado THEN 1 ELSE 0 END), 0),
       COALESCE(SUM(CASE WHEN is_agente_ia THEN 1 ELSE 0 END), 0)
@@ -1877,6 +1873,7 @@
         cx."NomeConexao" AS conexao_nome,
         cx."Telefone" AS conexao_telefone,
         cx."idAgente" AS conexao_id_agente,
+        c."idAgente" AS conversa_id_agente,
         ag.id AS agente_id,
         ag.nome AS agente_nome,
         ag."pausarAtendimento" AS agente_pausar,
@@ -1885,7 +1882,7 @@
         au.nome AS atendente_nome
       FROM public."SAAS_Conversas_Agentes" c
       LEFT JOIN public."SAAS_Conexões" cx ON cx.id = c."idConexao"
-      LEFT JOIN public."SAAS_AgentesIA" ag ON ag.id = cx."idAgente"
+      LEFT JOIN public."SAAS_AgentesIA" ag ON ag.id = c."idAgente"
       LEFT JOIN public."SAAS_Contatos" ct ON ct.id = c."contatoId"
       LEFT JOIN public."SAAS_Usuarios" au ON au.id = c.atendente
       WHERE c."contaId" = p_conta_id
@@ -1911,19 +1908,14 @@
         (LOWER(TRIM(COALESCE(b."statusAtendimento", ''))) = 'aberto') AS is_aberto,
         (LOWER(TRIM(COALESCE(b."statusAtendimento", ''))) = 'fechado') AS is_fechado,
         (LOWER(TRIM(COALESCE(b."statusAtendimento", ''))) = 'aguardando') AS is_aguardando,
-        (
-          LOWER(TRIM(COALESCE(b."statusAtendimento", ''))) = 'aguardando'
-          AND COALESCE(b.pausado, false) = false
-          AND b.conexao_id_agente IS NOT NULL
-          AND COALESCE(b.agente_ativo, false) = true
-        ) AS is_agente_ia
+        (b.conversa_id_agente IS NOT NULL) AS is_agente_ia
       FROM base b
     ),
     filtered AS (
       SELECT *
       FROM flagged f
       WHERE (
-        (v_status = 'aberto' AND f.is_aberto)
+        (v_status = 'aberto' AND f.is_aberto AND NOT f.is_agente_ia)
         OR (v_status = 'fechado' AND f.is_fechado)
         OR (v_status = 'agente-ia' AND f.is_agente_ia)
         OR (v_status = 'aguardando' AND f.is_aguardando AND NOT f.is_agente_ia)
@@ -1943,6 +1935,7 @@
         cx."NomeConexao" AS conexao_nome,
         cx."Telefone" AS conexao_telefone,
         cx."idAgente" AS conexao_id_agente,
+        c."idAgente" AS conversa_id_agente,
         ag.id AS agente_id,
         ag.nome AS agente_nome,
         ag."pausarAtendimento" AS agente_pausar,
@@ -1951,7 +1944,7 @@
         au.nome AS atendente_nome
       FROM public."SAAS_Conversas_Agentes" c
       LEFT JOIN public."SAAS_Conexões" cx ON cx.id = c."idConexao"
-      LEFT JOIN public."SAAS_AgentesIA" ag ON ag.id = cx."idAgente"
+      LEFT JOIN public."SAAS_AgentesIA" ag ON ag.id = c."idAgente"
       LEFT JOIN public."SAAS_Contatos" ct ON ct.id = c."contatoId"
       LEFT JOIN public."SAAS_Usuarios" au ON au.id = c.atendente
       WHERE c."contaId" = p_conta_id
@@ -1977,19 +1970,14 @@
         (LOWER(TRIM(COALESCE(b."statusAtendimento", ''))) = 'aberto') AS is_aberto,
         (LOWER(TRIM(COALESCE(b."statusAtendimento", ''))) = 'fechado') AS is_fechado,
         (LOWER(TRIM(COALESCE(b."statusAtendimento", ''))) = 'aguardando') AS is_aguardando,
-        (
-          LOWER(TRIM(COALESCE(b."statusAtendimento", ''))) = 'aguardando'
-          AND COALESCE(b.pausado, false) = false
-          AND b.conexao_id_agente IS NOT NULL
-          AND COALESCE(b.agente_ativo, false) = true
-        ) AS is_agente_ia
+        (b.conversa_id_agente IS NOT NULL) AS is_agente_ia
       FROM base b
     ),
     filtered AS (
       SELECT *
       FROM flagged f
       WHERE (
-        (v_status = 'aberto' AND f.is_aberto)
+        (v_status = 'aberto' AND f.is_aberto AND NOT f.is_agente_ia)
         OR (v_status = 'fechado' AND f.is_fechado)
         OR (v_status = 'agente-ia' AND f.is_agente_ia)
         OR (v_status = 'aguardando' AND f.is_aguardando AND NOT f.is_agente_ia)
@@ -2027,16 +2015,17 @@
           || jsonb_build_object(
             'contato', jsonb_build_object('nome', p.contato_nome),
             'atendente_usuario', jsonb_build_object('nome', p.atendente_nome),
+            'idAgente', p.conversa_id_agente,
+            'SAAS_AgentesIA', jsonb_build_object(
+              'id', p.agente_id,
+              'nome', p.agente_nome,
+              'pausarAtendimento', p.agente_pausar,
+              'ativo', p.agente_ativo
+            ),
             'SAAS_Conexões', jsonb_build_object(
               'idAgente', p.conexao_id_agente,
               'NomeConexao', p.conexao_nome,
-              'Telefone', p.conexao_telefone,
-              'SAAS_AgentesIA', jsonb_build_object(
-                'id', p.agente_id,
-                'nome', p.agente_nome,
-                'pausarAtendimento', p.agente_pausar,
-                'ativo', p.agente_ativo
-              )
+              'Telefone', p.conexao_telefone
             ),
             'ultimaMensagemTexto', p.last_message_text,
             'ultimaMensagemTipo', p.last_message_tipo,

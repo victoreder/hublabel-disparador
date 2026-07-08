@@ -21,7 +21,11 @@ export async function drainAgentQueue(processor) {
         await processor(job);
       } catch (error) {
         // eslint-disable-next-line no-console
-        console.error('[agent-queue] job failed', error);
+        console.error('Agent queue: job falhou', {
+          conversaId: job?.conversaId,
+          message: error?.message || String(error),
+          stack: error?.stack,
+        });
       }
     }
   } finally {

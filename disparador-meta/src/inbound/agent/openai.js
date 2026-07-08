@@ -44,7 +44,10 @@ export async function runAgentChat({
 
     const json = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(json?.error?.message || 'Falha no chat OpenAI');
+      const error = new Error(json?.error?.message || 'Falha no chat OpenAI');
+      error.code = json?.error?.code;
+      error.status = response.status;
+      throw error;
     }
 
     const choice = json.choices?.[0];

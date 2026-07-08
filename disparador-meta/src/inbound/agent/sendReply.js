@@ -1,5 +1,6 @@
 import { saveMensagemIA, updateConversaUltimaMensagem } from '../../supabase.js';
 import { logger } from '../../logger.js';
+import { stripActionMarkers } from './parseActions.js';
 import {
   classifyChunk,
   extractMediaUrl,
@@ -77,6 +78,9 @@ export async function sendTextReply(job, text, agentConfig) {
 
 export async function sendAgentChunk(job, chunk, agentConfig) {
   const kind = chunk.kind || classifyChunk(chunk.text);
+  const text = stripActionMarkers(chunk.text);
+  if (!text) return null;
+
   const apiOficial = Boolean(job.envio?.apiOficial);
   const number = job.telefone;
   const to = telefoneDigits(number);
@@ -87,17 +91,17 @@ export async function sendAgentChunk(job, chunk, agentConfig) {
   let arquivoUrl = null;
 
   if (apiOficial) {
-    sendResult = await sendMetaChunk(job, kind, chunk.text, to, agentConfig);
+    sendResult = await sendMetaChunk(job, kind, text, to, agentConfig);
   } else {
-    sendResult = await sendEvolutionChunk(job, kind, chunk.text, number);
+    sendResult = await sendEvolutionChunk(job, kind, text, number);
   }
 
   if (kind === 'text') {
-    mensagemSalvar = plainTextFromChunk(chunk.text);
+    mensagemSalvar = plainTextFromChunk(text);
     tipoMensagem = 'conversation';
   } else {
-    arquivoUrl = extractMediaUrl(chunk.text);
-    mensagemSalvar = plainTextFromChunk(chunk.text) || `[${kind}]`;
+    arquivoUrl = extractMediaUrl(text);
+    mensagemSalvar = plainTextFromChunk(text) || `[${kind}]`;
     tipoMensagem =
       kind === 'image'
         ? 'imageMessage'
