@@ -6,6 +6,7 @@ import {
 } from '../../supabase.js';
 import { metaDelete, metaPost } from './graph.js';
 import { HttpError } from './httpError.js';
+import { prepareTemplateComponentsForMeta } from './templateMedia.js';
 
 const VALID_CATEGORIES = ['MARKETING', 'UTILITY', 'AUTHENTICATION'];
 
@@ -37,12 +38,23 @@ export async function handleCreateTemplate(body, { metaGraphApiVersion }) {
   const conexao = await fetchConexaoApiOficialById(conexaoId);
   assertConexaoApiOficial(conexao);
 
+  const metaComponents = await prepareTemplateComponentsForMeta({
+    body,
+    components,
+    accessToken: conexao.access_token,
+    metaGraphApiVersion,
+  });
+
   const metaRes = await metaPost({
     version: metaGraphApiVersion,
     path: `${conexao.waba_id}/message_templates`,
     accessToken: conexao.access_token,
-    body: { name, language, category, components },
+    body: { name, language, category, components: metaComponents },
   });
+
+  const componentesSalvar = body.headerMidia
+    ? { components, headerMidia: body.headerMidia }
+    : components;
 
   const row = await insertTemplateMeta({
     conexaoId,
@@ -52,7 +64,7 @@ export async function handleCreateTemplate(body, { metaGraphApiVersion }) {
     categoria: category,
     status: metaRes.status || 'PENDING',
     metaTemplateId: metaRes.id || null,
-    componentes: components,
+    componentes: componentesSalvar,
   });
 
   return {
