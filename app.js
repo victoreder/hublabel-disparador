@@ -229,7 +229,13 @@ function createApp() {
             business_id:
               typeof session.business_id === "string"
                 ? session.business_id
-                : null
+                : null,
+            embeddedSignupEvent:
+              typeof session.embeddedSignupEvent === "string"
+                ? session.embeddedSignupEvent
+                : null,
+            flowType:
+              typeof session.flowType === "string" ? session.flowType : null
           }
         : {};
 
