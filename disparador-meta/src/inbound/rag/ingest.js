@@ -19,7 +19,7 @@ function normalizePayload(body = {}, file) {
   const userId = String(body.userId ?? body.contaId ?? body.conta_id ?? '').trim();
   const idAgenteRaw = body.idAgente ?? body.id_agente ?? body.agenteId;
   const idUnico = String(body.idUnico ?? body.id_unico ?? '').trim();
-  const text = body.text ?? body.conteudo ?? null;
+  const text = resolveTextContent(body);
 
   if (!userId) throw new HttpError('userId é obrigatório', 400);
   if (idAgenteRaw == null || idAgenteRaw === '') throw new HttpError('idAgente é obrigatório', 400);
@@ -28,11 +28,43 @@ function normalizePayload(body = {}, file) {
   const idAgente = Number(idAgenteRaw);
   if (!Number.isFinite(idAgente)) throw new HttpError('idAgente inválido', 400);
 
-  if (!file && !text) {
-    throw new HttpError('Envie um arquivo (campo data ou file) ou o campo text', 400);
+  const fileFromBase64 = buildFileFromBase64(body);
+
+  if (!file && !text && !fileFromBase64) {
+    throw new HttpError('Envie um arquivo (data/file/documento), text/conteudo/descricao ou documentoBase64', 400);
   }
 
-  return { userId, idAgente, idUnico, text, file };
+  return { userId, idAgente, idUnico, text, file: file ?? fileFromBase64 };
+}
+
+function resolveTextContent(body = {}) {
+  const raw =
+    body.text ??
+    body.conteudo ??
+    body.descricao ??
+    body.documentoTexto ??
+    body.conhecimento ??
+    body.produto ??
+    null;
+
+  if (raw == null || raw === '') return null;
+  if (typeof raw === 'object') return JSON.stringify(raw, null, 2);
+  return String(raw);
+}
+
+function buildFileFromBase64(body = {}) {
+  const encoded = body.documentoBase64 ?? body.arquivoBase64 ?? body.base64 ?? null;
+  if (!encoded) return null;
+
+  const raw = String(encoded).includes(',') ? String(encoded).split(',').pop() : String(encoded);
+  const buffer = Buffer.from(raw, 'base64');
+  if (!buffer.length) return null;
+
+  return {
+    buffer,
+    originalname: body.filename ?? body.fileName ?? body.nomeArquivo ?? 'documento.txt',
+    mimetype: body.mimeType ?? body.mimetype ?? body.contentType ?? 'application/octet-stream',
+  };
 }
 
 async function assertAgentOwnership({ userId, idAgente }) {

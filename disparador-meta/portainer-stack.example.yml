@@ -112,7 +112,7 @@ services:
         - traefik.http.routers.disparador_inbound_eventsmeta.tls.certresolver=letsencryptresolver
         - traefik.http.routers.disparador_inbound_eventsmeta.middlewares=disparador_inbound_strip
         - traefik.http.routers.disparador_inbound_eventsmeta.service=disparador_inbound
-        - traefik.http.routers.disparador_inbound_evo.rule=Host(`webhook2.victoreder.com.br`) && Path(`/webhook/agente-no-whatsapp`)
+        - traefik.http.routers.disparador_inbound_evo.rule=Host(`webhook2.victoreder.com.br`) && PathPrefix(`/webhook/agente-no-whatsapp`)
         - traefik.http.routers.disparador_inbound_evo.entrypoints=websecure
         - traefik.http.routers.disparador_inbound_evo.priority=200
         - traefik.http.routers.disparador_inbound_evo.tls.certresolver=letsencryptresolver

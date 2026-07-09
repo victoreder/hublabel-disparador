@@ -6,8 +6,34 @@ import {
 } from '../../supabase.js';
 import { metaDelete, metaPost } from './graph.js';
 import { HttpError } from './httpError.js';
+import { prepareTemplateComponentsForMeta } from './templateMedia.js';
 
 const VALID_CATEGORIES = ['MARKETING', 'UTILITY', 'AUTHENTICATION'];
+
+function buildVariaveisCampos(body) {
+  const fromBody =
+    body?.variaveisCampos && typeof body.variaveisCampos === 'object' ? body.variaveisCampos : {};
+
+  const variaveisCampos = {
+    body: fromBody.body ?? {},
+    header: fromBody.header ?? {},
+    buttons: Array.isArray(fromBody.buttons) ? fromBody.buttons : [],
+  };
+
+  const headerMidia = body?.headerMidia ?? fromBody.headerMidia;
+  if (headerMidia && typeof headerMidia === 'object') {
+    variaveisCampos.headerMidia = headerMidia;
+  }
+
+  return variaveisCampos;
+}
+
+function buildComponentesSalvar(body, components) {
+  return {
+    componentes: components,
+    variaveisCampos: buildVariaveisCampos(body),
+  };
+}
 
 function assertConexaoApiOficial(conexao) {
   if (!conexao?.access_token || !conexao?.waba_id) {
@@ -37,12 +63,22 @@ export async function handleCreateTemplate(body, { metaGraphApiVersion }) {
   const conexao = await fetchConexaoApiOficialById(conexaoId);
   assertConexaoApiOficial(conexao);
 
+  const metaComponents = await prepareTemplateComponentsForMeta({
+    body,
+    components,
+    accessToken: conexao.access_token,
+    metaGraphApiVersion,
+  });
+
   const metaRes = await metaPost({
     version: metaGraphApiVersion,
     path: `${conexao.waba_id}/message_templates`,
     accessToken: conexao.access_token,
-    body: { name, language, category, components },
+    body: { name, language, category, components: metaComponents },
   });
+
+  const variaveisCampos = buildVariaveisCampos(body);
+  const componentesSalvar = buildComponentesSalvar(body, components);
 
   const row = await insertTemplateMeta({
     conexaoId,
@@ -52,7 +88,8 @@ export async function handleCreateTemplate(body, { metaGraphApiVersion }) {
     categoria: category,
     status: metaRes.status || 'PENDING',
     metaTemplateId: metaRes.id || null,
-    componentes: components,
+    componentes: componentesSalvar,
+    variaveisCampos,
   });
 
   return {
