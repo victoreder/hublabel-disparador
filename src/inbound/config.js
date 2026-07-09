@@ -137,11 +137,11 @@ export function getInboundConfig() {
       metaRenovarToken: publicUrl(p.metaRenovarToken),
       metaRenovarTokenCron: publicUrl(p.metaRenovarTokenCron),
       calcularToken: publicUrl(p.calcularToken),
-      inserirConhecimento: buildPublicWebhookUrl(
+      inserirConhecimento: publicUrl(p.evolution),
+      inserirConhecimentoLegacy: buildPublicWebhookUrl(
         back.backUrl,
         `${p.evolution}/${RAG_INSERIR_CONHECIMENTO_SUFFIX}`,
       ),
-      inserirConhecimentoFallback: publicUrl(p.evolution),
     },
     calcularTokenUrl: publicUrl(p.calcularToken),
     tokenRenewalCronHour: 3,

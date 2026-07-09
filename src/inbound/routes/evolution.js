@@ -1,42 +1,64 @@
 import { logger } from '../../logger.js';
 import { handleEvolutionWebhook } from '../evolution/handler.js';
-import { handleRagIngestRequest, isRagIngestRequest } from './rag.js';
+import {
+  handleRagIngestRequest,
+  isRagIngestRequest,
+  parseRagMultipart,
+} from './rag.js';
 
-function evolutionHandler(inboundConfig) {
-  return async (req, res) => {
-    const startedAt = Date.now();
-    logger.info('[evolution-webhook] hit', {
-      method: req.method,
-      path: req.path,
-      originalUrl: req.originalUrl,
-      idConexao: req.query?.idConexao ?? req.body?.idConexao ?? null,
-      event: req.body?.event ?? null,
-      instance: req.body?.instance ?? null,
-      acao: req.body?.acao ?? null,
+function isMultipartRequest(req) {
+  return String(req.headers['content-type'] || '').toLowerCase().includes('multipart/form-data');
+}
+
+async function runEvolution(req, res, inboundConfig, startedAt) {
+  try {
+    const result = await handleEvolutionWebhook(req, inboundConfig);
+
+    logger.info('[evolution-webhook] ok', {
+      durationMs: Date.now() - startedAt,
+      status: result.status,
+      body: result.body,
     });
 
-    if (isRagIngestRequest(req)) {
-      return handleRagIngestRequest(req, res);
-    }
+    res.status(result.status).json(result.body);
+  } catch (error) {
+    logger.error('[evolution-webhook] erro', {
+      durationMs: Date.now() - startedAt,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    res.status(500).json({ ok: false, error: error instanceof Error ? error.message : 'Erro desconhecido' });
+  }
+}
 
-    try {
-      const result = await handleEvolutionWebhook(req, inboundConfig);
+function evolutionHandler(inboundConfig) {
+  return (req, res) => {
+    const startedAt = Date.now();
 
-      logger.info('[evolution-webhook] ok', {
-        durationMs: Date.now() - startedAt,
-        status: result.status,
-        body: result.body,
+    const dispatch = () => {
+      logger.info('[evolution-webhook] hit', {
+        method: req.method,
+        path: req.path,
+        originalUrl: req.originalUrl,
+        idConexao: req.query?.idConexao ?? req.body?.idConexao ?? null,
+        event: req.body?.event ?? null,
+        instance: req.body?.instance ?? null,
+        acao: req.body?.acao ?? req.query?.acao ?? null,
+        isRag: isRagIngestRequest(req),
       });
 
-      res.status(result.status).json(result.body);
-    } catch (error) {
-      logger.error('[evolution-webhook] erro', {
-        durationMs: Date.now() - startedAt,
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-      res.status(500).json({ ok: false, error: error instanceof Error ? error.message : 'Erro desconhecido' });
+      if (isRagIngestRequest(req)) {
+        return handleRagIngestRequest(req, res);
+      }
+
+      return runEvolution(req, res, inboundConfig, startedAt);
+    };
+
+    if (isMultipartRequest(req)) {
+      return parseRagMultipart(req, res, dispatch);
     }
+
+    return dispatch();
   };
 }
 

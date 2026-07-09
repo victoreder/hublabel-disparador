@@ -38,13 +38,43 @@ function pickUploadedFile(req) {
   );
 }
 
+function normalizeRagAction(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+}
+
+function isRagAction(value) {
+  const acao = normalizeRagAction(value);
+  return acao === 'inserirdocumento' || acao === 'inserirconhecimento';
+}
+
+function isKnowledgeUploadPayload(body = {}) {
+  const hasIdentity =
+    Boolean(body.userId || body.contaId || body.conta_id) &&
+    ((body.idAgente != null && body.idAgente !== '') ||
+      body.id_agente != null ||
+      body.agenteId != null) &&
+    Boolean(body.idUnico || body.id_unico);
+
+  const isEvolutionWebhook = Boolean(
+    body.event || body.instance || (body.data && typeof body.data === 'object'),
+  );
+
+  return hasIdentity && !isEvolutionWebhook;
+}
+
 export function isRagIngestRequest(req) {
   const path = String(req.path || req.originalUrl || '');
   if (path.includes('inserir-conhecimento')) return true;
 
+  const query = req.query ?? {};
+  if (isRagAction(query.acao ?? query.action)) return true;
+
   const body = req.body ?? {};
-  const acao = String(body.acao ?? body.action ?? '').toLowerCase();
-  return acao === 'inserirdocumento' || acao === 'inserir-conhecimento' || acao === 'inserir_conhecimento';
+  if (isRagAction(body.acao ?? body.action)) return true;
+
+  return isKnowledgeUploadPayload(body);
 }
 
 function handleIngest(req, res) {
@@ -98,7 +128,7 @@ function handleIngest(req, res) {
     });
 }
 
-function runWithMulter(req, res) {
+function runWithMulter(req, res, onReady = () => handleIngest(req, res)) {
   uploadFields(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       const message =
@@ -113,13 +143,19 @@ function runWithMulter(req, res) {
       });
       return res.status(500).json({ ok: false, error: 'Falha ao processar upload' });
     }
-    return handleIngest(req, res);
+    req._ragMultipartParsed = true;
+    return onReady();
   });
+}
+
+export function parseRagMultipart(req, res, next) {
+  if (req._ragMultipartParsed) return next();
+  return runWithMulter(req, res, next);
 }
 
 export function handleRagIngestRequest(req, res) {
   const contentType = String(req.headers['content-type'] || '').toLowerCase();
-  if (contentType.includes('multipart/form-data')) {
+  if (contentType.includes('multipart/form-data') && !req._ragMultipartParsed) {
     return runWithMulter(req, res);
   }
   return handleIngest(req, res);
