@@ -10,6 +10,31 @@ import { prepareTemplateComponentsForMeta } from './templateMedia.js';
 
 const VALID_CATEGORIES = ['MARKETING', 'UTILITY', 'AUTHENTICATION'];
 
+function buildVariaveisCampos(body) {
+  const fromBody =
+    body?.variaveisCampos && typeof body.variaveisCampos === 'object' ? body.variaveisCampos : {};
+
+  const variaveisCampos = {
+    body: fromBody.body ?? {},
+    header: fromBody.header ?? {},
+    buttons: Array.isArray(fromBody.buttons) ? fromBody.buttons : [],
+  };
+
+  const headerMidia = body?.headerMidia ?? fromBody.headerMidia;
+  if (headerMidia && typeof headerMidia === 'object') {
+    variaveisCampos.headerMidia = headerMidia;
+  }
+
+  return variaveisCampos;
+}
+
+function buildComponentesSalvar(body, components) {
+  return {
+    componentes: components,
+    variaveisCampos: buildVariaveisCampos(body),
+  };
+}
+
 function assertConexaoApiOficial(conexao) {
   if (!conexao?.access_token || !conexao?.waba_id) {
     throw new HttpError('Conexao nao encontrada em SAAS_Conexoes.');
@@ -52,9 +77,8 @@ export async function handleCreateTemplate(body, { metaGraphApiVersion }) {
     body: { name, language, category, components: metaComponents },
   });
 
-  const componentesSalvar = body.headerMidia
-    ? { components, headerMidia: body.headerMidia }
-    : components;
+  const variaveisCampos = buildVariaveisCampos(body);
+  const componentesSalvar = buildComponentesSalvar(body, components);
 
   const row = await insertTemplateMeta({
     conexaoId,
@@ -65,6 +89,7 @@ export async function handleCreateTemplate(body, { metaGraphApiVersion }) {
     status: metaRes.status || 'PENDING',
     metaTemplateId: metaRes.id || null,
     componentes: componentesSalvar,
+    variaveisCampos,
   });
 
   return {
