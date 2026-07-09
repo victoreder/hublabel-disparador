@@ -7,6 +7,38 @@ import { logger } from '../../logger.js';
 import { exchangeCodeForToken, exchangeLongLivedToken, metaGet, metaPost } from './graph.js';
 import { HttpError } from './httpError.js';
 
+const EMBEDDED_SIGNUP_EVENT_COEXISTENCE = 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING';
+const PHONE_STATE_FIELDS =
+  'status,code_verification_status,is_on_biz_app,platform_type,display_phone_number,verified_name';
+const POLL_INTERVAL_MS = 2000;
+const POLL_MAX_ATTEMPTS = 15;
+const REGISTER_RETRY_DELAY_MS = 3000;
+const REGISTER_MAX_ATTEMPTS = 3;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalizeFlowType(body) {
+  const embeddedSignupEvent =
+    body?.embeddedSignupEvent ||
+    body?.embedded_signup_event ||
+    body?.session?.embeddedSignupEvent ||
+    null;
+
+  const flowTypeRaw = body?.flowType || body?.flow_type || null;
+
+  if (flowTypeRaw === 'coexistence' || embeddedSignupEvent === EMBEDDED_SIGNUP_EVENT_COEXISTENCE) {
+    return { flowType: 'coexistence', embeddedSignupEvent: embeddedSignupEvent || EMBEDDED_SIGNUP_EVENT_COEXISTENCE };
+  }
+
+  if (flowTypeRaw === 'standard' || flowTypeRaw === 'new_number') {
+    return { flowType: flowTypeRaw, embeddedSignupEvent };
+  }
+
+  return { flowType: 'auto', embeddedSignupEvent };
+}
+
 function parseConnectBody(body) {
   logger.info('[meta-token] parse body', {
     temBody: body != null,
@@ -21,6 +53,7 @@ function parseConnectBody(body) {
   const conexaoId = body?.conexaoId || body?.conexao_id || null;
   const contaId = body?.contaId || body?.conta_id || null;
   const nome = body?.NomeConexao || body?.nome || 'WhatsApp API Oficial';
+  const { flowType, embeddedSignupEvent } = normalizeFlowType(body);
 
   if (!code || typeof code !== 'string') {
     logger.warn('[meta-token] validacao falhou', { motivo: 'code ausente ou invalido', conexaoId, contaId });
@@ -31,15 +64,40 @@ function parseConnectBody(body) {
     throw new HttpError('Informe conexaoId (atualizar) ou contaId (criar nova conexao).');
   }
 
-  return { code, waba_id: wabaId, phone_number_id: phoneNumberId, business_id: businessId, conexaoId, contaId, NomeConexao: nome };
+  return {
+    code,
+    waba_id: wabaId,
+    phone_number_id: phoneNumberId,
+    business_id: businessId,
+    conexaoId,
+    contaId,
+    NomeConexao: nome,
+    flowType,
+    embeddedSignupEvent,
+  };
 }
 
-async function fetchPhoneDetails(version, phoneNumberId, accessToken) {
+function isCoexistencePhone(phoneRes) {
+  // Meta: coexistencia = is_on_biz_app true + platform_type CLOUD_API (nao muda o platform_type).
+  return phoneRes?.is_on_biz_app === true;
+}
+
+function isExplicitCoexistenceFlow({ flowType, embeddedSignupEvent }) {
+  return flowType === 'coexistence' || embeddedSignupEvent === EMBEDDED_SIGNUP_EVENT_COEXISTENCE;
+}
+
+function isPhoneReadyForRegister(phoneRes, { coexistence }) {
+  if (coexistence) return true;
+  if (phoneRes?.status === 'CONNECTED') return true;
+  return phoneRes?.code_verification_status === 'VERIFIED';
+}
+
+async function fetchPhoneState(version, phoneNumberId, accessToken) {
   return metaGet({
     version,
     path: phoneNumberId,
     accessToken,
-    query: { fields: 'display_phone_number,verified_name' },
+    query: { fields: PHONE_STATE_FIELDS },
   });
 }
 
@@ -91,22 +149,113 @@ async function subscribeWaba(version, wabaId, accessToken) {
   return res;
 }
 
-async function registerPhoneIfNeeded(version, phoneNumberId, accessToken) {
-  const phoneRes = await metaGet({
-    version,
-    path: phoneNumberId,
-    accessToken,
-    query: { fields: 'status' },
-  });
+async function waitForPhoneReady(version, phoneNumberId, accessToken, { coexistence, initialPhone = null }) {
+  let phone = initialPhone;
 
-  const statusAntes = phoneRes.status || null;
+  for (let attempt = 1; attempt <= POLL_MAX_ATTEMPTS; attempt++) {
+    if (!phone || attempt > 1) {
+      phone = await fetchPhoneState(version, phoneNumberId, accessToken);
+    }
+
+    const coexistenceDetectada = coexistence || isCoexistencePhone(phone);
+
+    if (isPhoneReadyForRegister(phone, { coexistence: coexistenceDetectada })) {
+      return { phone, coexistence: coexistenceDetectada, attempts: attempt };
+    }
+
+    if (attempt < POLL_MAX_ATTEMPTS) {
+      logger.info('[meta-token] aguardando meta propagar numero', {
+        phone_number_id: phoneNumberId,
+        attempt,
+        status: phone.status || null,
+        code_verification_status: phone.code_verification_status || null,
+        is_on_biz_app: phone.is_on_biz_app ?? null,
+        platform_type: phone.platform_type || null,
+      });
+      await sleep(POLL_INTERVAL_MS);
+    }
+  }
+
+  return {
+    phone,
+    coexistence: coexistence || isCoexistencePhone(phone),
+    attempts: POLL_MAX_ATTEMPTS,
+    timedOut: true,
+  };
+}
+
+async function registerPhoneIfNeeded(version, phoneNumberId, accessToken, options = {}) {
+  const explicitCoexistence = isExplicitCoexistenceFlow(options);
+  const { phone, coexistence, attempts, timedOut } = await waitForPhoneReady(
+    version,
+    phoneNumberId,
+    accessToken,
+    {
+      coexistence: explicitCoexistence,
+      initialPhone: options.initialPhone || null,
+    },
+  );
+
+  const statusAntes = phone.status || null;
   let pin = null;
   let registrado = false;
   let statusDepois = statusAntes;
+  let pulouRegister = false;
 
-  if (statusAntes !== 'CONNECTED') {
-    pin = String(Math.floor(100000 + Math.random() * 900000));
+  if (coexistence) {
+    pulouRegister = true;
+    logger.info('[meta-token] coexistencia: pulando register', {
+      phone_number_id: phoneNumberId,
+      embeddedSignupEvent: options.embeddedSignupEvent || null,
+      flowType: options.flowType || null,
+      status: statusAntes,
+      is_on_biz_app: phone.is_on_biz_app ?? null,
+      platform_type: phone.platform_type || null,
+      attempts,
+    });
 
+    return {
+      phone_number_id: phoneNumberId,
+      pin,
+      registrado,
+      status_antes: statusAntes,
+      status_depois: statusDepois,
+      coexistencia: true,
+      pulou_register: true,
+      code_verification_status: phone.code_verification_status || null,
+      is_on_biz_app: phone.is_on_biz_app ?? null,
+      platform_type: phone.platform_type || null,
+    };
+  }
+
+  if (statusAntes === 'CONNECTED') {
+    pulouRegister = true;
+    return {
+      phone_number_id: phoneNumberId,
+      pin,
+      registrado,
+      status_antes: statusAntes,
+      status_depois: statusDepois,
+      coexistencia: false,
+      pulou_register: true,
+      code_verification_status: phone.code_verification_status || null,
+      is_on_biz_app: phone.is_on_biz_app ?? null,
+      platform_type: phone.platform_type || null,
+    };
+  }
+
+  if (phone.code_verification_status !== 'VERIFIED') {
+    if (timedOut) {
+      throw new HttpError(
+        'A Meta ainda nao concluiu a verificacao do numero. Aguarde cerca de 1 minuto e tente conectar novamente.',
+        400,
+      );
+    }
+  }
+
+  pin = String(Math.floor(100000 + Math.random() * 900000));
+
+  for (let attempt = 1; attempt <= REGISTER_MAX_ATTEMPTS; attempt++) {
     try {
       await metaPost({
         version,
@@ -116,17 +265,50 @@ async function registerPhoneIfNeeded(version, phoneNumberId, accessToken) {
       });
       registrado = true;
       statusDepois = 'CONNECTED';
+      break;
     } catch (error) {
       if (error instanceof HttpError && error.message.includes('133005')) {
         throw new HttpError(
           'PIN de verificacao em duas etapas incorreto. O numero ja possui 2FA; informe o PIN existente.',
         );
       }
+
+      const isReverification =
+        error instanceof HttpError &&
+        (error.message.includes('133006') || error.message.includes('re-verification'));
+
+      if (isReverification && attempt < REGISTER_MAX_ATTEMPTS) {
+        logger.info('[meta-token] register aguardando reverificacao meta', {
+          phone_number_id: phoneNumberId,
+          attempt,
+        });
+        await sleep(REGISTER_RETRY_DELAY_MS);
+        continue;
+      }
+
+      if (isReverification) {
+        throw new HttpError(
+          'A Meta ainda nao concluiu a verificacao do numero. Aguarde cerca de 1 minuto e tente conectar novamente.',
+          400,
+        );
+      }
+
       throw error;
     }
   }
 
-  return { phone_number_id: phoneNumberId, pin, registrado, status_antes: statusAntes, status_depois: statusDepois };
+  return {
+    phone_number_id: phoneNumberId,
+    pin,
+    registrado,
+    status_antes: statusAntes,
+    status_depois: statusDepois,
+    coexistencia: false,
+    pulou_register: pulouRegister,
+    code_verification_status: phone.code_verification_status || null,
+    is_on_biz_app: phone.is_on_biz_app ?? null,
+    platform_type: phone.platform_type || null,
+  };
 }
 
 export async function handleConnectMeta(body, { metaGraphApiVersion }) {
@@ -140,6 +322,8 @@ export async function handleConnectMeta(body, { metaGraphApiVersion }) {
     business_id: entrada.business_id,
     modo: entrada.conexaoId ? 'atualizar' : 'criar',
     temCode: Boolean(entrada.code),
+    flowType: entrada.flowType,
+    embeddedSignupEvent: entrada.embeddedSignupEvent,
   });
 
   const config = await fetchConfigApiOficial('app_id, app_secret');
@@ -179,16 +363,17 @@ export async function handleConnectMeta(body, { metaGraphApiVersion }) {
   let phone_number_id = entrada.phone_number_id;
   let Telefone = null;
   let verified_name = null;
+  let initialPhone = null;
 
   const temIdsFront = !!waba_id && !!phone_number_id;
 
   if (temIdsFront) {
     logger.info('[meta-token] buscando telefone pelos IDs do front', { phone_number_id });
-    const phoneRes = await fetchPhoneDetails(metaGraphApiVersion, phone_number_id, accessToken);
-    Telefone = phoneRes.display_phone_number
-      ? String(phoneRes.display_phone_number).replace(/\D/g, '')
+    initialPhone = await fetchPhoneState(metaGraphApiVersion, phone_number_id, accessToken);
+    Telefone = initialPhone.display_phone_number
+      ? String(initialPhone.display_phone_number).replace(/\D/g, '')
       : null;
-    verified_name = phoneRes.verified_name || null;
+    verified_name = initialPhone.verified_name || null;
     if (!Telefone) throw new HttpError('Meta nao retornou display_phone_number para o phone_number_id.');
   } else {
     logger.info('[meta-token] buscando assets Business/WABA/telefone na Meta');
@@ -207,11 +392,18 @@ export async function handleConnectMeta(body, { metaGraphApiVersion }) {
     phone_number_id,
     Telefone,
     verified_name,
+    flowType: entrada.flowType,
+    embeddedSignupEvent: entrada.embeddedSignupEvent,
   });
 
   logger.info('[meta-token] subscribed_apps', { waba_id });
   await subscribeWaba(metaGraphApiVersion, waba_id, accessToken);
-  const registro = await registerPhoneIfNeeded(metaGraphApiVersion, phone_number_id, accessToken);
+
+  const registro = await registerPhoneIfNeeded(metaGraphApiVersion, phone_number_id, accessToken, {
+    flowType: entrada.flowType,
+    embeddedSignupEvent: entrada.embeddedSignupEvent,
+    initialPhone,
+  });
 
   logger.info('[meta-token] registro numero', {
     phone_number_id,
@@ -219,6 +411,11 @@ export async function handleConnectMeta(body, { metaGraphApiVersion }) {
     status_antes: registro.status_antes,
     status_depois: registro.status_depois,
     pinGerado: Boolean(registro.pin),
+    coexistencia: registro.coexistencia === true,
+    pulou_register: registro.pulou_register === true,
+    code_verification_status: registro.code_verification_status,
+    is_on_biz_app: registro.is_on_biz_app,
+    platform_type: registro.platform_type,
   });
 
   const nomeConexao =
@@ -254,6 +451,7 @@ export async function handleConnectMeta(body, { metaGraphApiVersion }) {
     waba_id: row.waba_id,
     expires_at: expiresAt,
     metaPhoneStatus: row.metaPhoneStatus || registro.status_depois || null,
+    coexistencia: registro.coexistencia === true,
   });
 
   const resposta = {
@@ -269,6 +467,10 @@ export async function handleConnectMeta(body, { metaGraphApiVersion }) {
     apiOficial: row.apiOficial,
     metaPhoneStatus: row.metaPhoneStatus || registro.status_depois || null,
     numero_registrado: registro.registrado === true,
+    coexistencia: registro.coexistencia === true,
+    pulou_register: registro.pulou_register === true,
+    flowType: entrada.flowType,
+    embeddedSignupEvent: entrada.embeddedSignupEvent || null,
   };
 
   if (registro.pin) {

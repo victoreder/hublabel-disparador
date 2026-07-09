@@ -14,6 +14,8 @@ function sanitizeMetaTokenBody(body) {
     phone_number_id: b.phone_number_id ?? null,
     business_id: b.business_id ?? null,
     NomeConexao: b.NomeConexao ?? b.nome ?? null,
+    flowType: b.flowType ?? b.flow_type ?? null,
+    embeddedSignupEvent: b.embeddedSignupEvent ?? b.embedded_signup_event ?? null,
     temCode: Boolean(b.code),
   };
 }
