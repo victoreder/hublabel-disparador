@@ -1,5 +1,5 @@
 import { logger } from '../../logger.js';
-import { computeMaxTokens } from './config.js';
+import { applyMaxOutputTokens, computeMaxTokens, usesMaxCompletionTokens } from './config.js';
 import { executeTool, buildToolDefinitions } from './tools.js';
 import { searchKnowledge } from './rag.js';
 
@@ -18,6 +18,7 @@ export async function runAgentChat({
     { role: 'user', content: userMessage },
   ];
 
+  const model = agente.modelo || 'gpt-4o-mini';
   const maxTokens = Math.min(4096, computeMaxTokens(agente));
 
   let rounds = 0;
@@ -25,11 +26,16 @@ export async function runAgentChat({
     rounds += 1;
 
     const body = {
-      model: agente.modelo || 'gpt-4o-mini',
+      model,
       messages,
-      temperature: Number(agente.criatividade ?? 0.7),
-      max_tokens: maxTokens,
     };
+
+    // gpt-5 / o-series nao aceitam temperature customizada em alguns casos
+    if (!usesMaxCompletionTokens(model)) {
+      body.temperature = Number(agente.criatividade ?? 0.7);
+    }
+
+    applyMaxOutputTokens(body, model, maxTokens);
 
     if (tools.length) body.tools = tools;
 

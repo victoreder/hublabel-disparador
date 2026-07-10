@@ -1,4 +1,5 @@
 import { logger } from '../../logger.js';
+import { applyMaxOutputTokens } from './config.js';
 import { sendTextReply } from './sendReply.js';
 
 async function fetchBufferFromUrl(url) {
@@ -29,14 +30,10 @@ async function transcribeAudio(agentConfig, buffer, filename = 'audio.ogg') {
 
 async function analyzeImage(agentConfig, buffer, mimeType = 'image/jpeg') {
   const base64 = buffer.toString('base64');
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${agentConfig.openaiApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: agentConfig.visionModel,
+  const model = agentConfig.visionModel;
+  const body = applyMaxOutputTokens(
+    {
+      model,
       messages: [
         {
           role: 'user',
@@ -52,8 +49,18 @@ async function analyzeImage(agentConfig, buffer, mimeType = 'image/jpeg') {
           ],
         },
       ],
-      max_tokens: 800,
-    }),
+    },
+    model,
+    800,
+  );
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${agentConfig.openaiApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
   });
 
   const json = await response.json().catch(() => ({}));
