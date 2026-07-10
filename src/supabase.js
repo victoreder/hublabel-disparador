@@ -816,13 +816,14 @@ export async function preencherCardCrm({ cardId, observacoes, valor, criarTarefa
   }
 
   if (criarTarefa) {
+    // Formato do CRM (chat/crm-etapas): { descricao, data: 'YYYY-MM-DD', concluida }
+    const descricao = String(textoTarefa || '').trim() || 'Tarefa criada pelo agente IA';
+    const data = normalizarDataTarefaCrm(prazoTarefa);
     const tarefas = Array.isArray(card?.tarefas) ? [...card.tarefas] : [];
     tarefas.push({
-      texto: textoTarefa || 'Tarefa criada pelo agente IA',
-      prazo: prazoTarefa || null,
+      descricao,
+      data,
       concluida: false,
-      criadaEm: new Date().toISOString(),
-      origem: 'agenteIA',
     });
     update.tarefas = tarefas;
   }
@@ -831,6 +832,42 @@ export async function preencherCardCrm({ cardId, observacoes, valor, criarTarefa
 
   const { error } = await supabase.from('SAAS_Cards_Quadros').update(update).eq('id', cardId);
   if (error) throw mapSupabaseError(error, 'Erro ao preencher card CRM');
+}
+
+/**
+ * Converte prazo livre do modelo para YYYY-MM-DD (input type=date do CRM).
+ * Aceita: YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY, DD MM YYYY, ISO datetime.
+ */
+export function normalizarDataTarefaCrm(raw) {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  const iso = s.match(/^(\d{4}-\d{2}-\d{2})[T\s]/);
+  if (iso) return iso[1];
+
+  const br = s.match(/^(\d{1,2})[\/\-\s.](\d{1,2})[\/\-\s.](\d{4})$/);
+  if (br) {
+    const dia = br[1].padStart(2, '0');
+    const mes = br[2].padStart(2, '0');
+    const ano = br[3];
+    const d = Number(dia);
+    const m = Number(mes);
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) return `${ano}-${mes}-${dia}`;
+  }
+
+  const parsed = Date.parse(s);
+  if (Number.isFinite(parsed)) {
+    const dt = new Date(parsed);
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    if (y >= 2000 && y <= 2100) return `${y}-${m}-${d}`;
+  }
+
+  return null;
 }
 
 export async function notificarHumanoWhatsapp({ job, whatsappDestino, mensagem }) {

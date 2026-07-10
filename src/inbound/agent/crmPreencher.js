@@ -34,8 +34,10 @@ function buildSchema(dados) {
     properties.tarefaPrazo = {
       type: 'string',
       description:
-        dados.instrucaoTarefaData ||
-        'Prazo ou data da tarefa em texto claro (ex: 25/06/2026 ou "no mesmo dia")',
+        (dados.instrucaoTarefaData
+          ? `${dados.instrucaoTarefaData}. `
+          : '') +
+        'Retorne a data no formato YYYY-MM-DD (ex: 2026-05-10). Se a instrução for relativa (amanhã, próxima segunda), calcule a data absoluta a partir de HOJE.',
     };
     required.push('tarefaTexto', 'tarefaPrazo');
   }
@@ -72,7 +74,7 @@ function buildPrompt({ history, userMessage, respostaAgente, dados, textoContext
   if (dados.tarefa === true) {
     partes.push(`- tarefaTexto: ${dados.instrucaoTarefa || 'Tarefa a realizar'}`);
     partes.push(
-      `- tarefaPrazo: ${dados.instrucaoTarefaData || dados.instrucaoTarefaPrazo || 'Prazo da tarefa'}`,
+      `- tarefaPrazo: ${dados.instrucaoTarefaData || dados.instrucaoTarefaPrazo || 'Prazo da tarefa'} — SEMPRE no formato YYYY-MM-DD`,
     );
   }
 

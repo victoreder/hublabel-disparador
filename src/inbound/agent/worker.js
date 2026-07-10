@@ -19,6 +19,7 @@ import {
   waitForGroupedText,
 } from './redis.js';
 import { sendAgentChunk, notifyTokenUsage } from './sendReply.js';
+import { saveAgentTokenUsage } from './tokens.js';
 
 const TOOL_TO_ACAO = {
   NOTIFICAR_HUMANO: 'notificar-humano',
@@ -210,6 +211,7 @@ export async function processAgentJob(job) {
 
   const output = typeof chatResult === 'string' ? chatResult : chatResult?.content;
   const toolsExecuted = typeof chatResult === 'string' ? [] : chatResult?.toolsExecuted ?? [];
+  const chatTokens = typeof chatResult === 'string' ? 0 : Number(chatResult?.totalTokens ?? 0);
 
   if (!output) {
     logger.warn('Agente IA sem resposta', { conversaId: job.conversaId });
@@ -250,6 +252,7 @@ export async function processAgentJob(job) {
 
   let chunksEnviados = 0;
   let acoesExecutadas = 0;
+  let tokensExtras = 0;
 
   for (const segment of segments) {
     if (segment.type === 'action') {
@@ -264,6 +267,7 @@ export async function processAgentJob(job) {
           continue;
         }
         acoesExecutadas += 1;
+        tokensExtras += Number(resultado?.tokensExtras ?? 0) || 0;
         if (resultado?.success === false) {
           logger.warn('Ação retornou success:false', {
             conversaId: job.conversaId,
@@ -310,6 +314,8 @@ export async function processAgentJob(job) {
     await clearGroupingKey(agentConfig.redisUrl, job.telefone);
   }
 
+  const totalTokens = chatTokens + tokensExtras;
+  await saveAgentTokenUsage(agente.id, totalTokens, agente.modelo);
   await notifyTokenUsage(job, agentConfig);
 
   logger.info('Agente IA processado', {
@@ -318,6 +324,8 @@ export async function processAgentJob(job) {
     chunks: chunksEnviados,
     acoes: acoesExecutadas,
     toolsExecuted,
+    totalTokens,
+    tokensExtras,
   });
 }
 

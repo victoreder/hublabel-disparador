@@ -20,6 +20,7 @@ export async function runAgentChat({
 
   const model = agente.modelo || 'gpt-4o-mini';
   const toolsExecuted = [];
+  let totalTokens = 0;
 
   let rounds = 0;
   while (rounds < agentConfig.maxToolRounds) {
@@ -52,6 +53,8 @@ export async function runAgentChat({
       error.status = response.status;
       throw error;
     }
+
+    totalTokens += Number(json.usage?.total_tokens ?? 0);
 
     const choice = json.choices?.[0];
     const message = choice?.message;
@@ -98,6 +101,7 @@ export async function runAgentChat({
     return {
       content: message.content?.trim() || '',
       toolsExecuted,
+      totalTokens,
     };
   }
 
