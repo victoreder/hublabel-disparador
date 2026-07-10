@@ -52,7 +52,6 @@ async function analyzeImage(agentConfig, buffer, mimeType = 'image/jpeg') {
           ],
         },
       ],
-      max_completion_tokens: 800,
     }),
   });
 

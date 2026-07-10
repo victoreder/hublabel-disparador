@@ -1,5 +1,5 @@
 import { logger } from '../../logger.js';
-import { computeMaxTokens, supportsCustomTemperature } from './config.js';
+import { supportsCustomTemperature } from './config.js';
 import { executeTool, buildToolDefinitions } from './tools.js';
 import { searchKnowledge } from './rag.js';
 
@@ -19,7 +19,6 @@ export async function runAgentChat({
   ];
 
   const model = agente.modelo || 'gpt-4o-mini';
-  const maxCompletionTokens = Math.min(4096, computeMaxTokens(agente));
 
   let rounds = 0;
   while (rounds < agentConfig.maxToolRounds) {
@@ -28,7 +27,6 @@ export async function runAgentChat({
     const body = {
       model,
       messages,
-      max_completion_tokens: maxCompletionTokens,
     };
 
     if (supportsCustomTemperature(model)) {

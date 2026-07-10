@@ -24,17 +24,6 @@ export async function getAgentConfig() {
   };
 }
 
-export function computeMaxTokens(agente) {
-  const creditos = Number(agente?.maxCreditos ?? 0);
-  const modelo = String(agente?.modelo ?? '');
-  let fator = 1000;
-  if (modelo === 'gpt-5-mini') fator = 1000;
-  else if (modelo === 'gpt-5') fator = 200;
-  else if (modelo === 'gpt-5-pro') fator = Math.round(1000 / 60);
-  return Math.max(256, Math.floor(creditos * fator));
-}
-
-/** gpt-5 / o-series: temperature customizada costuma ser rejeitada. */
 export function supportsCustomTemperature(model) {
   const m = String(model || '').toLowerCase();
   return !(
