@@ -34,22 +34,13 @@ export function computeMaxTokens(agente) {
   return Math.max(256, Math.floor(creditos * fator));
 }
 
-/** Modelos novos (gpt-5 / o-series) exigem max_completion_tokens em vez de max_tokens. */
-export function usesMaxCompletionTokens(model) {
+/** gpt-5 / o-series: temperature customizada costuma ser rejeitada. */
+export function supportsCustomTemperature(model) {
   const m = String(model || '').toLowerCase();
-  return (
+  return !(
     m.startsWith('gpt-5') ||
     m.startsWith('o1') ||
     m.startsWith('o3') ||
     m.startsWith('o4')
   );
-}
-
-export function applyMaxOutputTokens(body, model, maxTokens) {
-  if (usesMaxCompletionTokens(model)) {
-    body.max_completion_tokens = maxTokens;
-  } else {
-    body.max_tokens = maxTokens;
-  }
-  return body;
 }
