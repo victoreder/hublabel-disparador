@@ -88,22 +88,25 @@ export function buildToolDefinitions(job, agente) {
   }
 
   if (agente?.notificarHumano?.ativo === true) {
-    tools.push({
-      type: 'function',
-      function: {
-        name: 'NOTIFICAR_HUMANO',
-        description:
-          'Notifica humanos configurados. Prefira emitir [[acao:{"tipo":"notificar-humano",...}]] se estiver nas instruções; use esta tool só se não emitir o marcador.',
-        parameters: {
-          type: 'object',
-          properties: {
-            mensagem: { type: 'string', description: 'mensagem para enviar aos humanos' },
-            indice: { type: 'integer', description: 'índice do item em notificarHumano.itens' },
+    // Evita tool + [[acao:notificar-humano]] no mesmo turno
+    const usaAcaoMarcador = /\[\[acao:[\s\S]*?notificar-humano/i.test(String(agente?.instrucoes || ''));
+    if (!usaAcaoMarcador) {
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'NOTIFICAR_HUMANO',
+          description: 'Notifica humanos configurados conforme as instruções.',
+          parameters: {
+            type: 'object',
+            properties: {
+              mensagem: { type: 'string', description: 'mensagem para enviar aos humanos' },
+              indice: { type: 'integer', description: 'índice do item em notificarHumano.itens' },
+            },
+            required: ['mensagem'],
           },
-          required: ['mensagem'],
         },
-      },
-    });
+      });
+    }
   }
 
   if (agente?.requisicaoHTTP?.ativo === true) {

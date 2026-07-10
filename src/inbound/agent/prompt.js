@@ -58,7 +58,7 @@ export function buildSystemPrompt(job, agente) {
     '- Sem o marcador, a ação não roda. Não invente que executou.',
     '- NÃO descreva a ação ao cliente (proibido: "etiqueta removida", "humano notificado", "transferido", "modo: aleatório", telefones de notificação, IDs).',
     '- Texto ao cliente: só conversa natural conforme as INSTRUÇÕES.',
-    '- Uma ocorrência de cada ação por resposta.',
+    '- Uma ocorrência de cada ação por resposta (não repita o mesmo [[acao:notificar-humano]] duas vezes).',
     '',
     '## CAMPO PERSONALIZADO',
     '- Se ainda não tiver o valor: pergunte ao usuário e NÃO emita [[acao:campo-personalizado]] nessa mensagem.',

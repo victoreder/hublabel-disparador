@@ -25,14 +25,52 @@ const TOOL_TO_ACAO = {
   REQUISICAO_DINAMICA: 'ferramenta-http',
 };
 
+/** Ações que só podem rodar 1x por resposta (mesmo com dados diferentes). */
+const ONCE_PER_RESPONSE = new Set([
+  'notificar-humano',
+  'transferir-atendente',
+  'transferir-setor',
+  'transferir-agente-ia',
+]);
+
+/** Evita double-fire entre jobs paralelos (ex.: webhook duplicado). */
+const recentActionLocks = new Map();
+const ACTION_LOCK_MS = 15_000;
+
 function actionDedupeKey(acao) {
-  return JSON.stringify({
-    tipo: normalizeTipo(acao?.tipo),
-    dados: acao?.dados ?? null,
-  });
+  const tipo = normalizeTipo(acao?.tipo);
+  if (ONCE_PER_RESPONSE.has(tipo)) return tipo;
+
+  const dados = acao?.dados ?? {};
+  if (tipo === 'adicionar-etiqueta' || tipo === 'remover-etiqueta') {
+    return `${tipo}:${dados.etiquetaId ?? ''}`;
+  }
+  if (tipo === 'campo-personalizado') {
+    return `${tipo}:${dados.campoId ?? ''}`;
+  }
+  if (tipo === 'enviar-midia') {
+    return `${tipo}:${dados.arquivoId || dados.url || ''}`;
+  }
+
+  return JSON.stringify({ tipo, dados });
 }
 
-function prepareSegments(segments, toolsExecuted = []) {
+function isRecentlyExecuted(conversaId, key) {
+  const lockKey = `${conversaId || 'x'}:${key}`;
+  const now = Date.now();
+  const prev = recentActionLocks.get(lockKey);
+  if (prev && now - prev < ACTION_LOCK_MS) return true;
+  recentActionLocks.set(lockKey, now);
+  // limpeza simples
+  if (recentActionLocks.size > 500) {
+    for (const [k, ts] of recentActionLocks) {
+      if (now - ts > ACTION_LOCK_MS) recentActionLocks.delete(k);
+    }
+  }
+  return false;
+}
+
+function prepareSegments(segments, toolsExecuted = [], conversaId = null) {
   const skipTipos = new Set(
     (toolsExecuted || [])
       .map((name) => TOOL_TO_ACAO[name])
@@ -49,16 +87,22 @@ function prepareSegments(segments, toolsExecuted = []) {
 
     const tipo = normalizeTipo(segment.content?.tipo);
     if (skipTipos.has(tipo)) {
-      logger.info('Ação ignorada — já executada via tool OpenAI', { tipo });
+      logger.info('Ação ignorada — já executada via tool OpenAI', { tipo, conversaId });
       continue;
     }
 
-    const key = actionDedupeKey(segment.content);
+    const key = actionDedupeKey({ ...segment.content, tipo });
     if (seen.has(key)) {
-      logger.info('Ação duplicada ignorada', { tipo });
+      logger.info('Ação duplicada ignorada (mesma resposta)', { tipo, key, conversaId });
       continue;
     }
     seen.add(key);
+
+    if (isRecentlyExecuted(conversaId, key)) {
+      logger.info('Ação duplicada ignorada (janela recente)', { tipo, key, conversaId });
+      continue;
+    }
+
     out.push({ ...segment, content: { ...segment.content, tipo } });
   }
 
@@ -169,7 +213,7 @@ export async function processAgentJob(job) {
   }
 
   const rawSegments = parseAgentOutputWithActions(output);
-  const segments = prepareSegments(rawSegments, toolsExecuted);
+  const segments = prepareSegments(rawSegments, toolsExecuted, job.conversaId);
 
   logger.info('Agente: segmentos parseados', {
     conversaId: job.conversaId,
