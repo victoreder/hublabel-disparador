@@ -46,6 +46,12 @@ function extractActionJson(raw, startIndex) {
   return null;
 }
 
+function skipWs(text, index) {
+  let i = index;
+  while (i < text.length && /\s/.test(text[i])) i += 1;
+  return i;
+}
+
 export function parseAgentOutputWithActions(output) {
   const text = String(output || '');
   if (!text.trim()) return [];
@@ -74,9 +80,18 @@ export function parseAgentOutputWithActions(output) {
       break;
     }
 
-    const suffixStart = extracted.endIndex;
+    const suffixStart = skipWs(text, extracted.endIndex);
     if (text.slice(suffixStart, suffixStart + ACTION_SUFFIX.length) !== ACTION_SUFFIX) {
-      cursor = suffixStart;
+      // JSON ok mas sem ]] — tenta parsear mesmo assim (modelos às vezes esquecem o sufixo)
+      try {
+        const parsed = JSON.parse(extracted.jsonText);
+        if (parsed?.tipo) {
+          segments.push({ type: 'action', content: parsed });
+        }
+      } catch {
+        // ignore
+      }
+      cursor = extracted.endIndex;
       continue;
     }
 
@@ -93,6 +108,13 @@ export function parseAgentOutputWithActions(output) {
   }
 
   return segments;
+}
+
+/** Extrai só as ações [[acao:...]] de um texto (ex.: instruções do agente). */
+export function extractActionsFromText(text) {
+  return parseAgentOutputWithActions(text)
+    .filter((segment) => segment.type === 'action')
+    .map((segment) => segment.content);
 }
 
 /** Remove qualquer resíduo de [[acao:...]] que ainda possa ter sobrado no texto. */

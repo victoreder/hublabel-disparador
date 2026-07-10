@@ -92,11 +92,13 @@ export function buildToolDefinitions(job, agente) {
       type: 'function',
       function: {
         name: 'NOTIFICAR_HUMANO',
-        description: 'ative essa ferramenta de acordo com as instrucoes',
+        description:
+          'Notifica humanos configurados. Prefira emitir [[acao:{"tipo":"notificar-humano",...}]] se estiver nas instruções; use esta tool só se não emitir o marcador.',
         parameters: {
           type: 'object',
           properties: {
-            mensagem: { type: 'string', description: 'mensagem para enviar pro usuario' },
+            mensagem: { type: 'string', description: 'mensagem para enviar aos humanos' },
+            indice: { type: 'integer', description: 'índice do item em notificarHumano.itens' },
           },
           required: ['mensagem'],
         },

@@ -19,6 +19,7 @@ export async function runAgentChat({
   ];
 
   const model = agente.modelo || 'gpt-4o-mini';
+  const toolsExecuted = [];
 
   let rounds = 0;
   while (rounds < agentConfig.maxToolRounds) {
@@ -66,9 +67,12 @@ export async function runAgentChat({
           args = {};
         }
 
+        const toolName = call.function?.name;
+        if (toolName) toolsExecuted.push(toolName);
+
         let toolResult;
         try {
-          toolResult = await executeTool(call.function?.name, args, {
+          toolResult = await executeTool(toolName, args, {
             job,
             agente,
             agentConfig,
@@ -76,7 +80,7 @@ export async function runAgentChat({
           });
         } catch (error) {
           logger.warn('Falha em tool do agente', {
-            tool: call.function?.name,
+            tool: toolName,
             message: error.message,
           });
           toolResult = JSON.stringify({ success: false, error: error.message });
@@ -91,7 +95,10 @@ export async function runAgentChat({
       continue;
     }
 
-    return message.content?.trim() || '';
+    return {
+      content: message.content?.trim() || '',
+      toolsExecuted,
+    };
   }
 
   throw new Error('Limite de rodadas de ferramentas do agente atingido');

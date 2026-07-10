@@ -1,6 +1,6 @@
 import { logger } from '../../logger.js';
 import { fetchAgente } from '../../supabase.js';
-import { executeAgentAction } from './actions.js';
+import { executeAgentAction, normalizeTipo } from './actions.js';
 import { getAgentConfig } from './config.js';
 import { loadChatHistory } from './memory.js';
 import { notifyOpenAiSemSaldo } from './notifyHuman.js';
@@ -19,6 +19,86 @@ import {
   waitForGroupedText,
 } from './redis.js';
 import { sendAgentChunk, notifyTokenUsage } from './sendReply.js';
+
+const TOOL_TO_ACAO = {
+  NOTIFICAR_HUMANO: 'notificar-humano',
+  REQUISICAO_DINAMICA: 'ferramenta-http',
+};
+
+function actionDedupeKey(acao) {
+  return JSON.stringify({
+    tipo: normalizeTipo(acao?.tipo),
+    dados: acao?.dados ?? null,
+  });
+}
+
+function prepareSegments(segments, toolsExecuted = []) {
+  const skipTipos = new Set(
+    (toolsExecuted || [])
+      .map((name) => TOOL_TO_ACAO[name])
+      .filter(Boolean),
+  );
+  const seen = new Set();
+  const out = [];
+
+  for (const segment of segments) {
+    if (segment.type !== 'action') {
+      out.push(segment);
+      continue;
+    }
+
+    const tipo = normalizeTipo(segment.content?.tipo);
+    if (skipTipos.has(tipo)) {
+      logger.info('Ação ignorada — já executada via tool OpenAI', { tipo });
+      continue;
+    }
+
+    const key = actionDedupeKey(segment.content);
+    if (seen.has(key)) {
+      logger.info('Ação duplicada ignorada', { tipo });
+      continue;
+    }
+    seen.add(key);
+    out.push({ ...segment, content: { ...segment.content, tipo } });
+  }
+
+  return out;
+}
+
+/**
+ * Remove frases que só relatam status interno da ação.
+ * Mantém o restante da mensagem conversacional (ex.: "Deseja mais alguma coisa?").
+ */
+function scrubActionNarration(text) {
+  let t = String(text || '');
+
+  const linePatterns = [
+    /^[^\n]*etiqueta[^\n]*(adicionad|removid|aplicad)[^\n]*$/gim,
+    /^[^\n]*humano notificado[^\n]*$/gim,
+    /^[^\n]*notificaç(ão|ões) enviada[^\n]*$/gim,
+    /^[^\n]*transferido para[^\n]*$/gim,
+    /^[^\n]*campo[^\n]*(salv|atualiz|preench)[^\n]*$/gim,
+    /^[^\n]*a[cç][aã]o executada[^\n]*$/gim,
+  ];
+
+  for (const re of linePatterns) {
+    t = t.replace(re, '');
+  }
+
+  t = t
+    .replace(/\(\s*modo\s*:\s*[^)]+\)/gi, '')
+    .replace(/\(\s*\d+\s*notificaç[^)]*\)/gi, '')
+    .replace(/via whatsapp\s*\(\+?[\d\s\-()]+\)[^.!?\n]*/gi, '')
+    .replace(/etiqueta\s+"[^"]+"\s+removid[ao][^.!?\n]*[.!?]?/gi, '')
+    .replace(/etiqueta\s+"[^"]+"\s+adicionad[ao][^.!?\n]*[.!?]?/gi, '')
+    .replace(/humano notificado[^.!?\n]*[.!?]?/gi, '')
+    .replace(/transferido para (um )?atendente[^.!?\n]*[.!?]?/gi, '');
+
+  return t
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
 
 export async function processAgentJob(job) {
   const agentConfig = await getAgentConfig();
@@ -59,9 +139,9 @@ export async function processAgentJob(job) {
   const systemPrompt = buildSystemPrompt(job, agente);
   const history = await loadChatHistory(job.conversaId, agente.qntMsgHistorico ?? 20);
 
-  let output;
+  let chatResult;
   try {
-    output = await runAgentChat({
+    chatResult = await runAgentChat({
       agentConfig,
       job,
       agente,
@@ -80,12 +160,24 @@ export async function processAgentJob(job) {
     throw error;
   }
 
+  const output = typeof chatResult === 'string' ? chatResult : chatResult?.content;
+  const toolsExecuted = typeof chatResult === 'string' ? [] : chatResult?.toolsExecuted ?? [];
+
   if (!output) {
     logger.warn('Agente IA sem resposta', { conversaId: job.conversaId });
     return;
   }
 
-  const segments = parseAgentOutputWithActions(output);
+  const rawSegments = parseAgentOutputWithActions(output);
+  const segments = prepareSegments(rawSegments, toolsExecuted);
+
+  logger.info('Agente: segmentos parseados', {
+    conversaId: job.conversaId,
+    acoes: segments.filter((s) => s.type === 'action').map((s) => s.content?.tipo),
+    textos: segments.filter((s) => s.type === 'text').length,
+    toolsExecuted,
+  });
+
   const arquivoMap = buildArquivoMapFromInstrucoes(agente.instrucoes);
   const actionCtx = {
     job,
@@ -104,8 +196,20 @@ export async function processAgentJob(job) {
   for (const segment of segments) {
     if (segment.type === 'action') {
       try {
-        await executeAgentAction(segment.content, actionCtx);
+        const resultado = await executeAgentAction(segment.content, actionCtx);
         acoesExecutadas += 1;
+        if (resultado?.success === false) {
+          logger.warn('Ação retornou success:false', {
+            conversaId: job.conversaId,
+            tipo: segment.content?.tipo,
+            error: resultado.error,
+          });
+        } else {
+          logger.info('Ação OK', {
+            conversaId: job.conversaId,
+            tipo: segment.content?.tipo,
+          });
+        }
       } catch (error) {
         logger.warn('Falha ao executar ação do agente — ignorado', {
           conversaId: job.conversaId,
@@ -116,12 +220,12 @@ export async function processAgentJob(job) {
       continue;
     }
 
-    const textoLimpo = stripActionMarkers(segment.content);
+    const textoLimpo = scrubActionNarration(stripActionMarkers(segment.content));
     if (!textoLimpo) continue;
 
     const chunks = splitAgentOutput(textoLimpo, agente.separarMensagens !== false);
     for (const chunk of chunks) {
-      const textoChunk = stripActionMarkers(chunk.text);
+      const textoChunk = scrubActionNarration(stripActionMarkers(chunk.text));
       if (!textoChunk) continue;
       try {
         await sendAgentChunk(job, { ...chunk, text: textoChunk }, agentConfig);
@@ -147,6 +251,7 @@ export async function processAgentJob(job) {
     conversaId: job.conversaId,
     chunks: chunksEnviados,
     acoes: acoesExecutadas,
+    toolsExecuted,
   });
 }
 

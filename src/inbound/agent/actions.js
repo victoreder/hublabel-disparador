@@ -57,10 +57,38 @@ async function dynamicHttpRequest({ url, method, headers, body, queryParams }) {
 }
 
 function normalizeTipo(tipo) {
-  const t = String(tipo || '').trim().toLowerCase();
-  if (t === 'crm-movimentacao') return 'crm-mover';
-  return t;
+  const t = String(tipo || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  const aliases = {
+    'crm-movimentacao': 'crm-mover',
+    'atribuir-atendente': 'transferir-atendente',
+    'atribuir_atendente': 'transferir-atendente',
+    'transferir_atendente': 'transferir-atendente',
+    'transferir-para-atendente': 'transferir-atendente',
+    'abrir-atendimento': 'transferir-atendente',
+    'notificar_humano': 'notificar-humano',
+    'notificar-humanos': 'notificar-humano',
+    'transferir_setor': 'transferir-setor',
+    'transferir-para-setor': 'transferir-setor',
+    'transferir_agente': 'transferir-agente-ia',
+    'transferir-agente': 'transferir-agente-ia',
+    'transferir-agente-ia': 'transferir-agente-ia',
+    'transferir_agente_ia': 'transferir-agente-ia',
+    'adicionar_etiqueta': 'adicionar-etiqueta',
+    'remover_etiqueta': 'remover-etiqueta',
+    'campo_personalizado': 'campo-personalizado',
+    'enviar_midia': 'enviar-midia',
+    'enviar-media': 'enviar-midia',
+  };
+
+  return aliases[t] || t;
 }
+
+export { normalizeTipo };
 
 async function resolveAtendenteId(dados, { contaId, setorId = null }) {
   const modo = String(dados?.atendenteModo || 'nenhum').toLowerCase();
