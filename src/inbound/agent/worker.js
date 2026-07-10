@@ -25,7 +25,7 @@ const TOOL_TO_ACAO = {
   REQUISICAO_DINAMICA: 'ferramenta-http',
 };
 
-/** Ações que só podem rodar 1x por resposta (mesmo com dados diferentes). */
+/** Ações que só podem rodar 1x por resposta e têm lock curto anti-webhook-duplicado. */
 const ONCE_PER_RESPONSE = new Set([
   'notificar-humano',
   'transferir-atendente',
@@ -33,9 +33,9 @@ const ONCE_PER_RESPONSE = new Set([
   'transferir-agente-ia',
 ]);
 
-/** Evita double-fire entre jobs paralelos (ex.: webhook duplicado). */
+/** Evita double-fire entre jobs paralelos (ex.: webhook duplicado). Só para ONCE_PER_RESPONSE. */
 const recentActionLocks = new Map();
-const ACTION_LOCK_MS = 15_000;
+const ACTION_LOCK_MS = 5_000;
 
 function actionDedupeKey(acao) {
   const tipo = normalizeTipo(acao?.tipo);
@@ -51,6 +51,9 @@ function actionDedupeKey(acao) {
   if (tipo === 'enviar-midia') {
     return `${tipo}:${dados.arquivoId || dados.url || ''}`;
   }
+  if (tipo === 'crm' || tipo === 'crm-mover' || tipo === 'crm-preencher' || tipo === 'crm-criar') {
+    return `${tipo}:${dados.modo || ''}:${dados.quadroId || ''}:${dados.etapaId || ''}`;
+  }
 
   return JSON.stringify({ tipo, dados });
 }
@@ -61,7 +64,6 @@ function isRecentlyExecuted(conversaId, key) {
   const prev = recentActionLocks.get(lockKey);
   if (prev && now - prev < ACTION_LOCK_MS) return true;
   recentActionLocks.set(lockKey, now);
-  // limpeza simples
   if (recentActionLocks.size > 500) {
     for (const [k, ts] of recentActionLocks) {
       if (now - ts > ACTION_LOCK_MS) recentActionLocks.delete(k);
@@ -98,7 +100,9 @@ function prepareSegments(segments, toolsExecuted = [], conversaId = null) {
     }
     seen.add(key);
 
-    if (isRecentlyExecuted(conversaId, key)) {
+    // Lock cross-job só para notify/transfer (anti webhook duplo).
+    // CRM, etiqueta, campo, mídia podem repetir em turnos seguintes na mesma conversa.
+    if (ONCE_PER_RESPONSE.has(tipo) && isRecentlyExecuted(conversaId, key)) {
       logger.info('Ação duplicada ignorada (janela recente)', { tipo, key, conversaId });
       continue;
     }
@@ -214,13 +218,23 @@ export async function processAgentJob(job) {
 
   const rawSegments = parseAgentOutputWithActions(output);
   const segments = prepareSegments(rawSegments, toolsExecuted, job.conversaId);
+  const acoesNoOutput = rawSegments.filter((s) => s.type === 'action').map((s) => s.content?.tipo);
+  const acoesAposDedupe = segments.filter((s) => s.type === 'action').map((s) => s.content?.tipo);
 
   logger.info('Agente: segmentos parseados', {
     conversaId: job.conversaId,
-    acoes: segments.filter((s) => s.type === 'action').map((s) => s.content?.tipo),
+    acoesRaw: acoesNoOutput,
+    acoes: acoesAposDedupe,
     textos: segments.filter((s) => s.type === 'text').length,
     toolsExecuted,
   });
+
+  if (!acoesNoOutput.length) {
+    logger.info('Agente respondeu sem [[acao:]]', {
+      conversaId: job.conversaId,
+      preview: String(output).slice(0, 280),
+    });
+  }
 
   const arquivoMap = buildArquivoMapFromInstrucoes(agente.instrucoes);
   const actionCtx = {
@@ -241,6 +255,14 @@ export async function processAgentJob(job) {
     if (segment.type === 'action') {
       try {
         const resultado = await executeAgentAction(segment.content, actionCtx);
+        if (resultado?.skipped) {
+          logger.info('Ação duplicada não contada', {
+            conversaId: job.conversaId,
+            tipo: segment.content?.tipo,
+            reason: resultado.reason,
+          });
+          continue;
+        }
         acoesExecutadas += 1;
         if (resultado?.success === false) {
           logger.warn('Ação retornou success:false', {

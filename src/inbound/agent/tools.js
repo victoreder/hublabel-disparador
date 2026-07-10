@@ -1,7 +1,7 @@
 import {
   abrirAtendimentoHumano,
-  notificarHumanoWhatsapp,
 } from '../../supabase.js';
+import { executeNotificarHumano } from './notifyHuman.js';
 
 const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -148,16 +148,13 @@ export async function executeTool(name, args, { job, agente, agentConfig, search
   }
 
   if (name === 'NOTIFICAR_HUMANO') {
-    const whatsapp = agente?.notificarHumano?.itens?.[0]?.whatsapp;
-    if (!whatsapp) {
-      return JSON.stringify({ success: false, error: 'WhatsApp de notificação não configurado' });
-    }
-    await notificarHumanoWhatsapp({
+    const resultado = await executeNotificarHumano({
       job,
-      whatsappDestino: whatsapp,
-      mensagem: args.mensagem,
+      agente,
+      args,
+      redisUrl: agentConfig?.redisUrl,
     });
-    return JSON.stringify({ success: true });
+    return JSON.stringify(resultado);
   }
 
   if (name === 'REQUISICAO_DINAMICA') {

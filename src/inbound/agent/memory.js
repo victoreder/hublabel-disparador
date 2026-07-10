@@ -1,4 +1,5 @@
 import { supabase } from '../../supabase.js';
+import { stripActionMarkers } from './parseActions.js';
 
 export async function loadChatHistory(conversaId, limit = 20) {
   if (!conversaId || !limit) return [];
@@ -18,6 +19,8 @@ export async function loadChatHistory(conversaId, limit = 20) {
     .filter((m) => m.mensagem)
     .map((m) => ({
       role: m.fromMe ? 'assistant' : 'user',
-      content: m.mensagem,
-    }));
+      // Remove marcadores para o modelo não achar que a ação "já foi" só pelo histórico
+      content: stripActionMarkers(m.mensagem),
+    }))
+    .filter((m) => m.content?.trim());
 }

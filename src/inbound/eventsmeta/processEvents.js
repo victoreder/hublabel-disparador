@@ -71,6 +71,14 @@ async function processAllEvents(events, inboundConfig) {
 
       if (result?.segueFluxoIA) {
         enqueueAgentJob(buildAgentJobFromMetaResult(result));
+      } else {
+        logger.info('Agente não enfileirado (meta)', {
+          conversaId: result?.conversaId ?? null,
+          segueFluxoIA: Boolean(result?.segueFluxoIA),
+          parouPorPausado: Boolean(result?.parouPorPausado),
+          creditoEsgotado: Boolean(result?.creditoEsgotado),
+          agenteId: result?.agenteId ?? null,
+        });
       }
     } catch (error) {
       logger.error('Erro ao processar evento Meta', {
@@ -105,6 +113,14 @@ async function processAllMediaJobs(jobs, inboundConfig) {
 
       if (result?.segueFluxoIA) {
         enqueueAgentJob(buildAgentJobFromMetaResult(result));
+      } else {
+        logger.info('Agente não enfileirado (meta midia)', {
+          conversaId: result?.conversaId ?? null,
+          segueFluxoIA: Boolean(result?.segueFluxoIA),
+          parouPorPausado: Boolean(result?.parouPorPausado),
+          creditoEsgotado: Boolean(result?.creditoEsgotado),
+          agenteId: result?.agenteId ?? null,
+        });
       }
     } catch (error) {
       logger.error('Erro no pipeline de mídia Meta', {

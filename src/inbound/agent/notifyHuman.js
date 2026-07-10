@@ -5,6 +5,7 @@ import {
   notificarHumanoWhatsapp,
 } from '../../supabase.js';
 import { logger } from '../../logger.js';
+import { tryAcquireActionLock } from './redis.js';
 
 const QUOTA_NOTIFY_COOLDOWN_MS = 60 * 60 * 1000;
 let lastQuotaNotifyAt = 0;
@@ -183,24 +184,42 @@ export async function notifyOpenAiSemSaldo({ job, error }) {
   return { ok: enviados.length > 0, enviados, erros };
 }
 
-function temDestinosNoArgs(args) {
-  if (!args || typeof args !== 'object') return false;
-  return (
-    args.whatsapp != null ||
-    Array.isArray(args.whatsapps) ||
-    args.email != null ||
-    Array.isArray(args.emails) ||
-    args.whatsappAtivo != null ||
-    args.emailAtivo != null
-  );
+function listWhatsappsRaw(obj) {
+  if (!obj || typeof obj !== 'object') return [];
+  const raw = [...(Array.isArray(obj.whatsapps) ? obj.whatsapps : []), obj.whatsapp];
+  return [...new Set(raw.map((n) => String(n ?? '').trim()).filter(Boolean))];
 }
 
-export async function executeNotificarHumano({ job, agente, args }) {
-  const itens = getNotificarItens(agente);
-  const itemInline = temDestinosNoArgs(args) ? args : null;
-  const item = itemInline || resolveNotificarItem(agente, args?.indice ?? 0);
+function listEmailsRaw(obj) {
+  if (!obj || typeof obj !== 'object') return [];
+  const raw = [...(Array.isArray(obj.emails) ? obj.emails : []), obj.email];
+  return [...new Set(raw.map((e) => String(e ?? '').trim().toLowerCase()).filter(Boolean))];
+}
 
-  if (!item) {
+/**
+ * Destinos reais (número/e-mail), não só flags whatsappAtivo/emailAtivo.
+ * Flags sozinhas NÃO contam — senão o dados da ação sobrescreve o item do agente
+ * e perde e-mail/WhatsApp configurados no painel.
+ */
+function temDestinosExplicitosNoArgs(args) {
+  return listWhatsappsRaw(args).length > 0 || listEmailsRaw(args).length > 0;
+}
+
+export async function executeNotificarHumano({ job, agente, args = {}, redisUrl = null }) {
+  const url = redisUrl || process.env.REDIS_URL?.trim() || null;
+  const acquired = await tryAcquireActionLock(url, job?.conversaId, 'notificar-humano', 5);
+  if (!acquired) {
+    logger.info('notificar-humano ignorado (já executado recentemente)', {
+      conversaId: job?.conversaId,
+    });
+    return { success: true, skipped: true, reason: 'duplicate-lock' };
+  }
+
+  const itens = getNotificarItens(agente);
+  const itemConfig = resolveNotificarItem(agente, args?.indice ?? 0);
+  const argsComDestino = temDestinosExplicitosNoArgs(args);
+
+  if (!itemConfig && !argsComDestino) {
     return {
       success: false,
       error:
@@ -210,19 +229,45 @@ export async function executeNotificarHumano({ job, agente, args }) {
     };
   }
 
-  const whatsapps = getWhatsappsFromItem(item);
-  const emails = getEmailsFromItem(item);
+  const base = itemConfig || args;
+
+  // Flags: desliga só se explicitamente false no item ou nos args
+  const waAtivo = base?.whatsappAtivo !== false && args?.whatsappAtivo !== false;
+  const emailAtivo = base?.emailAtivo !== false && args?.emailAtivo !== false;
+
+  // Destinos: se a ação trouxe número/e-mail, usa; senão usa o item do agente (painel)
+  const whatsapps = waAtivo
+    ? listWhatsappsRaw(args).length
+      ? listWhatsappsRaw(args)
+      : getWhatsappsFromItem(base)
+    : [];
+
+  const emails = emailAtivo
+    ? listEmailsRaw(args).length
+      ? listEmailsRaw(args)
+      : getEmailsFromItem(base)
+    : [];
 
   if (!whatsapps.length && !emails.length) {
-    return { success: false, error: 'Item de notificação sem WhatsApp ou e-mail ativo' };
+    return {
+      success: false,
+      error: 'Item de notificação sem WhatsApp ou e-mail ativo',
+      debug: {
+        temItemConfig: Boolean(itemConfig),
+        argsComDestino,
+        waAtivo,
+        emailAtivo,
+        keysArgs: args && typeof args === 'object' ? Object.keys(args) : [],
+      },
+    };
   }
 
-  const mensagem = buildMensagemNotificacao(item, args, job);
-  const assunto = String(item?.assuntoEmail ?? 'Notificação de atendimento humano').trim();
+  const mensagem = buildMensagemNotificacao(base, args, job);
+  const assunto = String(base?.assuntoEmail ?? args?.assuntoEmail ?? 'Notificação de atendimento humano').trim();
 
   const resultado = {
     success: true,
-    indice: itemInline ? null : itens.indexOf(item),
+    indice: itemConfig ? itens.indexOf(itemConfig) : null,
     whatsappsEnviados: [],
     emailsEnviados: [],
     erros: [],
@@ -279,6 +324,13 @@ export async function executeNotificarHumano({ job, agente, args }) {
       erros: resultado.erros.length,
     });
   }
+
+  logger.info('Notificação humana concluída', {
+    conversaId: job?.conversaId,
+    whatsapps: resultado.whatsappsEnviados.length,
+    emails: resultado.emailsEnviados.length,
+    erros: resultado.erros.length,
+  });
 
   return resultado;
 }

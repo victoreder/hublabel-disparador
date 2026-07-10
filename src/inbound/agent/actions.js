@@ -5,6 +5,7 @@ import {
   buscarAtendenteAleatorio,
   buscarAtendenteAleatorioSetor,
   buscarCardContato,
+  criarCardCrm,
   moverCardCrm,
   preencherCardCrm,
   removerEtiquetaContato,
@@ -15,6 +16,7 @@ import {
 import { gerarPreenchimentoCrm } from './crmPreencher.js';
 import { executeNotificarHumano } from './notifyHuman.js';
 import { classifyChunk } from './parseResponse.js';
+import { tryAcquireActionLock } from './redis.js';
 import { sendAgentChunk } from './sendReply.js';
 
 const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
@@ -65,6 +67,10 @@ function normalizeTipo(tipo) {
 
   const aliases = {
     'crm-movimentacao': 'crm-mover',
+    'crm_mover': 'crm-mover',
+    'crm_preencher': 'crm-preencher',
+    'crm_criar': 'crm-criar',
+    'crm-criar-card': 'crm-criar',
     'atribuir-atendente': 'transferir-atendente',
     'atribuir_atendente': 'transferir-atendente',
     'transferir_atendente': 'transferir-atendente',
@@ -189,7 +195,7 @@ async function executarTransferirAtendente(acao, ctx) {
     pausado: true,
     statusAtendimento: 'aberto',
   });
-  return { success: true, atendenteId };
+  return { success: true, atendenteId, statusAtendimento: 'aberto', pausado: true };
 }
 
 async function executarNotificarHumano(acao, ctx) {
@@ -198,6 +204,7 @@ async function executarNotificarHumano(acao, ctx) {
       job: ctx.job,
       agente: ctx.agente,
       args: acao.dados ?? {},
+      redisUrl: ctx.agentConfig?.redisUrl,
     });
     return resultado;
   } catch (error) {
@@ -215,15 +222,21 @@ async function executarTransferirSetor(acao, ctx) {
     setorId,
   });
 
+  const vincularAtendente = Boolean(atendenteId);
   await transferirConversaSetor({
     conversaId: ctx.job.conversaId,
     setorId,
     atendenteId,
-    pausado: Boolean(atendenteId),
-    statusAtendimento: atendenteId ? 'aberto' : undefined,
+    pausado: vincularAtendente ? true : undefined,
+    statusAtendimento: vincularAtendente ? 'aberto' : undefined,
   });
 
-  return { success: true, setorId, atendenteId };
+  return {
+    success: true,
+    setorId,
+    atendenteId,
+    ...(vincularAtendente ? { statusAtendimento: 'aberto', pausado: true } : {}),
+  };
 }
 
 async function executarTransferirAgenteIA(acao, ctx) {
@@ -252,22 +265,17 @@ async function executarCrmMover(acao, ctx) {
   }
 
   await moverCardCrm({ cardId: card.id, etapaId, quadroId });
-  return { success: true, cardId: card.id, etapaId };
+  return { success: true, modo: 'mover', cardId: card.id, etapaId };
 }
 
-async function executarCrmPreencher(acao, ctx) {
+async function aplicarPreenchimentoCrm(acao, ctx, cardId) {
   const dados = acao.dados ?? {};
-  const quadroId = Number(dados.quadroId) || null;
+  const querObs = dados.observacoes === true;
+  const querValor = dados.valor === true;
+  const querTarefa = dados.tarefa === true;
 
-  let card = null;
-  if (quadroId && ctx.job.contatoId) {
-    card = await buscarCardContato({ contatoId: ctx.job.contatoId, quadroId });
-  } else if (ctx.job.contatoId) {
-    card = await buscarCardContato({ contatoId: ctx.job.contatoId });
-  }
-
-  if (!card?.id) {
-    return { success: false, error: 'Card CRM não encontrado' };
+  if (!querObs && !querValor && !querTarefa) {
+    return { preenchimento: null, tokensExtras: 0 };
   }
 
   const preenchimento = await gerarPreenchimentoCrm({
@@ -281,20 +289,110 @@ async function executarCrmPreencher(acao, ctx) {
   });
 
   await preencherCardCrm({
-    cardId: card.id,
-    observacoes: dados.observacoes === true ? preenchimento.observacoes : null,
-    valor: dados.valor === true ? preenchimento.valor : null,
-    criarTarefa: dados.tarefa === true,
+    cardId,
+    observacoes: querObs ? preenchimento.observacoes : null,
+    valor: querValor ? preenchimento.valor : null,
+    criarTarefa: querTarefa,
     textoTarefa: preenchimento.tarefaTexto,
     prazoTarefa: preenchimento.tarefaPrazo,
   });
 
   return {
-    success: true,
-    cardId: card.id,
     preenchimento,
     tokensExtras: preenchimento.totalTokens ?? 0,
   };
+}
+
+async function executarCrmPreencher(acao, ctx) {
+  const dados = acao.dados ?? {};
+  const quadroId = Number(dados.quadroId) || null;
+
+  if (dados.observacoes !== true && dados.valor !== true && dados.tarefa !== true) {
+    return { success: false, error: 'Informe ao menos observacoes, valor ou tarefa como true' };
+  }
+
+  let card = null;
+  if (quadroId && ctx.job.contatoId) {
+    card = await buscarCardContato({ contatoId: ctx.job.contatoId, quadroId });
+  } else if (ctx.job.contatoId) {
+    card = await buscarCardContato({ contatoId: ctx.job.contatoId });
+  }
+
+  if (!card?.id) {
+    return { success: false, error: 'Card CRM não encontrado' };
+  }
+
+  const { preenchimento, tokensExtras } = await aplicarPreenchimentoCrm(acao, ctx, card.id);
+
+  return {
+    success: true,
+    modo: 'preencher',
+    cardId: card.id,
+    preenchimento,
+    tokensExtras,
+  };
+}
+
+async function executarCrmCriar(acao, ctx) {
+  const dados = acao.dados ?? {};
+  const quadroId = Number(dados.quadroId);
+  const etapaId = Number(dados.etapaId);
+
+  if (!quadroId || !etapaId || !ctx.job.contatoId) {
+    return { success: false, error: 'quadroId, etapaId ou contatoId ausente' };
+  }
+
+  const { cardId, criado } = await criarCardCrm({
+    quadroId,
+    etapaId,
+    contatoId: ctx.job.contatoId,
+    telefone: ctx.job.telefone,
+  });
+
+  const { preenchimento, tokensExtras } = await aplicarPreenchimentoCrm(acao, ctx, cardId);
+
+  return {
+    success: true,
+    modo: 'criar',
+    cardId,
+    criado,
+    preenchimento,
+    tokensExtras,
+  };
+}
+
+/** Ação unificada do painel: tipo "crm" + dados.modo = criar | mover | preencher */
+async function executarCrm(acao, ctx) {
+  const modo = String(acao.dados?.modo || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  if (modo === 'criar' || modo === 'create' || modo === 'novo') {
+    return executarCrmCriar(acao, ctx);
+  }
+  if (modo === 'mover' || modo === 'move' || modo === 'movimentacao') {
+    return executarCrmMover(acao, ctx);
+  }
+  if (modo === 'preencher' || modo === 'fill' || modo === 'atualizar') {
+    return executarCrmPreencher(acao, ctx);
+  }
+
+  // Fallback: chips antigos sem modo explícito
+  const temPreenchimento =
+    acao.dados?.observacoes === true || acao.dados?.valor === true || acao.dados?.tarefa === true;
+  if (temPreenchimento && !acao.dados?.etapaId) {
+    return executarCrmPreencher(acao, ctx);
+  }
+  if (acao.dados?.etapaId && temPreenchimento) {
+    return executarCrmCriar(acao, ctx);
+  }
+  if (acao.dados?.etapaId) {
+    return executarCrmMover(acao, ctx);
+  }
+
+  return { success: false, error: `Modo CRM desconhecido: ${acao.dados?.modo || '(vazio)'}` };
 }
 
 async function executarFerramentaHttp(acao, ctx) {
@@ -326,10 +424,19 @@ const EXECUTORES = {
   'notificar-humano': executarNotificarHumano,
   'transferir-setor': executarTransferirSetor,
   'transferir-agente-ia': executarTransferirAgenteIA,
+  crm: executarCrm,
   'crm-mover': executarCrmMover,
   'crm-preencher': executarCrmPreencher,
+  'crm-criar': executarCrmCriar,
   'ferramenta-http': executarFerramentaHttp,
 };
+
+const ONCE_PER_CONVERSA = new Set([
+  'notificar-humano',
+  'transferir-atendente',
+  'transferir-setor',
+  'transferir-agente-ia',
+]);
 
 export async function executeAgentAction(acao, ctx) {
   const tipo = normalizeTipo(acao?.tipo);
@@ -340,9 +447,27 @@ export async function executeAgentAction(acao, ctx) {
     return { success: false, error: `Ação desconhecida: ${acao?.tipo}` };
   }
 
+  // Lock no executor (notificar já tem o seu). Transferências: Redis NX.
+  if (ONCE_PER_CONVERSA.has(tipo) && tipo !== 'notificar-humano') {
+    const acquired = await tryAcquireActionLock(
+      ctx.agentConfig?.redisUrl || process.env.REDIS_URL?.trim() || null,
+      ctx.job?.conversaId,
+      tipo,
+      5,
+    );
+    if (!acquired) {
+      logger.info('Ação ignorada (lock recente)', { tipo, conversaId: ctx.job?.conversaId });
+      return { success: true, skipped: true, reason: 'duplicate-lock' };
+    }
+  }
+
   try {
     const resultado = await executor(acao, ctx);
-    logger.info('Ação executada', { tipo, conversaId: ctx.job?.conversaId, resultado });
+    if (resultado?.skipped) {
+      logger.info('Ação pulada', { tipo, conversaId: ctx.job?.conversaId, reason: resultado.reason });
+    } else {
+      logger.info('Ação executada', { tipo, conversaId: ctx.job?.conversaId, resultado });
+    }
     return resultado;
   } catch (error) {
     logger.warn('Falha ao executar ação — ignorado, agente continua', {

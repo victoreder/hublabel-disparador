@@ -573,6 +573,7 @@ export async function abrirAtendimentoHumano({ telefone, conexaoId }) {
     .update({
       statusAtendimento: 'aberto',
       pausado: true,
+      idAgente: null,
     })
     .eq('telefone', telefone)
     .eq('idConexao', conexaoId);
@@ -613,6 +614,7 @@ export async function transferirConversaHumano({ conversaId, atendenteId, pausad
     atendente: atendenteId ?? null,
     pausado,
     statusAtendimento,
+    idAgente: null,
   };
 
   const { error } = await supabase.from('SAAS_Conversas_Agentes').update(update).eq('id', conversaId);
@@ -627,6 +629,12 @@ export async function transferirConversaSetor({ conversaId, setorId, atendenteId
 
   if (pausado != null) update.pausado = pausado;
   if (statusAtendimento) update.statusAtendimento = statusAtendimento;
+  // Com atendente vinculado: sai da IA e vai para aberto
+  if (atendenteId) {
+    update.idAgente = null;
+    update.statusAtendimento = statusAtendimento || 'aberto';
+    update.pausado = pausado != null ? pausado : true;
+  }
 
   const { error } = await supabase.from('SAAS_Conversas_Agentes').update(update).eq('id', conversaId);
   if (error) throw mapSupabaseError(error, 'Erro ao transferir conversa para setor');
@@ -685,6 +693,76 @@ export async function buscarCardContato({ contatoId, quadroId = null }) {
   const { data, error } = await query.maybeSingle();
   if (error) throw mapSupabaseError(error, 'Erro ao buscar card CRM');
   return data;
+}
+
+async function proximaOrdemCardCrm(etapaId) {
+  const { data, error } = await supabase
+    .from('SAAS_Cards_Quadros')
+    .select('ordem')
+    .eq('etapaQuadroId', etapaId)
+    .order('ordem', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao calcular ordem do card CRM');
+  return Number(data?.ordem ?? 0) + 1;
+}
+
+/**
+ * Cria card no quadro/etapa. Se já existir card do contato no quadro, reutiliza
+ * (e move para a etapa pedida quando necessário).
+ */
+export async function criarCardCrm({
+  quadroId,
+  etapaId,
+  contatoId,
+  telefone,
+  nome = null,
+  observacoes = null,
+  valor = null,
+  tarefas = [],
+}) {
+  if (!quadroId || !etapaId || !contatoId) {
+    throw new Error('quadroId, etapaId e contatoId são obrigatórios para criar card');
+  }
+
+  const existente = await buscarCardContato({ contatoId, quadroId });
+  if (existente?.id) {
+    if (etapaId && Number(existente.etapaQuadroId) !== Number(etapaId)) {
+      await moverCardCrm({ cardId: existente.id, etapaId, quadroId });
+    }
+    return { cardId: existente.id, criado: false };
+  }
+
+  const telefoneDigits = String(telefone || '').replace(/\D/g, '') || null;
+  const ordem = await proximaOrdemCardCrm(etapaId);
+
+  const { data, error } = await supabase
+    .from('SAAS_Cards_Quadros')
+    .insert({
+      quadroId,
+      etapaQuadroId: etapaId,
+      contatoId,
+      nome: (nome && String(nome).trim()) || telefoneDigits,
+      contato: telefoneDigits,
+      observacoes: observacoes || null,
+      valor: valor != null && valor !== '' && Number.isFinite(Number(valor)) ? Number(valor) : null,
+      tarefas: Array.isArray(tarefas) ? tarefas : [],
+      ordem,
+      historicoCRM: [
+        {
+          tipo: 'criacao',
+          etapa: etapaId,
+          em: new Date().toISOString(),
+          origem: 'agenteIA',
+        },
+      ],
+    })
+    .select('id')
+    .single();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao criar card CRM');
+  return { cardId: data.id, criado: true };
 }
 
 export async function moverCardCrm({ cardId, etapaId, quadroId }) {

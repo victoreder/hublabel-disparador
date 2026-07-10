@@ -79,6 +79,15 @@ export async function handleEvolutionWebhook(req, inboundConfig) {
       conexao,
     });
     enqueueAgentJob(job);
+  } else if (!organized.fromMe) {
+    logger.info('Agente não enfileirado', {
+      conexaoId: idConexao,
+      conversaId: resultado?.conversaId ?? null,
+      segueFluxoIA: Boolean(resultado?.segueFluxoIA),
+      parouPorPausado: Boolean(resultado?.parouPorPausado),
+      creditoEsgotado: Boolean(resultado?.creditoEsgotado),
+      agenteId: resultado?.agenteId ?? null,
+    });
   }
 
   return { status: 200, body: { ok: true, segueFluxoIA: Boolean(resultado?.segueFluxoIA) } };

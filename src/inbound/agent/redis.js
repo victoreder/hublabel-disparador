@@ -1,6 +1,7 @@
 import Redis from 'ioredis';
 
 let client = null;
+const memoryActionLocks = new Map();
 
 function getRedis(redisUrl) {
   if (!redisUrl) return null;
@@ -8,6 +9,35 @@ function getRedis(redisUrl) {
     client = new Redis(redisUrl, { maxRetriesPerRequest: 2, lazyConnect: true });
   }
   return client;
+}
+
+/**
+ * Lock atômico para ações 1x (notificar-humano, transferências).
+ * Redis SET NX entre réplicas; fallback em memória no mesmo processo.
+ * @returns {Promise<boolean>} true se adquiriu (pode executar)
+ */
+export async function tryAcquireActionLock(redisUrl, conversaId, tipo, ttlSec = 20) {
+  const key = `agent:acao-lock:${conversaId || 'x'}:${tipo || 'x'}`;
+  const redis = getRedis(redisUrl);
+  if (redis) {
+    try {
+      const ok = await redis.set(key, '1', 'EX', ttlSec, 'NX');
+      return ok === 'OK';
+    } catch {
+      // cai no fallback em memória
+    }
+  }
+
+  const now = Date.now();
+  const prev = memoryActionLocks.get(key);
+  if (prev && now - prev < ttlSec * 1000) return false;
+  memoryActionLocks.set(key, now);
+  if (memoryActionLocks.size > 500) {
+    for (const [k, ts] of memoryActionLocks) {
+      if (now - ts > ttlSec * 1000) memoryActionLocks.delete(k);
+    }
+  }
+  return true;
 }
 
 export async function pushGroupingMessage(redisUrl, remoteJid, text) {
