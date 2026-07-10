@@ -14,7 +14,6 @@ import {
 } from '../../supabase.js';
 import { gerarPreenchimentoCrm } from './crmPreencher.js';
 import { executeNotificarHumano } from './notifyHuman.js';
-import { resolveMediaMarkdown } from './parseActions.js';
 import { classifyChunk } from './parseResponse.js';
 import { sendAgentChunk } from './sendReply.js';
 
@@ -79,17 +78,42 @@ async function resolveAtendenteId(dados, { contaId, setorId = null }) {
 }
 
 async function executarEnviarMidia(acao, ctx) {
-  const arquivoId = String(acao.dados?.arquivoId || '').trim();
-  const arquivoInfo = ctx.arquivoMap?.get(arquivoId);
-  const markdown = resolveMediaMarkdown(arquivoInfo);
+  const dados = acao.dados ?? {};
+  const arquivoId = String(dados.arquivoId || '').trim();
 
-  if (!markdown) {
-    logger.warn('enviar-midia: arquivo não encontrado nas instruções', { arquivoId });
+  let url = String(dados.url || '').trim() || null;
+  let mediaType = String(dados.tipoArquivo || dados.tipo || '').trim().toLowerCase() || null;
+
+  if (!url) {
+    const arquivoInfo = ctx.arquivoMap?.get(arquivoId);
+    url = arquivoInfo?.url || null;
+    mediaType = mediaType || arquivoInfo?.mediaType || null;
+  }
+
+  if (!url) {
+    logger.warn('enviar-midia: arquivo não encontrado', { arquivoId, temUrlDados: Boolean(dados.url) });
     return { success: false, error: 'Arquivo não encontrado nas instruções' };
   }
 
-  await sendAgentChunk(ctx.job, { kind: classifyChunk(markdown), text: markdown }, ctx.agentConfig);
-  return { success: true, arquivoId };
+  const type = normalizeMediaType(mediaType, url);
+  // Sem nome/caption — só marcador de tipo para classificar o envio
+  const markdown = `[(${type})](${url})`;
+  const kind = classifyChunk(markdown);
+
+  await sendAgentChunk(ctx.job, { kind, text: markdown }, ctx.agentConfig);
+  return { success: true, arquivoId: arquivoId || null, url, tipoArquivo: type };
+}
+
+function normalizeMediaType(tipoArquivo, url) {
+  const t = String(tipoArquivo || '').toLowerCase();
+  if (t === 'image' || t === 'video' || t === 'audio' || t === 'pdf' || t === 'file') return t;
+
+  const ext = String(url || '').toLowerCase().split('?')[0].split('.').pop();
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
+  if (['mp4', 'mov', 'webm'].includes(ext)) return 'video';
+  if (['mp3', 'ogg', 'wav', 'm4a'].includes(ext)) return 'audio';
+  if (ext === 'pdf') return 'pdf';
+  return 'file';
 }
 
 async function executarAdicionarEtiqueta(acao, ctx) {

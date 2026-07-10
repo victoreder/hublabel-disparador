@@ -143,9 +143,6 @@ export function resolveMediaMarkdown(arquivoInfo) {
   if (!arquivoInfo?.url) return null;
 
   const type = String(arquivoInfo.mediaType || 'file').toLowerCase();
-  const label = arquivoInfo.label || `[arquivo (${type})]`;
-
-  if (label.includes('](')) return label;
-
-  return `[${label} (${type})](${arquivoInfo.url})`;
+  // Sem nome do arquivo — caption nunca deve ser o label
+  return `[(${type})](${arquivoInfo.url})`;
 }

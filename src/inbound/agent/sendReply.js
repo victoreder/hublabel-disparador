@@ -101,7 +101,8 @@ export async function sendAgentChunk(job, chunk, agentConfig) {
     tipoMensagem = 'conversation';
   } else {
     arquivoUrl = extractMediaUrl(text);
-    mensagemSalvar = plainTextFromChunk(text) || `[${kind}]`;
+    // Nunca salvar/exibir nome do arquivo como caption
+    mensagemSalvar = `[${kind}]`;
     tipoMensagem =
       kind === 'image'
         ? 'imageMessage'
