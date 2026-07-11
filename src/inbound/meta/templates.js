@@ -3,12 +3,17 @@ import {
   fetchConexaoApiOficialById,
   fetchTemplateMeta,
   insertTemplateMeta,
+  upsertTemplatesMeta,
 } from '../../supabase.js';
-import { metaDelete, metaPost } from './graph.js';
+import { metaDelete, metaGet, metaPost } from './graph.js';
 import { HttpError } from './httpError.js';
 import { prepareTemplateComponentsForMeta } from './templateMedia.js';
 
 const VALID_CATEGORIES = ['MARKETING', 'UTILITY', 'AUTHENTICATION'];
+
+const TEMPLATE_LIST_FIELDS =
+  'id,name,language,status,category,components,rejected_reason,quality_score';
+const TEMPLATE_PAGE_LIMIT = 100;
 
 function buildVariaveisCampos(body) {
   const fromBody =
@@ -161,5 +166,113 @@ export async function handleDeleteTemplate(body, { metaGraphApiVersion }) {
     metaExcluido,
     metaAviso,
     supabaseExcluido: true,
+  };
+}
+
+function extractQualityScore(qualityScore) {
+  if (qualityScore == null) return null;
+  if (typeof qualityScore === 'string') return qualityScore;
+  if (typeof qualityScore === 'object') {
+    return qualityScore.score ?? qualityScore.quality_score ?? null;
+  }
+  return null;
+}
+
+function mapMetaTemplateToRow(tpl, { conexaoId, wabaId, now }) {
+  const components = Array.isArray(tpl.components) ? tpl.components : [];
+  const rejected = tpl.rejected_reason;
+  const motivoRejeicao =
+    rejected && String(rejected).toUpperCase() !== 'NONE' ? String(rejected) : null;
+
+  return {
+    conexaoId,
+    wabaId,
+    metaTemplateId: tpl.id ? String(tpl.id) : null,
+    nome: tpl.name,
+    idioma: tpl.language || 'pt_BR',
+    categoria: tpl.category || null,
+    status: tpl.status || null,
+    qualidade: extractQualityScore(tpl.quality_score),
+    motivoRejeicao,
+    componentes: { componentes: components },
+    statusUpdatedAt: now,
+    qualidadeUpdatedAt: now,
+    categoriaUpdatedAt: now,
+  };
+}
+
+async function fetchAllMessageTemplates({ wabaId, accessToken, metaGraphApiVersion }) {
+  const templates = [];
+  let after = null;
+
+  for (;;) {
+    const query = {
+      fields: TEMPLATE_LIST_FIELDS,
+      limit: String(TEMPLATE_PAGE_LIMIT),
+    };
+    if (after) query.after = after;
+
+    const page = await metaGet({
+      version: metaGraphApiVersion,
+      path: `${wabaId}/message_templates`,
+      accessToken,
+      query,
+    });
+
+    const batch = Array.isArray(page?.data) ? page.data : [];
+    templates.push(...batch);
+
+    const nextCursor = page?.paging?.cursors?.after;
+    if (!nextCursor || batch.length === 0) break;
+    after = nextCursor;
+  }
+
+  return templates;
+}
+
+/**
+ * Lista templates já criados no WABA (Meta) e faz upsert em SAAS_Templates_Meta.
+ * Body: { conexaoId }
+ */
+export async function handleSyncTemplates(body, { metaGraphApiVersion }) {
+  const conexaoId = body.conexaoId || body.conexao_id || body.idConexao;
+
+  if (!conexaoId) throw new HttpError('Campo conexaoId obrigatorio.');
+
+  const conexao = await fetchConexaoApiOficialById(conexaoId);
+  assertConexaoApiOficial(conexao);
+
+  const metaTemplates = await fetchAllMessageTemplates({
+    wabaId: conexao.waba_id,
+    accessToken: conexao.access_token,
+    metaGraphApiVersion,
+  });
+
+  const now = new Date().toISOString();
+  const rows = metaTemplates
+    .filter((tpl) => tpl?.name)
+    .map((tpl) =>
+      mapMetaTemplateToRow(tpl, {
+        conexaoId: Number(conexaoId) || conexaoId,
+        wabaId: conexao.waba_id,
+        now,
+      }),
+    );
+
+  const saved = rows.length ? await upsertTemplatesMeta(rows) : [];
+
+  return {
+    ok: true,
+    conexaoId: Number(conexaoId) || conexaoId,
+    wabaId: conexao.waba_id,
+    totalMeta: metaTemplates.length,
+    totalSalvos: saved.length,
+    templates: saved.map((row) => ({
+      id: row.id,
+      nome: row.nome,
+      idioma: row.idioma,
+      status: row.status,
+      metaTemplateId: row.metaTemplateId,
+    })),
   };
 }

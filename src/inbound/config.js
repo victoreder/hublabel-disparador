@@ -35,6 +35,7 @@ export const WEBHOOK_PATHS = {
 };
 
 const RAG_INSERIR_CONHECIMENTO_SUFFIX = 'inserir-conhecimento';
+const SYNC_TEMPLATES_SUFFIX = 'sincronizar-templates';
 
 /**
  * BACK_URL = origem + path opcional (ex.: https://webhook2.victoreder.com.br/webhook).
@@ -106,6 +107,7 @@ export function getInboundConfig() {
     agentPollMs: optionalInt('AGENT_POLL_MS', 500),
     metaGraphApiVersion: process.env.META_GRAPH_API_VERSION?.trim() || 'v25.0',
     ragPath: buildWebhookSubPath(p.evolution, RAG_INSERIR_CONHECIMENTO_SUFFIX),
+    syncTemplatesPath: buildWebhookSubPath(p.evolution, SYNC_TEMPLATES_SUFFIX),
     metaApiPaths: {
       token: expressPath(p.metaToken),
       criarTemplate: expressPath(p.metaCriarTemplate),
@@ -141,6 +143,11 @@ export function getInboundConfig() {
       inserirConhecimentoLegacy: buildPublicWebhookUrl(
         back.backUrl,
         `${p.evolution}/${RAG_INSERIR_CONHECIMENTO_SUFFIX}`,
+      ),
+      sincronizarTemplates: publicUrl(p.evolution),
+      sincronizarTemplatesLegacy: buildPublicWebhookUrl(
+        back.backUrl,
+        `${p.evolution}/${SYNC_TEMPLATES_SUFFIX}`,
       ),
     },
     calcularTokenUrl: publicUrl(p.calcularToken),

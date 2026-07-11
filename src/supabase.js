@@ -375,6 +375,22 @@ export async function insertTemplateMeta(payload) {
   return data;
 }
 
+/**
+ * Upsert por (conexaoId, nome, idioma). Não envia variaveisCampos para preservar
+ * o mapeamento local em updates (no insert a coluna usa default {}).
+ */
+export async function upsertTemplatesMeta(rows) {
+  if (!Array.isArray(rows) || !rows.length) return [];
+
+  const { data, error } = await supabase
+    .from('SAAS_Templates_Meta')
+    .upsert(rows, { onConflict: 'conexaoId,nome,idioma' })
+    .select('id, nome, idioma, status, metaTemplateId');
+
+  if (error) throw mapSupabaseError(error, 'Erro ao upsert templates em SAAS_Templates_Meta');
+  return data ?? [];
+}
+
 export async function deleteTemplateMetaRow(templateId) {
   const { error } = await supabase.from('SAAS_Templates_Meta').delete().eq('id', templateId);
 

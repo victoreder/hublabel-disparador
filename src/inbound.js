@@ -6,6 +6,7 @@ import { registerEventsMetaRoutes } from './inbound/routes/eventsmeta.js';
 import { registerEvolutionRoutes } from './inbound/routes/evolution.js';
 import { registerMetaApiRoutes, startMetaTokenRenewalCron } from './inbound/routes/metaApi.js';
 import { registerRagRoutes } from './inbound/routes/rag.js';
+import { registerSyncTemplatesRoutes } from './inbound/routes/syncTemplates.js';
 import { logger } from './logger.js';
 import { getSupabaseKeyInfo, validateSupabaseConnection, fetchOpenAIApiKey } from './supabase.js';
 
@@ -81,6 +82,7 @@ async function main() {
         evolutionLegacy: inboundConfig.evolutionWebhookLegacyPath,
         metaApi: inboundConfig.metaApiPaths,
         rag: inboundConfig.ragPath,
+        syncTemplates: inboundConfig.syncTemplatesPath,
         slugs: inboundConfig.webhookPaths,
       },
     });
@@ -112,10 +114,19 @@ async function main() {
     parentPath: inboundConfig.evolutionWebhookPath,
   });
 
+  registerSyncTemplatesRoutes(app, {
+    path: inboundConfig.syncTemplatesPath,
+    parentPath: inboundConfig.evolutionWebhookPath,
+  });
+
   logger.info('[inbound] rotas Meta registradas', inboundConfig.metaApiPaths);
   logger.info('[inbound] rota RAG registrada', {
     path: inboundConfig.ragPath,
     publicUrl: inboundConfig.publicWebhookUrls.inserirConhecimento,
+  });
+  logger.info('[inbound] rota sincronizar-templates registrada', {
+    path: inboundConfig.syncTemplatesPath,
+    publicUrl: inboundConfig.publicWebhookUrls.sincronizarTemplates,
   });
 
   startMetaTokenRenewalCron(inboundConfig);

@@ -5,6 +5,10 @@ import {
   isRagIngestRequest,
   parseRagMultipart,
 } from './rag.js';
+import {
+  handleSyncTemplatesRequest,
+  isSyncTemplatesRequest,
+} from './syncTemplates.js';
 
 function isMultipartRequest(req) {
   return String(req.headers['content-type'] || '').toLowerCase().includes('multipart/form-data');
@@ -36,6 +40,9 @@ function evolutionHandler(inboundConfig) {
     const startedAt = Date.now();
 
     const dispatch = () => {
+      const isRag = isRagIngestRequest(req);
+      const isSyncTemplates = isSyncTemplatesRequest(req);
+
       logger.info('[evolution-webhook] hit', {
         method: req.method,
         path: req.path,
@@ -44,10 +51,15 @@ function evolutionHandler(inboundConfig) {
         event: req.body?.event ?? null,
         instance: req.body?.instance ?? null,
         acao: req.body?.acao ?? req.query?.acao ?? null,
-        isRag: isRagIngestRequest(req),
+        isRag,
+        isSyncTemplates,
       });
 
-      if (isRagIngestRequest(req)) {
+      if (isSyncTemplates) {
+        return handleSyncTemplatesRequest(req, res);
+      }
+
+      if (isRag) {
         return handleRagIngestRequest(req, res);
       }
 
