@@ -4,7 +4,12 @@ import { buildTemplateChatPreview } from './chatMessage.js';
 import { MetaApiError, isRecipientPhoneError, sendTemplateMessage, sendWithRetries } from './meta.js';
 import { formatPhoneForLog, getPhoneCandidatesForMeta, normalizePhone } from './phone.js';
 import { buildMetaTemplateMessage, buildTemplateComponents } from './template.js';
-import { resolveTemplatePayload, parseTemplateComponentes, extractVariableIndexes } from './resolvePayload.js';
+import {
+  resolveTemplatePayload,
+  parseTemplateComponentes,
+  extractVariableIndexes,
+  getComponentText,
+} from './resolvePayload.js';
 import {
   claimDetail,
   fetchCamposPersonalizados,
@@ -245,7 +250,7 @@ async function sendDetail(detail) {
 
   const { components: templateParts } = parseTemplateComponentes(template.componentes);
   const bodyComponent = templateParts.find((c) => String(c?.type || '').toUpperCase() === 'BODY');
-  const requiredBodyVars = extractVariableIndexes(bodyComponent?.text || '');
+  const requiredBodyVars = extractVariableIndexes(getComponentText(bodyComponent));
   if (requiredBodyVars.length > 0 && (!payload.body || payload.body.length < requiredBodyVars.length)) {
     throw new Error(
       `Template exige ${requiredBodyVars.length} variável(is) no body; variaveisCampos resolveu ${payload.body?.length ?? 0}`,
@@ -253,7 +258,16 @@ async function sendDetail(detail) {
   }
 
   const components = buildTemplateComponents(payload, detail.KeyRedis);
-  const chat = buildTemplateChatPreview(template.componentes, payload, detail.KeyRedis);
+  const chat = buildTemplateChatPreview(template.componentes, payload, detail.KeyRedis, template.nome);
+  if (!chat.mensagem || chat.usadoFallbackNome) {
+    logger.warn('Preview do template sem BODY.text em SAAS_Templates_Meta.componentes', {
+      detailId: detail.id,
+      templateId,
+      templateNome: template.nome,
+      componentesVazios: templateParts.length === 0,
+      mensagemPreview: chat.mensagem,
+    });
+  }
   const contaId = conexao.contaId || contato.contaId;
   if (!contaId) {
     throw new Error(`Conta não encontrada para conexão ${detail.idConexao} / contato ${detail.idContato}`);

@@ -23,8 +23,9 @@ function applyVariables(text, values, indexes) {
 
 /**
  * Monta texto, tipo e URL de mídia do template para exibir no chat (SAAS_Mensagens).
+ * @param {string|null} [templateNome] fallback quando BODY.text não está em componentes
  */
-export function buildTemplateChatPreview(templateComponentes, resolvedPayload, mediaUrl) {
+export function buildTemplateChatPreview(templateComponentes, resolvedPayload, mediaUrl, templateNome = null) {
   const { components } = parseTemplateComponentes(templateComponentes);
   const parts = [];
 
@@ -62,6 +63,12 @@ export function buildTemplateChatPreview(templateComponentes, resolvedPayload, m
   if (footerText) parts.push(footerText);
 
   let mensagem = parts.join('\n\n').trim();
+  let usadoFallbackNome = false;
+
+  if (!mensagem && templateNome) {
+    mensagem = String(templateNome).trim();
+    usadoFallbackNome = Boolean(mensagem);
+  }
 
   if (!mensagem && arquivoUrl) {
     const fallbacks = {
@@ -77,5 +84,6 @@ export function buildTemplateChatPreview(templateComponentes, resolvedPayload, m
     mensagem: mensagem || null,
     tipoMensagem,
     arquivoUrl: arquivoUrl || null,
+    usadoFallbackNome,
   };
 }

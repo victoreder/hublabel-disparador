@@ -3,25 +3,58 @@
  * Fonte: SAAS_Templates_Meta.componentes.variaveisCampos ou coluna variaveisCampos.
  */
 
+function parseJsonDeep(raw, fallback) {
+  if (raw == null) return fallback;
+  if (typeof raw !== 'string') return raw;
+  try {
+    return parseJsonDeep(JSON.parse(raw), fallback);
+  } catch {
+    return fallback;
+  }
+}
+
+function extractComponentsList(data, depth = 0) {
+  if (depth > 6 || data == null) return [];
+  if (Array.isArray(data)) return data;
+  if (typeof data === 'string') return extractComponentsList(parseJsonDeep(data, null), depth + 1);
+  if (typeof data !== 'object') return [];
+
+  if (Array.isArray(data.componentes)) return data.componentes;
+  if (Array.isArray(data.components)) return data.components;
+
+  // Nested blob: { componentes: { componentes: [...] } } or stringified inner list
+  if (data.componentes != null) {
+    const nested = extractComponentsList(data.componentes, depth + 1);
+    if (nested.length) return nested;
+  }
+  if (data.components != null) {
+    const nested = extractComponentsList(data.components, depth + 1);
+    if (nested.length) return nested;
+  }
+
+  return [];
+}
+
 export function parseTemplateComponentes(raw) {
   if (raw == null) return { components: [], variaveisCampos: {} };
 
-  let data = raw;
-  if (typeof raw === 'string') {
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      return { components: [], variaveisCampos: {} };
-    }
-  }
+  const data = parseJsonDeep(raw, null);
+  if (data == null) return { components: [], variaveisCampos: {} };
 
   if (Array.isArray(data)) {
     return { components: data, variaveisCampos: {} };
   }
 
+  if (typeof data !== 'object') {
+    return { components: [], variaveisCampos: {} };
+  }
+
+  const nestedVc =
+    data.variaveisCampos && typeof data.variaveisCampos === 'object' ? data.variaveisCampos : {};
+
   return {
-    components: data.componentes || data.components || [],
-    variaveisCampos: data.variaveisCampos || {},
+    components: extractComponentsList(data),
+    variaveisCampos: nestedVc,
   };
 }
 
