@@ -186,3 +186,51 @@ export async function persistValidatedContactPhone({ contatoId, contaId, jid }) 
 
   return { idContato: contatoId, jid };
 }
+
+/**
+ * Meta: sempre atualiza O MESMO contato do disparo (nunca cria outro).
+ * Se já existir duplicata com o mesmo telefone, mescla nela removendo a duplicata.
+ */
+export async function updateContatoValidadoKeepId({ contatoId, contaId, telefone }) {
+  if (!contatoId || !contaId || !telefone) {
+    throw new Error('contatoId, contaId e telefone são obrigatórios para validar contato');
+  }
+
+  const existing = await findExistingContactByPhone(contaId, telefone, contatoId);
+  if (existing) {
+    await mergeContatosDuplicados({
+      keepId: contatoId,
+      removeId: existing.id,
+      contaId,
+      jid: telefone,
+    });
+    return { idContato: contatoId, telefone };
+  }
+
+  const { error } = await supabase
+    .from('SAAS_Contatos')
+    .update({ telefone, validado: true })
+    .eq('id', contatoId);
+
+  if (error && isDuplicateError(error)) {
+    const dup = await findExistingContactByPhone(contaId, telefone, contatoId);
+    if (dup) {
+      await mergeContatosDuplicados({
+        keepId: contatoId,
+        removeId: dup.id,
+        contaId,
+        jid: telefone,
+      });
+      return { idContato: contatoId, telefone };
+    }
+  }
+
+  throwIfError(error, 'Erro ao atualizar contato validado (Meta)');
+
+  await supabase
+    .from('SAAS_Conversas_Agentes')
+    .update({ telefone })
+    .eq('contatoId', contatoId);
+
+  return { idContato: contatoId, telefone };
+}

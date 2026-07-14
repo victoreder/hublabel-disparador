@@ -43,6 +43,56 @@ export class MetaApiError extends Error {
   }
 }
 
+/**
+ * Verifica se números têm WhatsApp (Graph API contacts).
+ * @see POST /{phone-number-id}/contacts
+ * @returns {Promise<Array<{ input: string, status: string, wa_id?: string }>>}
+ */
+export async function checkWhatsAppContacts({ phoneNumberId, accessToken, phones }) {
+  const contacts = [...new Set((phones || []).map(toE164).filter(Boolean))];
+  if (!contacts.length) {
+    throw new MetaApiError('Nenhum telefone para verificar na Meta', { status: 400, body: null });
+  }
+
+  const url = `https://graph.facebook.com/${config.metaGraphApiVersion}/${phoneNumberId}/contacts`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      blocking: 'wait',
+      force_check: true,
+      contacts,
+    }),
+  });
+
+  const body = await safeJson(response);
+
+  if (!response.ok || body?.error) {
+    const message =
+      body?.error?.message ||
+      body?.error?.error_user_msg ||
+      `Erro HTTP ${response.status} ao verificar contatos na Meta`;
+
+    throw new MetaApiError(message, {
+      status: response.status,
+      body,
+      retryable: TRANSIENT_STATUS.has(response.status),
+    });
+  }
+
+  return Array.isArray(body?.contacts) ? body.contacts : [];
+}
+
+function toE164(raw) {
+  const digits = String(raw ?? '').replace(/\D/g, '');
+  if (!digits) return null;
+  return digits.startsWith('+') ? digits : `+${digits}`;
+}
+
 export async function sendTemplateMessage({ phoneNumberId, accessToken, payload }) {
   const url = `https://graph.facebook.com/${config.metaGraphApiVersion}/${phoneNumberId}/messages`;
 

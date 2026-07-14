@@ -184,7 +184,7 @@ export async function fetchConexao(idConexao) {
 export async function fetchContato(idContato) {
   const { data, error } = await supabase
     .from('SAAS_Contatos')
-    .select('id, telefone, nome, email, variaveis, contaId')
+    .select('id, telefone, nome, email, variaveis, contaId, validado')
     .eq('id', idContato)
     .maybeSingle();
 

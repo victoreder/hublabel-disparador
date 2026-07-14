@@ -11,6 +11,10 @@ import {
   getComponentText,
 } from './resolvePayload.js';
 import {
+  ensureContactValidatedForMetaDispatch,
+  MSG_INEXISTENTE as MSG_CONTATO_INEXISTENTE,
+} from './validarContatoMeta.js';
+import {
   claimDetail,
   fetchCamposPersonalizados,
   fetchConexao,
@@ -133,7 +137,8 @@ export function createWorker() {
           const chatResult = await saveTemplateMessageToChat({
             conexaoId: detail.idConexao,
             contaId: result.contaId,
-            telefone: result.phoneUsed,
+            // Sempre o telefone do contato no banco — phoneUsed pode ser variante com/sem 9 só para a Meta.
+            telefone: result.phoneOriginal || result.phoneUsed,
             mensagem: result.chat.mensagem,
             tipoMensagem: result.chat.tipoMensagem,
             metaMessageId,
@@ -212,17 +217,35 @@ async function sendDetail(detail) {
 
   if (!contato) throw new Error(`Contato ${detail.idContato} não encontrado`);
 
+  if (!template) throw new Error(`Template ${templateId} não encontrado em SAAS_Templates_Meta`);
+  if (!template.nome) throw new Error(`Template ${templateId} sem nome`);
+
+  const validation = await ensureContactValidatedForMetaDispatch({
+    contato,
+    conexao,
+    detailId: detail.id,
+  });
+  if (!validation.ok) {
+    throw new Error(validation.reason || MSG_CONTATO_INEXISTENTE);
+  }
+
+  let contatoEnvio = contato;
+  if (validation.idContato && validation.idContato !== contato.id) {
+    contatoEnvio = (await fetchContato(validation.idContato)) || contato;
+  }
+
   const { candidates: phoneCandidates, resolution: phoneResolution } = getPhoneCandidatesForDetail(
-    contato.telefone,
+    validation.phone || contatoEnvio.telefone,
     detail.respostaHttp,
+    { validatedPhone: validation.phone },
   );
   if (!phoneCandidates.length) {
-    throw new Error(`Telefone inválido para contato ${detail.idContato}`);
+    throw new Error(`Telefone inválido para contato ${validation.idContato || detail.idContato}`);
   }
 
   if (phoneResolution && phoneResolution.phone !== phoneResolution.original) {
     logger.info('Telefone BR ajustado antes do envio', {
-      contatoId: detail.idContato,
+      contatoId: validation.idContato || detail.idContato,
       original: phoneResolution.original,
       enviando: phoneResolution.phone,
       acao: phoneResolution.action,
@@ -237,13 +260,10 @@ async function sendDetail(detail) {
     });
   }
 
-  if (!template) throw new Error(`Template ${templateId} não encontrado em SAAS_Templates_Meta`);
-  if (!template.nome) throw new Error(`Template ${templateId} sem nome`);
-
   const payload = resolveTemplatePayload({
     templateComponentes: template.componentes,
     templateVariaveisCampos: template.variaveisCampos,
-    contato,
+    contato: contatoEnvio,
     valoresCampos,
     camposPersonalizados,
   });
@@ -268,7 +288,7 @@ async function sendDetail(detail) {
       mensagemPreview: chat.mensagem,
     });
   }
-  const contaId = conexao.contaId || contato.contaId;
+  const contaId = conexao.contaId || contatoEnvio.contaId;
   if (!contaId) {
     throw new Error(`Conta não encontrada para conexão ${detail.idConexao} / contato ${detail.idContato}`);
   }
@@ -305,11 +325,14 @@ async function sendDetail(detail) {
       return {
         ...result,
         phoneUsed: phone,
-        phoneOriginal: phoneResolution?.original ?? normalizePhone(contato.telefone),
+        phoneOriginal:
+          phoneResolution?.original ??
+          normalizePhone(contatoEnvio.telefone) ??
+          validation.phone,
         phoneVariantIndex: i,
         chat,
         contaId,
-        nomeContato: contato.nome ?? null,
+        nomeContato: contatoEnvio.nome ?? null,
       };
     } catch (error) {
       lastError = error;
@@ -330,7 +353,7 @@ async function sendDetail(detail) {
   throw lastError ?? new Error('Falha ao enviar: nenhuma variante de telefone funcionou');
 }
 
-function getPhoneCandidatesForDetail(rawPhone, respostaHttp) {
+function getPhoneCandidatesForDetail(rawPhone, respostaHttp, { validatedPhone } = {}) {
   const override = normalizePhone(respostaHttp?._phoneOverride);
   if (override) {
     return {
@@ -339,6 +362,18 @@ function getPhoneCandidatesForDetail(rawPhone, respostaHttp) {
         phone: override,
         action: 'webhook-retry',
         original: normalizePhone(respostaHttp?._phoneUsedBeforeRetry ?? rawPhone),
+      },
+    };
+  }
+
+  const verified = normalizePhone(validatedPhone);
+  if (verified) {
+    return {
+      candidates: [verified],
+      resolution: {
+        phone: verified,
+        action: 'meta-validated',
+        original: normalizePhone(rawPhone) || verified,
       },
     };
   }
