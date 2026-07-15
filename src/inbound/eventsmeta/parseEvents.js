@@ -44,6 +44,39 @@ export function parseMetaWebhookBody(body) {
   return events;
 }
 
+/** Resumo amigável para logs (statuses sent/delivered/read + msgs inbound). */
+export function summarizeMetaWebhookEvents(events) {
+  return (events || []).map((event) => {
+    const value = event?.value || {};
+    const statuses = Array.isArray(value.statuses)
+      ? value.statuses.map((s) => ({
+          id: s?.id ?? null,
+          status: s?.status ?? null,
+          recipient_id: s?.recipient_id ?? null,
+          timestamp: s?.timestamp ?? null,
+        }))
+      : [];
+    const messages = Array.isArray(value.messages)
+      ? value.messages.map((m) => ({
+          id: m?.id ?? null,
+          type: m?.type ?? null,
+          from: m?.from ?? null,
+        }))
+      : [];
+
+    return {
+      waba_id: event?.waba_id ?? null,
+      field: event?.field ?? null,
+      phone_number_id: value?.metadata?.phone_number_id ?? null,
+      statusesCount: statuses.length,
+      statuses,
+      messagesCount: messages.length,
+      messages,
+      received_at: event?.received_at ?? null,
+    };
+  });
+}
+
 /** Extrai jobs de mídia de eventos field=messages (igual nó EXTRAIR MIDIAS). */
 export function extractMediaJobs(events) {
   const jobs = [];
