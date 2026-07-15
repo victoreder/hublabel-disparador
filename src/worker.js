@@ -122,16 +122,17 @@ export function createWorker() {
 
       const result = await sendDetail(detail);
 
+      const metaMessageId = result.body?.messages?.[0]?.id ?? null;
+
       await markDetailSent(detail.id, {
         statusHttp: result.status,
         respostaHttp: {
           ...result.body,
+          metaMessageId,
           _phoneUsed: result.phoneUsed,
           _phoneOriginal: result.phoneOriginal,
         },
       });
-
-      const metaMessageId = result.body?.messages?.[0]?.id ?? null;
       if (metaMessageId && result.chat) {
         try {
           const chatResult = await saveTemplateMessageToChat({
