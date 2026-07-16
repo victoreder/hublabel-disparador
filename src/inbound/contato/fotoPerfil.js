@@ -190,8 +190,23 @@ export async function syncContatoFotoPerfil({
 
   if (!deveAtualizar) return fotoAtual;
 
-  const evoCreds = await resolveEvolutionCredentials({ evolution, conexao, contaId });
   let sourceUrl = null;
+
+  // API Oficial Meta: Cloud API não expõe foto de perfil do contato (só do business profile).
+  // Não tenta Evolution nesse canal.
+  if (String(canal || '').toLowerCase() === 'meta') {
+    if (fotoAtual && (await isUrlImagemAcessivel(fotoAtual))) {
+      return fotoAtual;
+    }
+    logger.info('fotoPerfil: Meta Cloud API não fornece foto do contato', {
+      contatoId,
+      canal,
+      conexaoId,
+    });
+    return null;
+  }
+
+  const evoCreds = await resolveEvolutionCredentials({ evolution, conexao, contaId });
 
   if (evoCreds?.apikey) {
     sourceUrl = await fetchEvolutionProfilePictureUrl({
@@ -205,7 +220,7 @@ export async function syncContatoFotoPerfil({
   }
 
   if (!sourceUrl) {
-    logger.debug('fotoPerfil: sem URL de origem', { contatoId, canal, conexaoId });
+    logger.info('fotoPerfil: sem URL de origem', { contatoId, canal, conexaoId });
     return null;
   }
 

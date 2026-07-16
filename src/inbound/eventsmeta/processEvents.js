@@ -47,6 +47,16 @@ export async function processEventsAsync(events, inboundConfig) {
   ]);
 }
 
+/** Resultado veio de mensagem inbound (não de status sent/delivered/read). */
+function isInboundMessageResult(result) {
+  return (
+    result?.conversaId != null ||
+    result?.mensagemId != null ||
+    result?.contatoId != null ||
+    Boolean(result?.skipped)
+  );
+}
+
 async function processAllEvents(events, inboundConfig) {
   for (const event of events) {
     try {
@@ -63,6 +73,11 @@ async function processAllEvents(events, inboundConfig) {
           waba_id: event.waba_id,
           error: result.error,
         });
+        continue;
+      }
+
+      // Status-only (sent/delivered/read) ou outros fields: não tenta enfileirar agente.
+      if (!isInboundMessageResult(result)) {
         continue;
       }
 
@@ -117,15 +132,22 @@ async function processAllMediaJobs(jobs, inboundConfig) {
         s3Config: inboundConfig.s3,
       });
 
+      if (!isInboundMessageResult(result)) {
+        continue;
+      }
+
       if (result?.segueFluxoIA) {
         enqueueAgentJob(buildAgentJobFromMetaResult(result));
       } else {
         logger.info('Agente não enfileirado (meta midia)', {
           conversaId: result?.conversaId ?? null,
+          contatoId: result?.contatoId ?? null,
+          mensagemId: result?.mensagemId ?? null,
           segueFluxoIA: Boolean(result?.segueFluxoIA),
           parouPorPausado: Boolean(result?.parouPorPausado),
           creditoEsgotado: Boolean(result?.creditoEsgotado),
           agenteId: result?.agenteId ?? null,
+          motivoAtivacao: result?.motivoAtivacao ?? null,
         });
       }
     } catch (error) {
