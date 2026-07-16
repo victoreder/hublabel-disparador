@@ -117,17 +117,20 @@ function prepareSegments(segments, toolsExecuted = [], conversaId = null) {
 /**
  * Remove frases que só relatam status interno da ação.
  * Mantém o restante da mensagem conversacional (ex.: "Deseja mais alguma coisa?").
+ * Não apaga linhas inteiras só por mencionar "transfer" — isso silenciava o usuário
+ * quando a ação falhava (ex.: setorId ausente) e o modelo narrava a transferência.
  */
 function scrubActionNarration(text) {
   let t = String(text || '');
 
   const linePatterns = [
     /^[^\n]*etiqueta[^\n]*(adicionad|removid|aplicad)[^\n]*$/gim,
-    /^[^\n]*humano notificado[^\n]*$/gim,
-    /^[^\n]*notificaç(ão|ões) enviada[^\n]*$/gim,
-    /^[^\n]*transferido para[^\n]*$/gim,
-    /^[^\n]*campo[^\n]*(salv|atualiz|preench)[^\n]*$/gim,
-    /^[^\n]*a[cç][aã]o executada[^\n]*$/gim,
+    /^humano notificado[^\n]*$/gim,
+    /^notificaç(ão|ões) enviada[^\n]*$/gim,
+    /^transferido para (o )?setor[^\n]*$/gim,
+    /^transferido para (um )?atendente[^\n]*$/gim,
+    /^campo[^\n]*(salv|atualiz|preench)[^\n]*$/gim,
+    /^a[cç][aã]o executada[^\n]*$/gim,
   ];
 
   for (const re of linePatterns) {
@@ -140,8 +143,8 @@ function scrubActionNarration(text) {
     .replace(/via whatsapp\s*\(\+?[\d\s\-()]+\)[^.!?\n]*/gi, '')
     .replace(/etiqueta\s+"[^"]+"\s+removid[ao][^.!?\n]*[.!?]?/gi, '')
     .replace(/etiqueta\s+"[^"]+"\s+adicionad[ao][^.!?\n]*[.!?]?/gi, '')
-    .replace(/humano notificado[^.!?\n]*[.!?]?/gi, '')
-    .replace(/transferido para (um )?atendente[^.!?\n]*[.!?]?/gi, '');
+    .replace(/\bhumano notificado[^.!?\n]*[.!?]?/gi, '')
+    .replace(/\btransferido para (um )?atendente[^.!?\n]*[.!?]?/gi, '');
 
   return t
     .replace(/\n{3,}/g, '\n\n')
@@ -268,11 +271,17 @@ export async function processAgentJob(job) {
         }
         acoesExecutadas += 1;
         tokensExtras += Number(resultado?.tokensExtras ?? 0) || 0;
-        if (resultado?.success === false) {
+        if (resultado?.blocked) {
+          logger.warn('Ação bloqueada (sem [[acao:]] nas instruções)', {
+            conversaId: job.conversaId,
+            tipo: segment.content?.tipo,
+          });
+        } else if (resultado?.success === false) {
           logger.warn('Ação retornou success:false', {
             conversaId: job.conversaId,
             tipo: segment.content?.tipo,
             error: resultado.error,
+            dados: segment.content?.dados ?? null,
           });
         } else {
           logger.info('Ação OK', {

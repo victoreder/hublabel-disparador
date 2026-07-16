@@ -15,6 +15,7 @@ import {
 } from '../../supabase.js';
 import { gerarPreenchimentoCrm } from './crmPreencher.js';
 import { executeNotificarHumano } from './notifyHuman.js';
+import { extractActionsFromText } from './parseActions.js';
 import { classifyChunk } from './parseResponse.js';
 import { tryAcquireActionLock } from './redis.js';
 import { sendAgentChunk } from './sendReply.js';
@@ -213,11 +214,45 @@ async function executarNotificarHumano(acao, ctx) {
   }
 }
 
-async function executarTransferirSetor(acao, ctx) {
-  const setorId = Number(acao.dados?.setorId);
-  if (!setorId) return { success: false, error: 'setorId ausente' };
+/** Aceita setorId em dados, na raiz da ação, ou (fallback) único transferir-setor das instruções. */
+function resolveSetorId(acao, instrucoes) {
+  const candidatos = [
+    acao?.dados?.setorId,
+    acao?.dados?.setor_id,
+    acao?.dados?.id,
+    acao?.dados?.setor?.id,
+    acao?.setorId,
+    acao?.setor_id,
+    acao?.id,
+  ];
+  for (const c of candidatos) {
+    const n = Number(c);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
 
-  const atendenteId = await resolveAtendenteId(acao.dados, {
+  const nasInstrucoes = extractActionsFromText(instrucoes)
+    .filter((a) => normalizeTipo(a?.tipo) === 'transferir-setor')
+    .map((a) => Number(a?.dados?.setorId ?? a?.dados?.setor_id ?? a?.dados?.id ?? a?.setorId))
+    .filter((n) => Number.isFinite(n) && n > 0);
+
+  // Um único setor nas instruções: usa ele (modelo às vezes emite o tipo sem copiar o ID).
+  if (nasInstrucoes.length === 1) return nasInstrucoes[0];
+  return null;
+}
+
+async function executarTransferirSetor(acao, ctx) {
+  const setorId = resolveSetorId(acao, ctx.agente?.instrucoes);
+  if (!setorId) {
+    logger.warn('transferir-setor: setorId ausente', {
+      conversaId: ctx.job?.conversaId,
+      dados: acao?.dados ?? null,
+      acaoKeys: acao ? Object.keys(acao) : [],
+    });
+    return { success: false, error: 'setorId ausente' };
+  }
+
+  const dados = { ...(acao.dados ?? {}), setorId };
+  const atendenteId = await resolveAtendenteId(dados, {
     contaId: ctx.job.contaId,
     setorId,
   });
@@ -438,6 +473,30 @@ const ONCE_PER_CONVERSA = new Set([
   'transferir-agente-ia',
 ]);
 
+/** Textos do agente onde um [[acao:...]] explícito pode autorizar execução. */
+function collectTextosComAcoes(agente) {
+  const textos = [agente?.instrucoes, agente?.abrirAtendimento?.instrucoes];
+  for (const item of agente?.notificarHumano?.itens ?? []) {
+    textos.push(item?.instrucoes);
+  }
+  for (const item of agente?.requisicaoHTTP?.itens ?? []) {
+    textos.push(item?.instrucao ?? item?.instrucoes);
+  }
+  return textos.filter((t) => String(t || '').trim()).join('\n');
+}
+
+/**
+ * Só autoriza ação se existir marcador [[acao:...]] do mesmo tipo nas instruções.
+ * Texto livre ("transfira para o setor X") NÃO autoriza — evita o modelo inventar a ação.
+ */
+export function isActionAuthorizedByInstrucoes(acao, agente) {
+  const tipo = normalizeTipo(acao?.tipo);
+  if (!tipo) return false;
+
+  const autorizadas = extractActionsFromText(collectTextosComAcoes(agente));
+  return autorizadas.some((a) => normalizeTipo(a?.tipo) === tipo);
+}
+
 export async function executeAgentAction(acao, ctx) {
   const tipo = normalizeTipo(acao?.tipo);
   const executor = EXECUTORES[tipo];
@@ -445,6 +504,15 @@ export async function executeAgentAction(acao, ctx) {
   if (!executor) {
     logger.warn('Ação desconhecida', { tipo: acao?.tipo });
     return { success: false, error: `Ação desconhecida: ${acao?.tipo}` };
+  }
+
+  if (!isActionAuthorizedByInstrucoes(acao, ctx.agente)) {
+    logger.warn('Ação bloqueada — não há [[acao:]] correspondente nas instruções', {
+      tipo,
+      conversaId: ctx.job?.conversaId,
+      dados: acao?.dados ?? null,
+    });
+    return { success: false, error: 'acao nao autorizada nas instrucoes', blocked: true };
   }
 
   // Lock no executor (notificar já tem o seu). Transferências: Redis NX.
@@ -475,6 +543,6 @@ export async function executeAgentAction(acao, ctx) {
       conversaId: ctx.job?.conversaId,
       message: error.message,
     });
-    return { success: false, error: error.message, ignorado: true };
+    return { success: false, error: error.message };
   }
 }
