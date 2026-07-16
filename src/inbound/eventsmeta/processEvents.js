@@ -74,10 +74,16 @@ async function processAllEvents(events, inboundConfig) {
       } else {
         logger.info('Agente não enfileirado (meta)', {
           conversaId: result?.conversaId ?? null,
+          contatoId: result?.contatoId ?? null,
+          mensagemId: result?.mensagemId ?? null,
           segueFluxoIA: Boolean(result?.segueFluxoIA),
           parouPorPausado: Boolean(result?.parouPorPausado),
           creditoEsgotado: Boolean(result?.creditoEsgotado),
           agenteId: result?.agenteId ?? null,
+          motivoAtivacao: result?.motivoAtivacao ?? null,
+          skipped: Boolean(result?.skipped),
+          chatOk: result?.ok !== false,
+          chatError: result?.error ?? null,
         });
       }
     } catch (error) {
