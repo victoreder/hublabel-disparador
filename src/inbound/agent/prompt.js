@@ -35,11 +35,56 @@ function blocoNotificarHumano(agente) {
   return texto || null;
 }
 
+function formatExemplos(lista) {
+  if (!Array.isArray(lista) || !lista.length) return null;
+  return lista.map(String).filter(Boolean).join(' | ');
+}
+
 function blocoRequisicaoHttp(agente) {
   if (agente?.requisicaoHTTP?.ativo !== true) return null;
   const itens = agente.requisicaoHTTP.itens ?? [];
-  const texto = itens.map((i) => i.instrucao).filter(Boolean).join('\n-----\n');
-  return texto || null;
+  if (!itens.length) return null;
+
+  const blocos = itens.map((item, index) => {
+    const linhas = [`### REQUISIÇÃO HTTP #${index}`];
+    if (item.quandoAtivar) linhas.push(`Quando ativar: ${item.quandoAtivar}`);
+    if (item.instrucao) linhas.push(item.instrucao);
+    if (item.curl) {
+      linhas.push(`Request (curl): ${item.curl}`);
+    } else if (item.url) {
+      linhas.push(`URL: ${item.url}`);
+      linhas.push(`Método: ${item.method || item.metodo || 'GET'}`);
+      const body = item.body ?? item.corpo;
+      if (body != null && body !== '') {
+        linhas.push(`Body: ${typeof body === 'string' ? body : JSON.stringify(body)}`);
+      }
+    }
+    const ativar = formatExemplos(item.exemplosAtivar || item.exemplos);
+    if (ativar) linhas.push(`Exemplos para ATIVAR: ${ativar}`);
+    const naoAtivar = formatExemplos(item.exemplosNaoAtivar);
+    if (naoAtivar) linhas.push(`Exemplos para NÃO ativar: ${naoAtivar}`);
+    if (Array.isArray(item.variaveis) && item.variaveis.length) {
+      linhas.push(
+        `Variáveis a preencher no body: ${item.variaveis
+          .map((v) => `{{${v.nome || v}}}`)
+          .join(', ')}`,
+      );
+    }
+    linhas.push(
+      `Para executar: PREFIRA a ferramenta REQUISICAO_DINAMICA com httpIndex=${index} (preencha body se houver variáveis). Alternativa: [[acao:{"tipo":"ferramenta-http","dados":{"httpIndex":${index}}}]]`,
+    );
+    return linhas.join('\n');
+  });
+
+  return [
+    '## FERRAMENTA HTTP',
+    '- Quando a condição "Quando ativar" for atendida, chame REQUISICAO_DINAMICA.',
+    '- A resposta da API volta para você (JSON). Use os dados de "data" para responder ao usuário.',
+    '- Só depois de receber o resultado da tool, monte a resposta final ao cliente.',
+    '- Preencha {{variaveis}} no body com dados coletados do usuário antes de chamar a tool.',
+    '- Não invente URL/método diferentes do configurado. Não invente dados que a API não retornou.',
+    ...blocos,
+  ].join('\n');
 }
 
 export function buildSystemPrompt(job, agente) {

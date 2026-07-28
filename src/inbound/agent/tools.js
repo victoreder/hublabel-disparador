@@ -1,59 +1,12 @@
 import {
   abrirAtendimentoHumano,
 } from '../../supabase.js';
+import {
+  applyHttpTemplates,
+  dynamicHttpRequest,
+  resolveHttpRequestConfig,
+} from './httpRequest.js';
 import { executeNotificarHumano } from './notifyHuman.js';
-
-const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
-
-async function dynamicHttpRequest({ url, method, headers, body, queryParams }) {
-  const upperMethod = String(method || 'GET').toUpperCase();
-  if (!url?.trim()) {
-    return { success: false, error: "Campo 'url' é obrigatório." };
-  }
-  if (!VALID_METHODS.has(upperMethod)) {
-    return { success: false, error: `Método '${upperMethod}' inválido.` };
-  }
-
-  if (['POST', 'PUT', 'PATCH'].includes(upperMethod)) {
-    if (!headers || typeof headers !== 'object' || !Object.keys(headers).length) {
-      return { success: false, error: `Para método ${upperMethod}, o campo 'headers' é obrigatório.` };
-    }
-    if (!body || typeof body !== 'object' || !Object.keys(body).length) {
-      return { success: false, error: `Para método ${upperMethod}, o campo 'body' é obrigatório.` };
-    }
-  }
-
-  const targetUrl = new URL(url);
-  if (queryParams && typeof queryParams === 'object') {
-    for (const [key, value] of Object.entries(queryParams)) {
-      if (value != null) targetUrl.searchParams.set(key, String(value));
-    }
-  }
-
-  const init = { method: upperMethod, headers: headers ?? undefined };
-  if (!['GET', 'DELETE'].includes(upperMethod) && body != null) {
-    init.headers = { 'Content-Type': 'application/json', ...headers };
-    init.body = JSON.stringify(body);
-  }
-
-  try {
-    const response = await fetch(targetUrl.toString(), init);
-    const text = await response.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = text ? { message: text } : null;
-    }
-    return {
-      success: response.ok,
-      status: response.status,
-      data,
-    };
-  } catch (error) {
-    return { success: false, status: null, error: error.message, data: null };
-  }
-}
 
 export function buildToolDefinitions(job, agente) {
   const tools = [];
@@ -114,15 +67,31 @@ export function buildToolDefinitions(job, agente) {
       type: 'function',
       function: {
         name: 'REQUISICAO_DINAMICA',
-        description: 'Chame essa ferramenta quando na instrucao for pedido para chamar qualquer ferramenta',
+        description:
+          'Executa a requisição HTTP configurada e DEVOLVE o JSON da resposta para você usar na mensagem ao usuário. Use httpIndex do item (0, 1, ...). Preencha body com as variáveis {{...}} coletadas. URL/método podem ser omitidos (usa o preset). Depois que receber o resultado, responda ao cliente com as informações de data.',
         parameters: {
           type: 'object',
-          required: ['url', 'method', 'headers', 'body'],
           properties: {
-            url: { type: 'string' },
-            method: { type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] },
-            headers: { type: 'object', additionalProperties: { type: 'string' } },
-            body: { type: 'object', additionalProperties: true },
+            httpIndex: {
+              type: 'integer',
+              description: 'Índice do item em requisicaoHTTP.itens (padrão 0)',
+            },
+            url: { type: 'string', description: 'Opcional — sobrescreve a URL do preset' },
+            method: {
+              type: 'string',
+              enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+              description: 'Opcional — sobrescreve o método do preset',
+            },
+            headers: {
+              type: 'object',
+              additionalProperties: { type: 'string' },
+              description: 'Opcional — headers extras',
+            },
+            body: {
+              type: 'object',
+              additionalProperties: true,
+              description: 'Body JSON com variáveis preenchidas',
+            },
             queryParams: { type: 'object', additionalProperties: true },
           },
         },
@@ -158,8 +127,28 @@ export async function executeTool(name, args, { job, agente, agentConfig, search
   }
 
   if (name === 'REQUISICAO_DINAMICA') {
-    const result = await dynamicHttpRequest(args);
-    return JSON.stringify(result);
+    const itens = agente?.requisicaoHTTP?.itens ?? [];
+    const idx = Number(args?.httpIndex ?? 0);
+    const item = itens[Number.isFinite(idx) ? idx : 0] || itens[0] || {};
+    const resolved = applyHttpTemplates(resolveHttpRequestConfig(item, args || {}), { job });
+    const result = await dynamicHttpRequest(resolved);
+    const forAgent = {
+      success: result.success,
+      status: result.status,
+      error: result.error || undefined,
+      data: result.data,
+      instrucao_para_agente:
+        'Use success/status/data para responder ao usuário com as informações relevantes. Não invente dados que não estejam em data.',
+    };
+    let text = JSON.stringify(forAgent);
+    if (text.length > 12_000) {
+      forAgent.data = {
+        _truncado: true,
+        preview: text.slice(0, 10_000),
+      };
+      text = JSON.stringify(forAgent);
+    }
+    return text;
   }
 
   return JSON.stringify({ success: false, error: `Ferramenta desconhecida: ${name}` });

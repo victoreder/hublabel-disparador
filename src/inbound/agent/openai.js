@@ -1,7 +1,28 @@
 import { logger } from '../../logger.js';
+import { normalizeTipo } from './actions.js';
 import { supportsCustomTemperature } from './config.js';
+import { extractActionsFromText } from './parseActions.js';
 import { executeTool, buildToolDefinitions } from './tools.js';
 import { searchKnowledge } from './rag.js';
+
+const HTTP_RESULT_MAX_CHARS = 12_000;
+
+function buildHttpFollowUpMessage(results) {
+  let payload = JSON.stringify(results, null, 2);
+  if (payload.length > HTTP_RESULT_MAX_CHARS) {
+    payload = `${payload.slice(0, HTTP_RESULT_MAX_CHARS)}\n...[truncado]`;
+  }
+  return [
+    'Resultado da(s) requisição(ões) HTTP:',
+    '```json',
+    payload,
+    '```',
+    'Com base nesses dados, responda agora ao usuário de forma natural e útil.',
+    'Use apenas informações presentes no JSON. Não invente.',
+    'Não emita novamente [[acao:ferramenta-http]] para a mesma consulta.',
+    'Não diga que "fez uma requisição/API" — fale só com as informações relevantes.',
+  ].join('\n');
+}
 
 export async function runAgentChat({
   agentConfig,
@@ -98,8 +119,57 @@ export async function runAgentChat({
       continue;
     }
 
+    const content = message.content?.trim() || '';
+
+    // Se o modelo emitiu [[acao:ferramenta-http]] em vez da tool, executa e devolve
+    // o resultado para ele responder com os dados (mesmo ciclo do tool_calls).
+    const httpActions = extractActionsFromText(content).filter(
+      (acao) => normalizeTipo(acao?.tipo) === 'ferramenta-http',
+    );
+    if (
+      httpActions.length &&
+      !toolsExecuted.includes('REQUISICAO_DINAMICA') &&
+      rounds < agentConfig.maxToolRounds
+    ) {
+      messages.push({ role: 'assistant', content: message.content || content });
+
+      const results = [];
+      for (const acao of httpActions) {
+        try {
+          const raw = await executeTool('REQUISICAO_DINAMICA', acao.dados || {}, {
+            job,
+            agente,
+            agentConfig,
+            searchKnowledge,
+          });
+          try {
+            results.push(JSON.parse(raw));
+          } catch {
+            results.push({ success: false, error: 'Resposta HTTP inválida', raw });
+          }
+        } catch (error) {
+          logger.warn('Falha ao executar HTTP via marcador [[acao:]]', {
+            message: error.message,
+          });
+          results.push({ success: false, error: error.message });
+        }
+      }
+
+      toolsExecuted.push('REQUISICAO_DINAMICA');
+      messages.push({
+        role: 'user',
+        content: buildHttpFollowUpMessage(results),
+      });
+
+      logger.info('HTTP via [[acao:]] — resultado devolvido ao agente', {
+        conversaId: job?.conversaId,
+        qtd: results.length,
+      });
+      continue;
+    }
+
     return {
-      content: message.content?.trim() || '',
+      content,
       toolsExecuted,
       totalTokens,
     };

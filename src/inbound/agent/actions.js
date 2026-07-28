@@ -14,50 +14,16 @@ import {
   transferirConversaAgenteIA,
 } from '../../supabase.js';
 import { gerarPreenchimentoCrm } from './crmPreencher.js';
+import {
+  applyHttpTemplates,
+  dynamicHttpRequest,
+  resolveHttpRequestConfig,
+} from './httpRequest.js';
 import { executeNotificarHumano } from './notifyHuman.js';
 import { extractActionsFromText } from './parseActions.js';
 import { classifyChunk } from './parseResponse.js';
 import { tryAcquireActionLock } from './redis.js';
 import { sendAgentChunk } from './sendReply.js';
-
-const VALID_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
-
-async function dynamicHttpRequest({ url, method, headers, body, queryParams }) {
-  const upperMethod = String(method || 'GET').toUpperCase();
-  if (!url?.trim()) {
-    return { success: false, error: "Campo 'url' é obrigatório." };
-  }
-  if (!VALID_METHODS.has(upperMethod)) {
-    return { success: false, error: `Método '${upperMethod}' inválido.` };
-  }
-
-  const targetUrl = new URL(url);
-  if (queryParams && typeof queryParams === 'object') {
-    for (const [key, value] of Object.entries(queryParams)) {
-      if (value != null) targetUrl.searchParams.set(key, String(value));
-    }
-  }
-
-  const init = { method: upperMethod, headers: headers ?? undefined };
-  if (!['GET', 'DELETE'].includes(upperMethod) && body != null) {
-    init.headers = { 'Content-Type': 'application/json', ...headers };
-    init.body = JSON.stringify(body);
-  }
-
-  try {
-    const response = await fetch(targetUrl.toString(), init);
-    const text = await response.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = text ? { message: text } : null;
-    }
-    return { success: response.ok, status: response.status, data };
-  } catch (error) {
-    return { success: false, status: null, error: error.message, data: null };
-  }
-}
 
 function normalizeTipo(tipo) {
   const t = String(tipo || '')
@@ -90,6 +56,12 @@ function normalizeTipo(tipo) {
     'campo_personalizado': 'campo-personalizado',
     'enviar_midia': 'enviar-midia',
     'enviar-media': 'enviar-midia',
+    'ferramenta_http': 'ferramenta-http',
+    'requisicao-http': 'ferramenta-http',
+    'requisicao_http': 'ferramenta-http',
+    'requisicao-dinamica': 'ferramenta-http',
+    'requisicao_dinamica': 'ferramenta-http',
+    http: 'ferramenta-http',
   };
 
   return aliases[t] || t;
@@ -431,23 +403,19 @@ async function executarCrm(acao, ctx) {
 }
 
 async function executarFerramentaHttp(acao, ctx) {
-  const httpIndex = Number(acao.dados?.httpIndex ?? 0);
+  const dados = acao.dados ?? {};
+  const httpIndex = Number(dados.httpIndex ?? 0);
   const itens = ctx.agente?.requisicaoHTTP?.itens ?? [];
-  const item = itens[httpIndex];
+  const item = itens[Number.isFinite(httpIndex) ? httpIndex : 0];
 
-  if (!item) {
+  if (!item && !dados.url) {
     return { success: false, error: `Ferramenta HTTP índice ${httpIndex} não encontrada` };
   }
 
-  const result = await dynamicHttpRequest({
-    url: item.url,
-    method: item.method || item.metodo || 'GET',
-    headers: item.headers ?? {},
-    body: item.body ?? item.corpo ?? {},
-    queryParams: item.queryParams ?? item.params ?? {},
+  const resolved = applyHttpTemplates(resolveHttpRequestConfig(item || {}, dados), {
+    job: ctx.job,
   });
-
-  return result;
+  return dynamicHttpRequest(resolved);
 }
 
 const EXECUTORES = {
@@ -492,6 +460,12 @@ function collectTextosComAcoes(agente) {
 export function isActionAuthorizedByInstrucoes(acao, agente) {
   const tipo = normalizeTipo(acao?.tipo);
   if (!tipo) return false;
+
+  // HTTP do painel costuma vir só com texto livre + curl (sem [[acao:]]).
+  // Se a ferramenta estiver ativa, autoriza o tipo ferramenta-http.
+  if (tipo === 'ferramenta-http' && agente?.requisicaoHTTP?.ativo === true) {
+    return true;
+  }
 
   const autorizadas = extractActionsFromText(collectTextosComAcoes(agente));
   return autorizadas.some((a) => normalizeTipo(a?.tipo) === tipo);
