@@ -1,4 +1,4 @@
-const MEDIA_URL_RE = /\]\((https?:\/\/[^)]+)\)\s*$/m;
+const MEDIA_URL_RE = /\]\((https?:\/\/[^)]+)\)/;
 
 export function splitAgentOutput(output, separarMensagens = true) {
   const text = String(output || '').trim();
@@ -25,6 +25,20 @@ export function classifyChunk(text) {
 export function extractMediaUrl(text) {
   const match = String(text || '').match(MEDIA_URL_RE);
   return match?.[1] || null;
+}
+
+/** Normaliza URL de midia para dedupe (sem query/hash). */
+export function normalizeMediaUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  try {
+    const u = new URL(raw);
+    u.hash = '';
+    u.search = '';
+    return u.toString().replace(/\/$/, '');
+  } catch {
+    return raw.split('?')[0].split('#')[0].replace(/\/$/, '');
+  }
 }
 
 export function plainTextFromChunk(text) {

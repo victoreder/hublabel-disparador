@@ -10,7 +10,12 @@ import {
   parseAgentOutputWithActions,
   stripActionMarkers,
 } from './parseActions.js';
-import { splitAgentOutput } from './parseResponse.js';
+import {
+  classifyChunk,
+  extractMediaUrl,
+  normalizeMediaUrl,
+  splitAgentOutput,
+} from './parseResponse.js';
 import { buildSystemPrompt } from './prompt.js';
 import { preprocessInput } from './preprocess.js';
 import {
@@ -269,11 +274,14 @@ export async function processAgentJob(job) {
   }
 
   const arquivoMap = buildArquivoMapFromInstrucoes(agente.instrucoes);
+  // Evita double-send: [[acao:enviar-midia]] + markdown [(audio)](url) na mesma resposta.
+  const midiasEnviadas = new Set();
   const actionCtx = {
     job,
     agente,
     agentConfig,
     arquivoMap,
+    midiasEnviadas,
     history,
     userMessage: inputText,
     respostaAgente: stripActionMarkers(output),
@@ -333,13 +341,28 @@ export async function processAgentJob(job) {
     for (const chunk of chunks) {
       const textoChunk = scrubActionNarration(stripActionMarkers(chunk.text));
       if (!textoChunk) continue;
+
+      const kind = chunk.kind || classifyChunk(textoChunk);
+      const mediaUrl = normalizeMediaUrl(extractMediaUrl(textoChunk));
+      if (kind !== 'text' && mediaUrl) {
+        if (midiasEnviadas.has(mediaUrl)) {
+          logger.info('Midia duplicada ignorada (já enviada nesta resposta)', {
+            conversaId: job.conversaId,
+            kind,
+            url: mediaUrl,
+          });
+          continue;
+        }
+        midiasEnviadas.add(mediaUrl);
+      }
+
       try {
-        await sendAgentChunk(job, { ...chunk, text: textoChunk }, agentConfig);
+        await sendAgentChunk(job, { ...chunk, kind, text: textoChunk }, agentConfig);
         chunksEnviados += 1;
       } catch (error) {
         logger.error('Falha ao enviar resposta do agente', {
           conversaId: job.conversaId,
-          kind: chunk.kind,
+          kind,
           message: error.message,
         });
       }

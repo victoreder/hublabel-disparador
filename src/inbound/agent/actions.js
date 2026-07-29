@@ -21,7 +21,7 @@ import {
 } from './httpRequest.js';
 import { executeNotificarHumano } from './notifyHuman.js';
 import { extractActionsFromText } from './parseActions.js';
-import { classifyChunk } from './parseResponse.js';
+import { classifyChunk, normalizeMediaUrl } from './parseResponse.js';
 import { tryAcquireActionLock } from './redis.js';
 import { sendAgentChunk } from './sendReply.js';
 
@@ -103,11 +103,22 @@ async function executarEnviarMidia(acao, ctx) {
   }
 
   const type = normalizeMediaType(mediaType, url);
+  const urlNorm = normalizeMediaUrl(url);
+  if (urlNorm && ctx.midiasEnviadas instanceof Set && ctx.midiasEnviadas.has(urlNorm)) {
+    logger.info('enviar-midia: URL já enviada nesta resposta — pulando', {
+      arquivoId: arquivoId || null,
+      url: urlNorm,
+      conversaId: ctx.job?.conversaId,
+    });
+    return { success: true, skipped: true, reason: 'media-already-sent', arquivoId: arquivoId || null, url, tipoArquivo: type };
+  }
+
   // Sem nome/caption — só marcador de tipo para classificar o envio
   const markdown = `[(${type})](${url})`;
   const kind = classifyChunk(markdown);
 
   await sendAgentChunk(ctx.job, { kind, text: markdown }, ctx.agentConfig);
+  if (urlNorm && ctx.midiasEnviadas instanceof Set) ctx.midiasEnviadas.add(urlNorm);
   return { success: true, arquivoId: arquivoId || null, url, tipoArquivo: type };
 }
 
