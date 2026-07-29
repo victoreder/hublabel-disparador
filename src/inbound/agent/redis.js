@@ -11,6 +11,10 @@ function getRedis(redisUrl) {
   return client;
 }
 
+function groupingKey(remoteJid) {
+  return `agent:group:${String(remoteJid || '').trim()}`;
+}
+
 /**
  * Lock atômico para ações 1x (notificar-humano, transferências).
  * Redis SET NX entre réplicas; fallback em memória no mesmo processo.
@@ -40,23 +44,48 @@ export async function tryAcquireActionLock(redisUrl, conversaId, tipo, ttlSec = 
   return true;
 }
 
-export async function pushGroupingMessage(redisUrl, remoteJid, text) {
+export async function pushGroupingMessage(redisUrl, remoteJid, text, ttlSec = 300) {
   const redis = getRedis(redisUrl);
   if (!redis || !remoteJid || !text?.trim()) return;
-  await redis.rpush(remoteJid, text.trim());
+  const key = groupingKey(remoteJid);
+  await redis.rpush(key, text.trim());
+  await redis.expire(key, Math.max(60, Number(ttlSec) || 300));
 }
 
 export async function readGroupingText(redisUrl, remoteJid, limit = 300) {
   const redis = getRedis(redisUrl);
   if (!redis || !remoteJid) return '';
-  const items = await redis.lrange(remoteJid, -limit, -1);
+  const items = await redis.lrange(groupingKey(remoteJid), -limit, -1);
   return items.filter(Boolean).join(' ');
 }
 
 export async function clearGroupingKey(redisUrl, remoteJid) {
   const redis = getRedis(redisUrl);
   if (!redis || !remoteJid) return;
-  await redis.del(remoteJid);
+  await redis.del(groupingKey(remoteJid));
+}
+
+/**
+ * Claim atômico do buffer estável: só um job “ganha” e processa.
+ * Evita double-reply e não apaga mensagens que chegarem durante o LLM.
+ */
+async function claimGroupingText(redisUrl, remoteJid, expected) {
+  const redis = getRedis(redisUrl);
+  if (!redis || !remoteJid) return null;
+
+  const key = groupingKey(remoteJid);
+  const claimKey = `${key}:claim`;
+  const got = await redis.set(claimKey, '1', 'EX', 15, 'NX');
+  if (got !== 'OK') return null;
+
+  try {
+    const current = await readGroupingText(redisUrl, remoteJid);
+    if (!current || current !== expected) return null;
+    await redis.del(key);
+    return current;
+  } finally {
+    await redis.del(claimKey).catch(() => {});
+  }
 }
 
 export function sleep(ms) {
@@ -65,13 +94,18 @@ export function sleep(ms) {
 
 /**
  * Agrupa mensagens rápidas do mesmo contato (espelha MEMORIA1/2 + Filter do n8n).
- * Retorna null se outra mensagem chegou durante o intervalo.
+ * Retorna null se outra mensagem chegou durante o intervalo, ou se outro job já claimou.
+ * Em sucesso, já remove o buffer do Redis (claim) — não limpar de novo no fim do job.
  */
 export async function waitForGroupedText(redisUrl, remoteJid, intervalSeconds) {
   const before = await readGroupingText(redisUrl, remoteJid);
+  if (!before) return null;
+
   const waitMs = Math.max(1, Number(intervalSeconds) || 3) * 1000;
   await sleep(waitMs);
+
   const after = await readGroupingText(redisUrl, remoteJid);
-  if (before !== after) return null;
-  return after;
+  if (!after || before !== after) return null;
+
+  return claimGroupingText(redisUrl, remoteJid, after);
 }

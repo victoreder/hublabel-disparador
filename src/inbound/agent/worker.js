@@ -14,7 +14,6 @@ import { splitAgentOutput } from './parseResponse.js';
 import { buildSystemPrompt } from './prompt.js';
 import { preprocessInput } from './preprocess.js';
 import {
-  clearGroupingKey,
   pushGroupingMessage,
   waitForGroupedText,
 } from './redis.js';
@@ -174,18 +173,46 @@ export async function processAgentJob(job) {
 
   let inputText = textoPreprocessado;
 
-  if (agente.agruparMensagens && agentConfig.redisUrl && job.telefone) {
-    await pushGroupingMessage(agentConfig.redisUrl, job.telefone, textoPreprocessado);
-    const grouped = await waitForGroupedText(
-      agentConfig.redisUrl,
-      job.telefone,
-      agente.intervaloEntreMensagens ?? 3,
-    );
-    if (!grouped) {
-      logger.debug('Mensagem agrupada — aguardando próxima', { telefone: job.telefone });
-      return;
+  const agrupar =
+    agente.agruparMensagens === true ||
+    agente.agruparMensagens === 'true' ||
+    agente.agruparMensagens === 1;
+
+  if (agrupar) {
+    if (!agentConfig.redisUrl) {
+      logger.warn('agruparMensagens ativo, mas REDIS_URL ausente — processando sem agrupar', {
+        agenteId: agente.id,
+        conversaId: job.conversaId,
+      });
+    } else if (job.telefone) {
+      const intervaloSec = Number(agente.intervaloEntreMensagens ?? 3) || 3;
+      await pushGroupingMessage(
+        agentConfig.redisUrl,
+        job.telefone,
+        textoPreprocessado,
+        Math.max(120, intervaloSec * 10),
+      );
+      const grouped = await waitForGroupedText(
+        agentConfig.redisUrl,
+        job.telefone,
+        intervaloSec,
+      );
+      if (!grouped) {
+        logger.info('Mensagem agrupada — aguardando fim do intervalo', {
+          telefone: job.telefone,
+          conversaId: job.conversaId,
+          intervaloSec,
+        });
+        return;
+      }
+      inputText = grouped;
+      logger.info('Mensagens agrupadas — gerando uma resposta', {
+        telefone: job.telefone,
+        conversaId: job.conversaId,
+        intervaloSec,
+        preview: String(grouped).slice(0, 200),
+      });
     }
-    inputText = grouped;
   }
 
   const systemPrompt = buildSystemPrompt(job, agente);
@@ -319,9 +346,8 @@ export async function processAgentJob(job) {
     }
   }
 
-  if (agentConfig.redisUrl && job.telefone) {
-    await clearGroupingKey(agentConfig.redisUrl, job.telefone);
-  }
+  // Buffer de agrupamento já foi claimado em waitForGroupedText — não dar DEL aqui,
+  // senão apaga mensagens que chegaram durante a geração da resposta.
 
   const totalTokens = chatTokens + tokensExtras;
   await saveAgentTokenUsage(agente.id, totalTokens, agente.modelo);
