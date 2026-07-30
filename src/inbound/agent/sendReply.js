@@ -131,7 +131,7 @@ export async function sendAgentChunk(job, chunk, agentConfig) {
   if (apiOficial) {
     sendResult = await sendMetaChunk(job, kind, text, to, agentConfig);
   } else {
-    sendResult = await sendEvolutionChunk(job, kind, text, number);
+    sendResult = await sendEvolutionChunk(job, kind, text, number, agentConfig);
   }
 
   if (kind === 'text') {
@@ -166,23 +166,34 @@ export async function sendAgentChunk(job, chunk, agentConfig) {
     messageEvolutionId: messageId,
   });
 
-  await updateConversaUltimaMensagem({
-    telefone: job.telefone,
-    conexaoId: job.conexaoId,
-    agenteId: job.agenteId,
-  });
+  // Não bloqueia o próximo chunk — update de conversa pode ir em background.
+  Promise.resolve()
+    .then(() =>
+      updateConversaUltimaMensagem({
+        telefone: job.telefone,
+        conexaoId: job.conexaoId,
+        agenteId: job.agenteId,
+      }),
+    )
+    .catch((error) => {
+      logger.warn('Falha ao atualizar última mensagem da conversa', {
+        conversaId: job?.conversaId,
+        message: error?.message || String(error),
+      });
+    });
 
   return { messageId, mensagem: mensagemSalvar, tipoMensagem, arquivoUrl };
 }
 
-async function sendEvolutionChunk(job, kind, text, number) {
+async function sendEvolutionChunk(job, kind, text, number, agentConfig) {
   const instance = job.envio.instance;
+  const delay = Math.max(0, Number(agentConfig?.evolutionSendDelayMs ?? 300) || 0);
 
   if (kind === 'text') {
     return evolutionRequest(job, `/message/sendText/${instance}`, {
       number,
       text,
-      delay: 1000,
+      delay,
     });
   }
 
@@ -191,7 +202,7 @@ async function sendEvolutionChunk(job, kind, text, number) {
     return evolutionRequest(job, `/message/sendText/${instance}`, {
       number,
       text: plainTextFromChunk(text) || text,
-      delay: 1000,
+      delay,
     });
   }
 

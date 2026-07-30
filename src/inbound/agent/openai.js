@@ -96,37 +96,43 @@ export async function runAgentChat({
 
     if (message.tool_calls?.length) {
       messages.push(message);
-      for (const call of message.tool_calls) {
-        let args = {};
-        try {
-          args = JSON.parse(call.function?.arguments || '{}');
-        } catch {
-          args = {};
-        }
 
-        const toolName = call.function?.name;
-        if (toolName) toolsExecuted.push(toolName);
+      const toolResults = await Promise.all(
+        message.tool_calls.map(async (call) => {
+          let args = {};
+          try {
+            args = JSON.parse(call.function?.arguments || '{}');
+          } catch {
+            args = {};
+          }
 
-        let toolResult;
-        try {
-          toolResult = await executeTool(toolName, args, {
-            job,
-            agente,
-            agentConfig,
-            searchKnowledge,
-          });
-        } catch (error) {
-          logger.warn('Falha em tool do agente', {
-            tool: toolName,
-            message: error.message,
-          });
-          toolResult = JSON.stringify({ success: false, error: error.message });
-        }
+          const toolName = call.function?.name;
+          let toolResult;
+          try {
+            toolResult = await executeTool(toolName, args, {
+              job,
+              agente,
+              agentConfig,
+              searchKnowledge,
+            });
+          } catch (error) {
+            logger.warn('Falha em tool do agente', {
+              tool: toolName,
+              message: error.message,
+            });
+            toolResult = JSON.stringify({ success: false, error: error.message });
+          }
 
+          return { id: call.id, toolName, toolResult };
+        }),
+      );
+
+      for (const item of toolResults) {
+        if (item.toolName) toolsExecuted.push(item.toolName);
         messages.push({
           role: 'tool',
-          tool_call_id: call.id,
-          content: toolResult,
+          tool_call_id: item.id,
+          content: item.toolResult,
         });
       }
       continue;
@@ -146,27 +152,28 @@ export async function runAgentChat({
     ) {
       messages.push({ role: 'assistant', content: message.content || content });
 
-      const results = [];
-      for (const acao of httpActions) {
-        try {
-          const raw = await executeTool('REQUISICAO_DINAMICA', acao.dados || {}, {
-            job,
-            agente,
-            agentConfig,
-            searchKnowledge,
-          });
+      const results = await Promise.all(
+        httpActions.map(async (acao) => {
           try {
-            results.push(JSON.parse(raw));
-          } catch {
-            results.push({ success: false, error: 'Resposta HTTP inválida', raw });
+            const raw = await executeTool('REQUISICAO_DINAMICA', acao.dados || {}, {
+              job,
+              agente,
+              agentConfig,
+              searchKnowledge,
+            });
+            try {
+              return JSON.parse(raw);
+            } catch {
+              return { success: false, error: 'Resposta HTTP inválida', raw };
+            }
+          } catch (error) {
+            logger.warn('Falha ao executar HTTP via marcador [[acao:]]', {
+              message: error.message,
+            });
+            return { success: false, error: error.message };
           }
-        } catch (error) {
-          logger.warn('Falha ao executar HTTP via marcador [[acao:]]', {
-            message: error.message,
-          });
-          results.push({ success: false, error: error.message });
-        }
-      }
+        }),
+      );
 
       toolsExecuted.push('REQUISICAO_DINAMICA');
       messages.push({

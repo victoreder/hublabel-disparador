@@ -109,7 +109,7 @@ async function getRedisProcessing(redis, key) {
 }
 
 async function setProcessing(redis, key, state, ttlSec = 600) {
-  localActive.set(key, { ...state, status: 'running' });
+  localActive.set(key, { ...state, status: 'running', hasStartedSending: false });
   if (!redis) return;
   await redis.set(
     procKey(key),
@@ -150,6 +150,11 @@ function abortLocal(key, reason) {
   return true;
 }
 
+function markSending(key) {
+  const local = localActive.get(key);
+  if (local) local.hasStartedSending = true;
+}
+
 function isAgrupar(agente) {
   return (
     agente?.agruparMensagens === true ||
@@ -173,7 +178,6 @@ export async function handleConversationTurn({
   const redis = getRedis(agentConfig.redisUrl);
   const agrupar = isAgrupar(agente);
   const intervalSec = Number(agente?.intervaloEntreMensagens ?? 3) || 3;
-  const cancelWindowMs = Number(agentConfig.cancelWindowMs ?? 1500) || 1500;
   const ttlSec = Math.max(120, intervalSec * 10);
   const msg = String(text || '').trim();
   if (!msg) return;
@@ -183,43 +187,27 @@ export async function handleConversationTurn({
   const active = localProc || redisProc;
 
   if (active?.generationId) {
-    const startedAt = Number(active.startedAt || 0);
-    const age = Date.now() - startedAt;
+    const age = Date.now() - Number(active.startedAt || 0);
+    const canAbort =
+      Boolean(localProc?.abortController) && localProc.hasStartedSending !== true;
 
-    if (age <= cancelWindowMs && localProc?.abortController) {
-      logger.info('ConvControl: mensagem no início da geração — cancelando e reagrupando', {
+    if (canAbort) {
+      logger.info('ConvControl: msg antes do envio — abortando LLM e reagrupando', {
         key,
         conversaId: job.conversaId,
         ageMs: age,
-        cancelWindowMs,
         generationId: active.generationId,
       });
-      abortLocal(key, 'restart-early');
-      await clearProcessing(redis, key, active.generationId);
-      if (active.inputText) {
-        await listPush(redis, groupKey(key), active.inputText, ttlSec);
-      }
-      await listPush(redis, groupKey(key), msg, ttlSec);
-      const waitSec = agrupar ? intervalSec : 0.4;
-      scheduleDebounce(key, waitSec, () =>
-        startGroupedProcessing({
-          key,
-          job,
-          agentConfig,
-          intervalSec: waitSec,
-          ttlSec,
-          runGeneration,
-          analyzePending,
-        }),
-      );
+      await listPush(redis, pendingKey(key), msg, ttlSec);
+      abortLocal(key, 'restart-before-send');
+      // O runProcessing em andamento captura AbortError, junta input+pendente e regenera.
       return;
     }
 
-    logger.info('ConvControl: mensagem durante geração avançada — pendente', {
+    logger.info('ConvControl: mensagem durante envio — pendente', {
       key,
       conversaId: job.conversaId,
       ageMs: age,
-      cancelWindowMs,
       generationId: active.generationId,
     });
     await listPush(redis, pendingKey(key), msg, ttlSec);
@@ -318,6 +306,11 @@ async function startGroupedProcessing({
   });
 }
 
+async function claimPendingText(redis, key) {
+  const items = await listClaim(redis, pendingKey(key));
+  return joinMessages(items);
+}
+
 async function runProcessing({
   key,
   job,
@@ -363,33 +356,21 @@ async function runProcessing({
     result = await runGeneration(inputText, {
       signal: abortController.signal,
       generationId,
+      markSending: () => markSending(key),
       beforeSend: async () => {
-        const pendingItems = await listClaim(redis, pendingKey(key));
-        if (!pendingItems.length) return { defer: false };
-        const pendingText = joinMessages(pendingItems);
+        const pendingText = await claimPendingText(redis, key);
+        if (!pendingText) return { defer: false };
         logger.info('ConvControl: pendente antes do envio — descartando rascunho', {
           key,
           conversaId: job.conversaId,
           generationId,
-          qtd: pendingItems.length,
           pendingPreview: pendingText.slice(0, 200),
         });
         return { defer: true, pendingText };
       },
     });
 
-    if (abortController.signal.aborted || result?.aborted) {
-      aborted = true;
-      logger.info('ConvControl: processamento abortado — sem envio', {
-        key,
-        conversaId: job.conversaId,
-        generationId,
-      });
-      return;
-    }
-
-    if (result?.deferred && result?.pendingText) {
-      aborted = true;
+    if (result?.deferred && result.pendingText) {
       restartCombined = joinMessages([inputText, result.pendingText]);
       logger.info('ConvControl: regenerando com input + pendente (sem enviar rascunho)', {
         key,
@@ -397,27 +378,55 @@ async function runProcessing({
         generationId,
         preview: restartCombined.slice(0, 200),
       });
-      return;
-    }
-
-    logger.info('ConvControl: resposta enviada', {
-      key,
-      conversaId: job.conversaId,
-      generationId,
-      preview: String(result?.replyText || '').slice(0, 200),
-    });
-  } catch (error) {
-    if (error?.name === 'AbortError' || abortController.signal.aborted) {
+    } else if (abortController.signal.aborted || result?.aborted) {
       aborted = true;
-      logger.info('ConvControl: AbortError', {
+      const pendingText = await claimPendingText(redis, key);
+      if (pendingText) {
+        restartCombined = joinMessages([inputText, pendingText]);
+        logger.info('ConvControl: abort com pendente — regenerando', {
+          key,
+          conversaId: job.conversaId,
+          generationId,
+          preview: restartCombined.slice(0, 200),
+        });
+      } else {
+        logger.info('ConvControl: processamento abortado — sem envio', {
+          key,
+          conversaId: job.conversaId,
+          generationId,
+        });
+      }
+    } else {
+      logger.info('ConvControl: resposta enviada', {
         key,
         conversaId: job.conversaId,
         generationId,
-        message: error?.message,
+        preview: String(result?.replyText || '').slice(0, 200),
       });
-      return;
     }
-    throw error;
+  } catch (error) {
+    if (error?.name === 'AbortError' || abortController.signal.aborted) {
+      aborted = true;
+      const pendingText = await claimPendingText(redis, key);
+      if (pendingText) {
+        restartCombined = joinMessages([inputText, pendingText]);
+        logger.info('ConvControl: AbortError com pendente — regenerando', {
+          key,
+          conversaId: job.conversaId,
+          generationId,
+          preview: restartCombined.slice(0, 200),
+        });
+      } else {
+        logger.info('ConvControl: AbortError', {
+          key,
+          conversaId: job.conversaId,
+          generationId,
+          message: error?.message,
+        });
+      }
+    } else {
+      throw error;
+    }
   } finally {
     await clearProcessing(redis, key, generationId);
     logger.info('ConvControl: processamento finalizado (lock liberado)', {
@@ -427,8 +436,13 @@ async function runProcessing({
     });
   }
 
-  // Regenera imediatamente com as 2+ mensagens (sem debounce longo).
+  // NÃO dar return no try — senão a regeneração abaixo nunca roda.
   if (restartCombined) {
+    logger.info('ConvControl: iniciando regeneração imediata', {
+      key,
+      conversaId: job.conversaId,
+      preview: restartCombined.slice(0, 200),
+    });
     await runProcessing({
       key,
       job,
@@ -441,8 +455,7 @@ async function runProcessing({
     return;
   }
 
-  // Pendentes que chegaram durante o envio — só depois de liberar o lock.
-  if (!aborted && result) {
+  if (!aborted && result && !result.deferred) {
     await processPendingsAfterReply({
       key,
       job,
@@ -515,7 +528,6 @@ async function processPendingsAfterReply({
     conversaId: job.conversaId,
   });
 
-  // Já houve resposta ao usuário; processa só a pendente, sem esperar o intervalo de agrupamento.
   await runProcessing({
     key,
     job,

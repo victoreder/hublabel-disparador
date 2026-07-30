@@ -154,10 +154,42 @@ function scrubActionNarration(text) {
     .trim();
 }
 
+/** Ações que o usuário “vê” e devem manter ordem relativa ao texto. */
+const USER_FACING_ACTIONS = new Set(['enviar-midia']);
+
+function prioritizeSegmentsForFastReply(segments) {
+  const primary = [];
+  const deferred = [];
+  for (const segment of segments) {
+    if (segment.type === 'action') {
+      const tipo = normalizeTipo(segment.content?.tipo);
+      if (USER_FACING_ACTIONS.has(tipo)) primary.push(segment);
+      else deferred.push(segment);
+    } else {
+      primary.push(segment);
+    }
+  }
+  return [...primary, ...deferred];
+}
+
+function trackTokenUsageInBackground(agente, job, agentConfig, totalTokens) {
+  Promise.resolve()
+    .then(async () => {
+      await saveAgentTokenUsage(agente.id, totalTokens, agente.modelo);
+      await notifyTokenUsage(job, agentConfig);
+    })
+    .catch((error) => {
+      logger.warn('Falha ao salvar/notificar tokens do agente', {
+        conversaId: job?.conversaId,
+        message: error?.message || String(error),
+      });
+    });
+}
+
 /**
  * Gera e envia a resposta. Respeita AbortSignal — se abortado cedo, não envia.
  */
-async function runAgentGeneration(job, agente, agentConfig, inputText, { signal, beforeSend } = {}) {
+async function runAgentGeneration(job, agente, agentConfig, inputText, { signal, beforeSend, markSending } = {}) {
   if (signal?.aborted) {
     const err = new Error('Geração abortada');
     err.name = 'AbortError';
@@ -212,7 +244,9 @@ async function runAgentGeneration(job, agente, agentConfig, inputText, { signal,
   }
 
   const rawSegments = parseAgentOutputWithActions(output);
-  const segments = prepareSegments(rawSegments, toolsExecuted, job.conversaId);
+  const segments = prioritizeSegmentsForFastReply(
+    prepareSegments(rawSegments, toolsExecuted, job.conversaId),
+  );
   const acoesNoOutput = rawSegments.filter((s) => s.type === 'action').map((s) => s.content?.tipo);
   const acoesAposDedupe = segments.filter((s) => s.type === 'action').map((s) => s.content?.tipo);
 
@@ -246,15 +280,7 @@ async function runAgentGeneration(job, agente, agentConfig, inputText, { signal,
     const gate = await beforeSend();
     if (gate?.defer) {
       if (chatTokens > 0) {
-        try {
-          await saveAgentTokenUsage(agente.id, chatTokens, agente.modelo);
-          await notifyTokenUsage(job, agentConfig);
-        } catch (error) {
-          logger.warn('Falha ao salvar tokens do rascunho descartado', {
-            conversaId: job.conversaId,
-            message: error.message,
-          });
-        }
+        trackTokenUsageInBackground(agente, job, agentConfig, chatTokens);
       }
       logger.info('ConvControl: rascunho descartado (pendente antes do envio)', {
         conversaId: job.conversaId,
@@ -269,6 +295,10 @@ async function runAgentGeneration(job, agente, agentConfig, inputText, { signal,
         aborted: false,
       };
     }
+  }
+
+  if (typeof markSending === 'function') {
+    markSending();
   }
 
   const midiasEnviadas = new Set();
@@ -404,8 +434,7 @@ async function runAgentGeneration(job, agente, agentConfig, inputText, { signal,
   }
 
   const totalTokens = chatTokens + tokensExtras;
-  await saveAgentTokenUsage(agente.id, totalTokens, agente.modelo);
-  await notifyTokenUsage(job, agentConfig);
+  trackTokenUsageInBackground(agente, job, agentConfig, totalTokens);
 
   logger.info('Agente IA processado', {
     canal: job.canal,
@@ -425,8 +454,11 @@ async function runAgentGeneration(job, agente, agentConfig, inputText, { signal,
 }
 
 export async function processAgentJob(job) {
-  const agentConfig = await getAgentConfig();
-  const agente = job.agente ?? (job.agenteId ? await fetchAgente(job.agenteId) : null);
+  const [agentConfig, agenteLoaded] = await Promise.all([
+    getAgentConfig(),
+    job.agente ? Promise.resolve(job.agente) : job.agenteId ? fetchAgente(job.agenteId) : Promise.resolve(null),
+  ]);
+  const agente = job.agente ?? agenteLoaded;
 
   if (!agente) {
     logger.warn('Agente IA não encontrado', { agenteId: job.agenteId });

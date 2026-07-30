@@ -9,8 +9,22 @@ function optionalInt(name, fallback) {
   return parsed;
 }
 
+let cachedOpenAiKey = null;
+let cachedOpenAiKeyAt = 0;
+const OPENAI_KEY_TTL_MS = 5 * 60 * 1000;
+
+async function getCachedOpenAiKey() {
+  const now = Date.now();
+  if (cachedOpenAiKey && now - cachedOpenAiKeyAt < OPENAI_KEY_TTL_MS) {
+    return cachedOpenAiKey;
+  }
+  cachedOpenAiKey = await fetchOpenAIApiKey();
+  cachedOpenAiKeyAt = now;
+  return cachedOpenAiKey;
+}
+
 export async function getAgentConfig() {
-  const openaiApiKey = await fetchOpenAIApiKey();
+  const openaiApiKey = await getCachedOpenAiKey();
 
   return {
     openaiApiKey,
@@ -24,6 +38,8 @@ export async function getAgentConfig() {
     /** Janela (ms) para cancelar geração no início quando chega nova mensagem */
     cancelWindowMs: optionalInt('AGENT_CANCEL_WINDOW_MS', 1500),
     pendingAnalysisModel: process.env.AGENT_PENDING_ANALYSIS_MODEL?.trim() || 'gpt-4o-mini',
+    /** Delay Evolution sendText (ms). Default 300 — antes era 1000 fixo. */
+    evolutionSendDelayMs: optionalInt('AGENT_EVOLUTION_SEND_DELAY_MS', 300),
   };
 }
 
