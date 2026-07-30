@@ -357,11 +357,25 @@ async function runProcessing({
 
   let result = null;
   let aborted = false;
+  let restartCombined = null;
 
   try {
     result = await runGeneration(inputText, {
       signal: abortController.signal,
       generationId,
+      beforeSend: async () => {
+        const pendingItems = await listClaim(redis, pendingKey(key));
+        if (!pendingItems.length) return { defer: false };
+        const pendingText = joinMessages(pendingItems);
+        logger.info('ConvControl: pendente antes do envio — descartando rascunho', {
+          key,
+          conversaId: job.conversaId,
+          generationId,
+          qtd: pendingItems.length,
+          pendingPreview: pendingText.slice(0, 200),
+        });
+        return { defer: true, pendingText };
+      },
     });
 
     if (abortController.signal.aborted || result?.aborted) {
@@ -370,6 +384,18 @@ async function runProcessing({
         key,
         conversaId: job.conversaId,
         generationId,
+      });
+      return;
+    }
+
+    if (result?.deferred && result?.pendingText) {
+      aborted = true;
+      restartCombined = joinMessages([inputText, result.pendingText]);
+      logger.info('ConvControl: regenerando com input + pendente (sem enviar rascunho)', {
+        key,
+        conversaId: job.conversaId,
+        generationId,
+        preview: restartCombined.slice(0, 200),
       });
       return;
     }
@@ -401,7 +427,21 @@ async function runProcessing({
     });
   }
 
-  // Pendentes só depois de liberar o lock — senão o reprocessamento vira "já ativo".
+  // Regenera imediatamente com as 2+ mensagens (sem debounce longo).
+  if (restartCombined) {
+    await runProcessing({
+      key,
+      job,
+      agentConfig,
+      inputText: restartCombined,
+      runGeneration,
+      analyzePending,
+      ttlSec,
+    });
+    return;
+  }
+
+  // Pendentes que chegaram durante o envio — só depois de liberar o lock.
   if (!aborted && result) {
     await processPendingsAfterReply({
       key,
@@ -470,38 +510,19 @@ async function processPendingsAfterReply({
     return;
   }
 
-  logger.info('ConvControl: pendente precisa de resposta — reentrando no fluxo', {
+  logger.info('ConvControl: pendente precisa de resposta — reprocessando agora', {
     key,
     conversaId: job.conversaId,
   });
 
-  const agrupar = isAgrupar(job?.agente);
-  const intervalSec = Number(job?.agente?.intervaloEntreMensagens ?? 3) || 3;
-
-  await listPush(redis, groupKey(key), pendingText, ttlSec);
-
-  if (!agrupar) {
-    await startGroupedProcessing({
-      key,
-      job,
-      agentConfig,
-      intervalSec: 0.4,
-      ttlSec,
-      runGeneration,
-      analyzePending,
-    });
-    return;
-  }
-
-  scheduleDebounce(key, intervalSec, () =>
-    startGroupedProcessing({
-      key,
-      job,
-      agentConfig,
-      intervalSec,
-      ttlSec,
-      runGeneration,
-      analyzePending,
-    }),
-  );
+  // Já houve resposta ao usuário; processa só a pendente, sem esperar o intervalo de agrupamento.
+  await runProcessing({
+    key,
+    job,
+    agentConfig,
+    inputText: pendingText,
+    runGeneration,
+    analyzePending,
+    ttlSec,
+  });
 }

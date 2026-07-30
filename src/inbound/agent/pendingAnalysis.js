@@ -37,10 +37,12 @@ export async function analyzePendingCovered({
   const model = agentConfig.pendingAnalysisModel || 'gpt-4o-mini';
   const prompt = [
     'Você é um classificador. Responda APENAS com SIM ou NAO.',
-    'Pergunta: a RESPOSTA_DO_AGENTE já atende de forma razoável a MENSAGEM_PENDENTE?',
-    'Considere também a MENSAGEM_ORIGINAL que gerou essa resposta.',
-    'SIM = a pendente já foi respondida (não precisa nova resposta).',
-    'NAO = a pendente traz pergunta/assunto novo que ainda não foi respondido.',
+    'A RESPOSTA_DO_AGENTE já responde de forma útil a MENSAGEM_PENDENTE?',
+    'SIM = a pendente já foi respondida (não precisa nova resposta do agente).',
+    'NAO = a pendente traz pergunta, dado ou assunto que a resposta NÃO cobre.',
+    'NAO também se a pendente responde uma pergunta que a própria RESPOSTA_DO_AGENTE acabou de fazer',
+    '(ex.: agente pergunta "quantos clientes?" e a pendente diz "uns 30") — isso precisa de nova resposta.',
+    'Na dúvida, responda NAO.',
     '',
     `MENSAGEM_ORIGINAL:\n${input.slice(0, 1500)}`,
     '',

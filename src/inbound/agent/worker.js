@@ -157,7 +157,7 @@ function scrubActionNarration(text) {
 /**
  * Gera e envia a resposta. Respeita AbortSignal — se abortado cedo, não envia.
  */
-async function runAgentGeneration(job, agente, agentConfig, inputText, { signal } = {}) {
+async function runAgentGeneration(job, agente, agentConfig, inputText, { signal, beforeSend } = {}) {
   if (signal?.aborted) {
     const err = new Error('Geração abortada');
     err.name = 'AbortError';
@@ -240,6 +240,36 @@ async function runAgentGeneration(job, agente, agentConfig, inputText, { signal 
   const temAcaoEnviarMidia = segments.some(
     (s) => s.type === 'action' && normalizeTipo(s.content?.tipo) === 'enviar-midia',
   );
+
+  // Se chegou mensagem durante o LLM, descarta o rascunho e regenera com tudo junto.
+  if (typeof beforeSend === 'function') {
+    const gate = await beforeSend();
+    if (gate?.defer) {
+      if (chatTokens > 0) {
+        try {
+          await saveAgentTokenUsage(agente.id, chatTokens, agente.modelo);
+          await notifyTokenUsage(job, agentConfig);
+        } catch (error) {
+          logger.warn('Falha ao salvar tokens do rascunho descartado', {
+            conversaId: job.conversaId,
+            message: error.message,
+          });
+        }
+      }
+      logger.info('ConvControl: rascunho descartado (pendente antes do envio)', {
+        conversaId: job.conversaId,
+        telefone: job.telefone,
+        pendingPreview: String(gate.pendingText || '').slice(0, 200),
+      });
+      return {
+        deferred: true,
+        pendingText: gate.pendingText,
+        inputText,
+        replyText: '',
+        aborted: false,
+      };
+    }
+  }
 
   const midiasEnviadas = new Set();
   const actionCtx = {
