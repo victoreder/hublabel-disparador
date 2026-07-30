@@ -6,11 +6,37 @@ import {
   extractMediaUrl,
   fileNameFromUrl,
   guessMimeFromUrl,
+  normalizeMediaUrl,
   plainTextFromChunk,
 } from './parseResponse.js';
 
+/** Evita reenviar a mesma URL de midia para o mesmo contato (ação + markdown, jobs paralelos). */
+const recentMediaSends = new Map();
+const MEDIA_DEDUPE_MS = 120_000;
+
 function telefoneDigits(remoteJid) {
   return String(remoteJid || '').replace('@s.whatsapp.net', '').replace(/\D/g, '');
+}
+
+function mediaDedupeKey(job, url) {
+  const who = job?.conversaId || job?.telefone || 'x';
+  return `${who}:${normalizeMediaUrl(url)}`;
+}
+
+function shouldSkipDuplicateMedia(job, url) {
+  const norm = normalizeMediaUrl(url);
+  if (!norm) return false;
+  const key = mediaDedupeKey(job, norm);
+  const now = Date.now();
+  const prev = recentMediaSends.get(key);
+  if (prev && now - prev < MEDIA_DEDUPE_MS) return true;
+  recentMediaSends.set(key, now);
+  if (recentMediaSends.size > 2000) {
+    for (const [k, ts] of recentMediaSends) {
+      if (now - ts > MEDIA_DEDUPE_MS) recentMediaSends.delete(k);
+    }
+  }
+  return false;
 }
 
 async function evolutionRequest(job, path, body) {
@@ -81,6 +107,18 @@ export async function sendAgentChunk(job, chunk, agentConfig) {
   const text = stripActionMarkers(chunk.text);
   if (!text) return null;
 
+  if (kind !== 'text') {
+    const mediaUrl = extractMediaUrl(text);
+    if (mediaUrl && shouldSkipDuplicateMedia(job, mediaUrl)) {
+      logger.info('Midia bloqueada (duplicata recente)', {
+        conversaId: job?.conversaId,
+        kind,
+        url: normalizeMediaUrl(mediaUrl),
+      });
+      return { skipped: true, reason: 'duplicate-media', arquivoUrl: mediaUrl };
+    }
+  }
+
   const apiOficial = Boolean(job.envio?.apiOficial);
   const number = job.telefone;
   const to = telefoneDigits(number);
@@ -101,7 +139,6 @@ export async function sendAgentChunk(job, chunk, agentConfig) {
     tipoMensagem = 'conversation';
   } else {
     arquivoUrl = extractMediaUrl(text);
-    // Nunca salvar/exibir nome do arquivo como caption
     mensagemSalvar = `[${kind}]`;
     tipoMensagem =
       kind === 'image'

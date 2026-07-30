@@ -1,0 +1,507 @@
+import { logger } from '../../logger.js';
+import Redis from 'ioredis';
+
+let redisClient = null;
+const debounceTimers = new Map();
+const localActive = new Map();
+
+function getRedis(redisUrl) {
+  if (!redisUrl) return null;
+  if (!redisClient) {
+    redisClient = new Redis(redisUrl, { maxRetriesPerRequest: 2, lazyConnect: true });
+  }
+  return redisClient;
+}
+
+export function conversationKey(job) {
+  if (job?.conversaId != null) return `c:${job.conversaId}`;
+  return `t:${job?.conexaoId || 'x'}:${String(job?.telefone || '').trim()}`;
+}
+
+function groupKey(key) {
+  return `agent:ctrl:${key}:group`;
+}
+function pendingKey(key) {
+  return `agent:ctrl:${key}:pending`;
+}
+function procKey(key) {
+  return `agent:ctrl:${key}:proc`;
+}
+
+async function listPush(redis, key, text, ttlSec = 600) {
+  const value = String(text || '').trim();
+  if (!value) return;
+
+  if (redis) {
+    await redis.rpush(key, value);
+    await redis.expire(key, Math.max(60, ttlSec));
+    return;
+  }
+
+  const memKey = `mem:${key}`;
+  if (!localActive.has(memKey)) localActive.set(memKey, { list: [] });
+  const bucket = localActive.get(memKey);
+  if (!Array.isArray(bucket.list)) bucket.list = [];
+  bucket.list.push(value);
+}
+
+async function listClaim(redis, key) {
+  if (redis) {
+    const items = await redis.lrange(key, 0, -1);
+    if (!items.length) return [];
+    await redis.del(key);
+    return items.filter(Boolean);
+  }
+  const memKey = `mem:${key}`;
+  const bucket = localActive.get(memKey);
+  const items = Array.isArray(bucket?.list) ? bucket.list.slice() : [];
+  if (bucket) bucket.list = [];
+  return items.filter(Boolean);
+}
+
+function joinMessages(items) {
+  return items.filter(Boolean).join('\n');
+}
+
+export function clearDebounceTimer(key) {
+  const t = debounceTimers.get(key);
+  if (t) {
+    clearTimeout(t);
+    debounceTimers.delete(key);
+  }
+}
+
+function scheduleDebounce(key, intervalSec, fn) {
+  clearDebounceTimer(key);
+  const waitMs = Math.max(1, Math.round((Number(intervalSec) || 3) * 1000));
+  logger.info('ConvControl: timer agrupamento (re)iniciado', { key, intervalSec, waitMs });
+  const timer = setTimeout(() => {
+    debounceTimers.delete(key);
+    Promise.resolve()
+      .then(fn)
+      .catch((error) => {
+        logger.error('ConvControl: falha após agrupamento', {
+          key,
+          message: error?.message || String(error),
+        });
+      });
+  }, waitMs);
+  debounceTimers.set(key, timer);
+}
+
+function getLocalProcessing(key) {
+  const state = localActive.get(key);
+  if (!state?.generationId || state.status !== 'running') return null;
+  return state;
+}
+
+async function getRedisProcessing(redis, key) {
+  if (!redis) return null;
+  try {
+    const raw = await redis.get(procKey(key));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.generationId) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function setProcessing(redis, key, state, ttlSec = 600) {
+  localActive.set(key, { ...state, status: 'running' });
+  if (!redis) return;
+  await redis.set(
+    procKey(key),
+    JSON.stringify({
+      generationId: state.generationId,
+      startedAt: state.startedAt,
+      inputText: state.inputText,
+    }),
+    'EX',
+    ttlSec,
+  );
+}
+
+async function clearProcessing(redis, key, generationId) {
+  const local = localActive.get(key);
+  if (local?.generationId === generationId) {
+    localActive.delete(key);
+  }
+  if (!redis) return;
+  try {
+    const raw = await redis.get(procKey(key));
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed?.generationId === generationId) {
+      await redis.del(procKey(key));
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function abortLocal(key, reason) {
+  const local = localActive.get(key);
+  if (!local?.abortController) return false;
+  if (!local.abortController.signal.aborted) {
+    local.abortController.abort(reason || 'cancelled');
+  }
+  return true;
+}
+
+function isAgrupar(agente) {
+  return (
+    agente?.agruparMensagens === true ||
+    agente?.agruparMensagens === 'true' ||
+    agente?.agruparMensagens === 1
+  );
+}
+
+/**
+ * Entrada principal do controle por conversa.
+ */
+export async function handleConversationTurn({
+  job,
+  agente,
+  agentConfig,
+  text,
+  runGeneration,
+  analyzePending,
+}) {
+  const key = conversationKey(job);
+  const redis = getRedis(agentConfig.redisUrl);
+  const agrupar = isAgrupar(agente);
+  const intervalSec = Number(agente?.intervaloEntreMensagens ?? 3) || 3;
+  const cancelWindowMs = Number(agentConfig.cancelWindowMs ?? 1500) || 1500;
+  const ttlSec = Math.max(120, intervalSec * 10);
+  const msg = String(text || '').trim();
+  if (!msg) return;
+
+  const localProc = getLocalProcessing(key);
+  const redisProc = localProc ? null : await getRedisProcessing(redis, key);
+  const active = localProc || redisProc;
+
+  if (active?.generationId) {
+    const startedAt = Number(active.startedAt || 0);
+    const age = Date.now() - startedAt;
+
+    if (age <= cancelWindowMs && localProc?.abortController) {
+      logger.info('ConvControl: mensagem no início da geração — cancelando e reagrupando', {
+        key,
+        conversaId: job.conversaId,
+        ageMs: age,
+        cancelWindowMs,
+        generationId: active.generationId,
+      });
+      abortLocal(key, 'restart-early');
+      await clearProcessing(redis, key, active.generationId);
+      if (active.inputText) {
+        await listPush(redis, groupKey(key), active.inputText, ttlSec);
+      }
+      await listPush(redis, groupKey(key), msg, ttlSec);
+      const waitSec = agrupar ? intervalSec : 0.4;
+      scheduleDebounce(key, waitSec, () =>
+        startGroupedProcessing({
+          key,
+          job,
+          agentConfig,
+          intervalSec: waitSec,
+          ttlSec,
+          runGeneration,
+          analyzePending,
+        }),
+      );
+      return;
+    }
+
+    logger.info('ConvControl: mensagem durante geração avançada — pendente', {
+      key,
+      conversaId: job.conversaId,
+      ageMs: age,
+      cancelWindowMs,
+      generationId: active.generationId,
+    });
+    await listPush(redis, pendingKey(key), msg, ttlSec);
+    return;
+  }
+
+  if (!agrupar) {
+    logger.info('ConvControl: sem agrupamento — processando direto', {
+      key,
+      conversaId: job.conversaId,
+    });
+    await runProcessing({
+      key,
+      job,
+      agentConfig,
+      inputText: msg,
+      runGeneration,
+      analyzePending,
+      ttlSec,
+    });
+    return;
+  }
+
+  if (!agentConfig.redisUrl) {
+    logger.warn('ConvControl: agrupamento sem Redis — usando memória local', {
+      key,
+      conversaId: job.conversaId,
+    });
+  }
+
+  await listPush(redis, groupKey(key), msg, ttlSec);
+  logger.info('ConvControl: mensagem no buffer de agrupamento', {
+    key,
+    conversaId: job.conversaId,
+    intervalSec,
+    preview: msg.slice(0, 120),
+  });
+
+  scheduleDebounce(key, intervalSec, () =>
+    startGroupedProcessing({
+      key,
+      job,
+      agentConfig,
+      intervalSec,
+      ttlSec,
+      runGeneration,
+      analyzePending,
+    }),
+  );
+}
+
+async function startGroupedProcessing({
+  key,
+  job,
+  agentConfig,
+  intervalSec,
+  ttlSec,
+  runGeneration,
+  analyzePending,
+}) {
+  const redis = getRedis(agentConfig.redisUrl);
+  if (getLocalProcessing(key)) {
+    logger.info('ConvControl: debounce ignorado — já há processamento ativo', {
+      key,
+      conversaId: job.conversaId,
+    });
+    return;
+  }
+
+  const items = await listClaim(redis, groupKey(key));
+  const grouped = joinMessages(items);
+  if (!grouped) {
+    logger.info('ConvControl: buffer de agrupamento vazio ao claim', {
+      key,
+      conversaId: job.conversaId,
+    });
+    return;
+  }
+
+  logger.info('ConvControl: agrupamento estável — iniciando processamento', {
+    key,
+    conversaId: job.conversaId,
+    intervalSec,
+    qtd: items.length,
+    preview: grouped.slice(0, 200),
+  });
+
+  await runProcessing({
+    key,
+    job,
+    agentConfig,
+    inputText: grouped,
+    runGeneration,
+    analyzePending,
+    ttlSec,
+  });
+}
+
+async function runProcessing({
+  key,
+  job,
+  agentConfig,
+  inputText,
+  runGeneration,
+  analyzePending,
+  ttlSec,
+}) {
+  const redis = getRedis(agentConfig.redisUrl);
+  if (getLocalProcessing(key)) {
+    logger.warn('ConvControl: tentativa de segundo processamento — enfileirando como pendente', {
+      key,
+      conversaId: job.conversaId,
+    });
+    await listPush(redis, pendingKey(key), inputText, ttlSec);
+    return;
+  }
+
+  const generationId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const abortController = new AbortController();
+  const startedAt = Date.now();
+
+  await setProcessing(
+    redis,
+    key,
+    { abortController, generationId, startedAt, inputText },
+    ttlSec,
+  );
+
+  logger.info('ConvControl: processamento iniciado', {
+    key,
+    conversaId: job.conversaId,
+    generationId,
+    preview: String(inputText).slice(0, 200),
+  });
+
+  let result = null;
+  let aborted = false;
+
+  try {
+    result = await runGeneration(inputText, {
+      signal: abortController.signal,
+      generationId,
+    });
+
+    if (abortController.signal.aborted || result?.aborted) {
+      aborted = true;
+      logger.info('ConvControl: processamento abortado — sem envio', {
+        key,
+        conversaId: job.conversaId,
+        generationId,
+      });
+      return;
+    }
+
+    logger.info('ConvControl: resposta enviada', {
+      key,
+      conversaId: job.conversaId,
+      generationId,
+      preview: String(result?.replyText || '').slice(0, 200),
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError' || abortController.signal.aborted) {
+      aborted = true;
+      logger.info('ConvControl: AbortError', {
+        key,
+        conversaId: job.conversaId,
+        generationId,
+        message: error?.message,
+      });
+      return;
+    }
+    throw error;
+  } finally {
+    await clearProcessing(redis, key, generationId);
+    logger.info('ConvControl: processamento finalizado (lock liberado)', {
+      key,
+      conversaId: job.conversaId,
+      generationId,
+    });
+  }
+
+  // Pendentes só depois de liberar o lock — senão o reprocessamento vira "já ativo".
+  if (!aborted && result) {
+    await processPendingsAfterReply({
+      key,
+      job,
+      agentConfig,
+      inputText: result?.inputText || inputText,
+      replyText: result?.replyText || '',
+      runGeneration,
+      analyzePending,
+      ttlSec,
+    });
+  }
+}
+
+async function processPendingsAfterReply({
+  key,
+  job,
+  agentConfig,
+  inputText,
+  replyText,
+  runGeneration,
+  analyzePending,
+  ttlSec,
+}) {
+  const redis = getRedis(agentConfig.redisUrl);
+  const pendingItems = await listClaim(redis, pendingKey(key));
+  if (!pendingItems.length) {
+    logger.info('ConvControl: sem mensagens pendentes', {
+      key,
+      conversaId: job.conversaId,
+    });
+    return;
+  }
+
+  const pendingText = joinMessages(pendingItems);
+  logger.info('ConvControl: analisando mensagens pendentes', {
+    key,
+    conversaId: job.conversaId,
+    qtd: pendingItems.length,
+    preview: pendingText.slice(0, 200),
+  });
+
+  let alreadyAnswered = false;
+  try {
+    alreadyAnswered = await analyzePending({
+      inputText,
+      replyText,
+      pendingText,
+      job,
+      agentConfig,
+    });
+  } catch (error) {
+    logger.warn('ConvControl: falha na análise de pendente — vai processar', {
+      key,
+      conversaId: job.conversaId,
+      message: error.message,
+    });
+    alreadyAnswered = false;
+  }
+
+  if (alreadyAnswered) {
+    logger.info('ConvControl: pendente já respondida — descartando', {
+      key,
+      conversaId: job.conversaId,
+    });
+    return;
+  }
+
+  logger.info('ConvControl: pendente precisa de resposta — reentrando no fluxo', {
+    key,
+    conversaId: job.conversaId,
+  });
+
+  const agrupar = isAgrupar(job?.agente);
+  const intervalSec = Number(job?.agente?.intervaloEntreMensagens ?? 3) || 3;
+
+  await listPush(redis, groupKey(key), pendingText, ttlSec);
+
+  if (!agrupar) {
+    await startGroupedProcessing({
+      key,
+      job,
+      agentConfig,
+      intervalSec: 0.4,
+      ttlSec,
+      runGeneration,
+      analyzePending,
+    });
+    return;
+  }
+
+  scheduleDebounce(key, intervalSec, () =>
+    startGroupedProcessing({
+      key,
+      job,
+      agentConfig,
+      intervalSec,
+      ttlSec,
+      runGeneration,
+      analyzePending,
+    }),
+  );
+}

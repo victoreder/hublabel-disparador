@@ -18,10 +18,8 @@ import {
 } from './parseResponse.js';
 import { buildSystemPrompt } from './prompt.js';
 import { preprocessInput } from './preprocess.js';
-import {
-  pushGroupingMessage,
-  waitForGroupedText,
-} from './redis.js';
+import { handleConversationTurn } from './conversationControl.js';
+import { analyzePendingCovered } from './pendingAnalysis.js';
 import { sendAgentChunk, notifyTokenUsage } from './sendReply.js';
 import { saveAgentTokenUsage } from './tokens.js';
 
@@ -156,68 +154,14 @@ function scrubActionNarration(text) {
     .trim();
 }
 
-export async function processAgentJob(job) {
-  const agentConfig = await getAgentConfig();
-  const agente = job.agente ?? (job.agenteId ? await fetchAgente(job.agenteId) : null);
-
-  if (!agente) {
-    logger.warn('Agente IA não encontrado', { agenteId: job.agenteId });
-    return;
-  }
-
-  if (agente.ativo === false) {
-    logger.info('Agente IA inativo', { agenteId: agente.id });
-    return;
-  }
-
-  job.agente = agente;
-  job.agenteId = agente.id;
-
-  const textoPreprocessado = await preprocessInput(job, agente, agentConfig);
-  if (textoPreprocessado == null) return;
-
-  let inputText = textoPreprocessado;
-
-  const agrupar =
-    agente.agruparMensagens === true ||
-    agente.agruparMensagens === 'true' ||
-    agente.agruparMensagens === 1;
-
-  if (agrupar) {
-    if (!agentConfig.redisUrl) {
-      logger.warn('agruparMensagens ativo, mas REDIS_URL ausente — processando sem agrupar', {
-        agenteId: agente.id,
-        conversaId: job.conversaId,
-      });
-    } else if (job.telefone) {
-      const intervaloSec = Number(agente.intervaloEntreMensagens ?? 3) || 3;
-      await pushGroupingMessage(
-        agentConfig.redisUrl,
-        job.telefone,
-        textoPreprocessado,
-        Math.max(120, intervaloSec * 10),
-      );
-      const grouped = await waitForGroupedText(
-        agentConfig.redisUrl,
-        job.telefone,
-        intervaloSec,
-      );
-      if (!grouped) {
-        logger.info('Mensagem agrupada — aguardando fim do intervalo', {
-          telefone: job.telefone,
-          conversaId: job.conversaId,
-          intervaloSec,
-        });
-        return;
-      }
-      inputText = grouped;
-      logger.info('Mensagens agrupadas — gerando uma resposta', {
-        telefone: job.telefone,
-        conversaId: job.conversaId,
-        intervaloSec,
-        preview: String(grouped).slice(0, 200),
-      });
-    }
+/**
+ * Gera e envia a resposta. Respeita AbortSignal — se abortado cedo, não envia.
+ */
+async function runAgentGeneration(job, agente, agentConfig, inputText, { signal } = {}) {
+  if (signal?.aborted) {
+    const err = new Error('Geração abortada');
+    err.name = 'AbortError';
+    throw err;
   }
 
   const systemPrompt = buildSystemPrompt(job, agente);
@@ -232,8 +176,16 @@ export async function processAgentJob(job) {
       systemPrompt,
       history,
       userMessage: inputText,
+      signal,
     });
   } catch (error) {
+    if (error?.name === 'AbortError' || signal?.aborted) {
+      logger.info('ConvControl: OpenAI abortado — não envia resposta', {
+        conversaId: job.conversaId,
+        telefone: job.telefone,
+      });
+      throw error;
+    }
     try {
       await notifyOpenAiSemSaldo({ job, error });
     } catch (notifyError) {
@@ -244,13 +196,19 @@ export async function processAgentJob(job) {
     throw error;
   }
 
+  if (signal?.aborted) {
+    const err = new Error('Geração abortada pós-OpenAI');
+    err.name = 'AbortError';
+    throw err;
+  }
+
   const output = typeof chatResult === 'string' ? chatResult : chatResult?.content;
   const toolsExecuted = typeof chatResult === 'string' ? [] : chatResult?.toolsExecuted ?? [];
   const chatTokens = typeof chatResult === 'string' ? 0 : Number(chatResult?.totalTokens ?? 0);
 
   if (!output) {
     logger.warn('Agente IA sem resposta', { conversaId: job.conversaId });
-    return;
+    return { replyText: '', inputText, aborted: false };
   }
 
   const rawSegments = parseAgentOutputWithActions(output);
@@ -274,7 +232,15 @@ export async function processAgentJob(job) {
   }
 
   const arquivoMap = buildArquivoMapFromInstrucoes(agente.instrucoes);
-  // Evita double-send: [[acao:enviar-midia]] + markdown [(audio)](url) na mesma resposta.
+  const urlsMidiaInstrucao = new Set(
+    [...arquivoMap.values()]
+      .map((v) => normalizeMediaUrl(v?.url))
+      .filter(Boolean),
+  );
+  const temAcaoEnviarMidia = segments.some(
+    (s) => s.type === 'action' && normalizeTipo(s.content?.tipo) === 'enviar-midia',
+  );
+
   const midiasEnviadas = new Set();
   const actionCtx = {
     job,
@@ -291,8 +257,19 @@ export async function processAgentJob(job) {
   let chunksEnviados = 0;
   let acoesExecutadas = 0;
   let tokensExtras = 0;
+  const sentParts = [];
 
   for (const segment of segments) {
+    if (signal?.aborted) {
+      logger.info('ConvControl: envio interrompido por abort', {
+        conversaId: job.conversaId,
+        telefone: job.telefone,
+      });
+      const err = new Error('Geração abortada durante envio');
+      err.name = 'AbortError';
+      throw err;
+    }
+
     if (segment.type === 'action') {
       try {
         const resultado = await executeAgentAction(segment.content, actionCtx);
@@ -323,6 +300,10 @@ export async function processAgentJob(job) {
             conversaId: job.conversaId,
             tipo: segment.content?.tipo,
           });
+          if (normalizeTipo(segment.content?.tipo) === 'enviar-midia') {
+            const d = segment.content?.dados || {};
+            sentParts.push(`[midia:${d.arquivoId || d.url || ''}]`);
+          }
         }
       } catch (error) {
         logger.warn('Falha ao executar ação do agente — ignorado', {
@@ -339,11 +320,32 @@ export async function processAgentJob(job) {
 
     const chunks = splitAgentOutput(textoLimpo, agente.separarMensagens !== false);
     for (const chunk of chunks) {
+      if (signal?.aborted) {
+        const err = new Error('Geração abortada durante envio de chunk');
+        err.name = 'AbortError';
+        throw err;
+      }
+
       const textoChunk = scrubActionNarration(stripActionMarkers(chunk.text));
       if (!textoChunk) continue;
 
       const kind = chunk.kind || classifyChunk(textoChunk);
       const mediaUrl = normalizeMediaUrl(extractMediaUrl(textoChunk));
+
+      if (
+        temAcaoEnviarMidia &&
+        kind !== 'text' &&
+        mediaUrl &&
+        urlsMidiaInstrucao.has(mediaUrl)
+      ) {
+        logger.info('Midia markdown ignorada (já coberta por [[acao:enviar-midia]])', {
+          conversaId: job.conversaId,
+          kind,
+          url: mediaUrl,
+        });
+        continue;
+      }
+
       if (kind !== 'text' && mediaUrl) {
         if (midiasEnviadas.has(mediaUrl)) {
           logger.info('Midia duplicada ignorada (já enviada nesta resposta)', {
@@ -357,8 +359,10 @@ export async function processAgentJob(job) {
       }
 
       try {
-        await sendAgentChunk(job, { ...chunk, kind, text: textoChunk }, agentConfig);
+        const sent = await sendAgentChunk(job, { ...chunk, kind, text: textoChunk }, agentConfig);
+        if (sent?.skipped) continue;
         chunksEnviados += 1;
+        sentParts.push(textoChunk.slice(0, 500));
       } catch (error) {
         logger.error('Falha ao enviar resposta do agente', {
           conversaId: job.conversaId,
@@ -368,9 +372,6 @@ export async function processAgentJob(job) {
       }
     }
   }
-
-  // Buffer de agrupamento já foi claimado em waitForGroupedText — não dar DEL aqui,
-  // senão apaga mensagens que chegaram durante a geração da resposta.
 
   const totalTokens = chatTokens + tokensExtras;
   await saveAgentTokenUsage(agente.id, totalTokens, agente.modelo);
@@ -384,6 +385,59 @@ export async function processAgentJob(job) {
     toolsExecuted,
     totalTokens,
     tokensExtras,
+  });
+
+  return {
+    replyText: sentParts.join('\n').trim() || stripActionMarkers(output),
+    inputText,
+    aborted: false,
+  };
+}
+
+export async function processAgentJob(job) {
+  const agentConfig = await getAgentConfig();
+  const agente = job.agente ?? (job.agenteId ? await fetchAgente(job.agenteId) : null);
+
+  if (!agente) {
+    logger.warn('Agente IA não encontrado', { agenteId: job.agenteId });
+    return;
+  }
+
+  if (agente.ativo === false) {
+    logger.info('Agente IA inativo', { agenteId: agente.id });
+    return;
+  }
+
+  job.agente = agente;
+  job.agenteId = agente.id;
+
+  const textoPreprocessado = await preprocessInput(job, agente, agentConfig);
+  if (textoPreprocessado == null) return;
+
+  const agrupar =
+    agente.agruparMensagens === true ||
+    agente.agruparMensagens === 'true' ||
+    agente.agruparMensagens === 1;
+  const intervaloSec = Number(agente.intervaloEntreMensagens ?? 3) || 3;
+
+  logger.info('ConvControl: job recebido', {
+    conversaId: job.conversaId,
+    telefone: job.telefone,
+    agenteId: agente.id,
+    agrupar,
+    intervaloSec,
+    cancelWindowMs: agentConfig.cancelWindowMs,
+    preview: String(textoPreprocessado).slice(0, 120),
+  });
+
+  await handleConversationTurn({
+    job,
+    agente,
+    agentConfig,
+    text: textoPreprocessado,
+    runGeneration: (inputText, ctx) =>
+      runAgentGeneration(job, agente, agentConfig, inputText, ctx),
+    analyzePending: (args) => analyzePendingCovered(args),
   });
 }
 

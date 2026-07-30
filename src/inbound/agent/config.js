@@ -21,6 +21,9 @@ export async function getAgentConfig() {
     visionModel: process.env.OPENAI_VISION_MODEL?.trim() || 'gpt-4o-mini',
     embeddingModel: process.env.OPENAI_EMBEDDING_MODEL?.trim() || 'text-embedding-3-small',
     maxToolRounds: optionalInt('AGENT_MAX_TOOL_ROUNDS', 6),
+    /** Janela (ms) para cancelar geração no início quando chega nova mensagem */
+    cancelWindowMs: optionalInt('AGENT_CANCEL_WINDOW_MS', 1500),
+    pendingAnalysisModel: process.env.AGENT_PENDING_ANALYSIS_MODEL?.trim() || 'gpt-4o-mini',
   };
 }
 

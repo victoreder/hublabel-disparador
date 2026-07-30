@@ -31,7 +31,14 @@ export async function runAgentChat({
   systemPrompt,
   history,
   userMessage,
+  signal,
 }) {
+  if (signal?.aborted) {
+    const err = new Error('Aborted');
+    err.name = 'AbortError';
+    throw err;
+  }
+
   const tools = buildToolDefinitions(job, agente);
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -45,6 +52,11 @@ export async function runAgentChat({
 
   let rounds = 0;
   while (rounds < agentConfig.maxToolRounds) {
+    if (signal?.aborted) {
+      const err = new Error('Aborted');
+      err.name = 'AbortError';
+      throw err;
+    }
     rounds += 1;
 
     const body = {
@@ -65,6 +77,7 @@ export async function runAgentChat({
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+      signal,
     });
 
     const json = await response.json().catch(() => ({}));
