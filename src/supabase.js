@@ -139,7 +139,7 @@ export async function fetchPendingDetails(disparoIds, limit = 1) {
 export async function fetchDisparo(idDisparo) {
   const { data, error } = await supabase
     .from('SAAS_Disparos')
-    .select('id, StatusDisparo, TipoDisparo, DataAgendamento')
+    .select('id, StatusDisparo, TipoDisparo, DataAgendamento, mostrarMensagem')
     .eq('id', idDisparo)
     .maybeSingle();
 

@@ -133,7 +133,8 @@ export function createWorker() {
           _phoneOriginal: result.phoneOriginal,
         },
       });
-      if (metaMessageId && result.chat) {
+      const mostrarMensagem = disparo?.mostrarMensagem !== false;
+      if (metaMessageId && result.chat && mostrarMensagem) {
         try {
           const chatResult = await saveTemplateMessageToChat({
             conexaoId: detail.idConexao,
@@ -158,6 +159,11 @@ export function createWorker() {
             message: chatError.message,
           });
         }
+      } else if (metaMessageId && result.chat && !mostrarMensagem) {
+        logger.info('Mensagem do disparo não salva no chat (mostrarMensagem=false)', {
+          detailId: detail.id,
+          disparoId: detail.idDisparo,
+        });
       }
 
       stats.sent += 1;

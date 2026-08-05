@@ -68,6 +68,17 @@ export async function swapConnection(idDisparo, idConexao) {
   throwIfError(error, `Erro ao trocar conexão do disparo ${idDisparo}`);
 }
 
+export async function fetchMostrarMensagemDisparo(idDisparo) {
+  const { data, error } = await supabase
+    .from('SAAS_Disparos')
+    .select('mostrarMensagem')
+    .eq('id', idDisparo)
+    .maybeSingle();
+
+  throwIfError(error, `Erro ao buscar mostrarMensagem do disparo ${idDisparo}`);
+  return data?.mostrarMensagem !== false;
+}
+
 export async function salvarMensagemNoChat({
   idContato,
   idConexao,

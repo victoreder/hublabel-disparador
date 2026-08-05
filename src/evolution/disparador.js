@@ -170,19 +170,27 @@ export function createDisparadorEvolution(config) {
       await evolutionDb.markSent(detalhe.id);
 
       if (tipo === 'Individual') {
-        try {
-          await evolutionDb.salvarMensagemNoChat({
-            idContato,
-            idConexao: detalhe.idConexao,
-            userId: detalhe.UserId,
-            mensagem: detalhe.Mensagem,
-            urlArquivo: detalhe.KeyRedis || null,
-            tipoMensagem: messageType,
-          });
-        } catch (chatErr) {
-          logger.warn('Disparo enviado, mas falhou ao salvar no chat', {
+        const mostrarMensagem = await evolutionDb.fetchMostrarMensagemDisparo(detalhe.idDisparo);
+        if (mostrarMensagem) {
+          try {
+            await evolutionDb.salvarMensagemNoChat({
+              idContato,
+              idConexao: detalhe.idConexao,
+              userId: detalhe.UserId,
+              mensagem: detalhe.Mensagem,
+              urlArquivo: detalhe.KeyRedis || null,
+              tipoMensagem: messageType,
+            });
+          } catch (chatErr) {
+            logger.warn('Disparo enviado, mas falhou ao salvar no chat', {
+              detailId: detalhe.id,
+              message: chatErr instanceof Error ? chatErr.message : String(chatErr),
+            });
+          }
+        } else {
+          logger.info('Mensagem do disparo não salva no chat (mostrarMensagem=false)', {
             detailId: detalhe.id,
-            message: chatErr instanceof Error ? chatErr.message : String(chatErr),
+            disparoId: detalhe.idDisparo,
           });
         }
       }
