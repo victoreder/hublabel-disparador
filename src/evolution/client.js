@@ -53,6 +53,8 @@ export function createEvolutionClient(config) {
       return post('/message/sendText', instanceName, {
         number,
         text,
+        ...(options.delay !== undefined ? { delay: options.delay } : {}),
+        ...(options.quoted ? { quoted: options.quoted } : {}),
         ...(options.mentionsEveryOne !== undefined
           ? { mentionsEveryOne: options.mentionsEveryOne }
           : {}),

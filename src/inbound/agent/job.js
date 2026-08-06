@@ -7,6 +7,7 @@ export function buildAgentJobFromIngestao({ canal, resultado, organized, conexao
     mensagemId: resultado.mensagemId,
     contatoId: resultado.contatoId,
     telefone: organized.remoteJid,
+    lid: organized.lid || null,
     messageType: organized.messageType,
     textoEntrada: organized.conversation,
     arquivoUrl: organized.arquivoUrl,

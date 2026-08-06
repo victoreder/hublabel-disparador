@@ -28,7 +28,7 @@ export async function fetchDisparosEvolutionJanela(now = new Date()) {
 export async function fetchContato(idContato) {
   const { data, error } = await supabase
     .from('SAAS_Contatos')
-    .select('id, telefone, nome, email, variaveis, contaId, validado, tipo, created_at')
+    .select('id, telefone, lid, nome, email, variaveis, contaId, validado, tipo, created_at')
     .eq('id', idContato)
     .maybeSingle();
 

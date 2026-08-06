@@ -479,6 +479,72 @@ export async function fetchConexaoById(idConexao) {
   return data;
 }
 
+export async function fetchContextoEnvioChat(idMensagem, idConexao) {
+  const { data: mensagem, error: mensagemError } = await supabase
+    .from('SAAS_Mensagens')
+    .select('id, contaId, conexaoId, conversaId')
+    .eq('id', idMensagem)
+    .maybeSingle();
+
+  if (mensagemError) {
+    throw mapSupabaseError(mensagemError, `Erro ao buscar mensagem ${idMensagem}`);
+  }
+  if (!mensagem || Number(mensagem.conexaoId) !== Number(idConexao)) return null;
+
+  const { data: conversa, error: conversaError } = await supabase
+    .from('SAAS_Conversas_Agentes')
+    .select('id, contaId, idConexao, contatoId, telefone')
+    .eq('id', mensagem.conversaId)
+    .maybeSingle();
+
+  if (conversaError) {
+    throw mapSupabaseError(conversaError, `Erro ao buscar conversa ${mensagem.conversaId}`);
+  }
+  if (
+    !conversa ||
+    Number(conversa.idConexao) !== Number(idConexao) ||
+    conversa.contaId !== mensagem.contaId
+  ) {
+    return null;
+  }
+
+  let contato = null;
+  if (conversa.contatoId) {
+    const { data, error } = await supabase
+      .from('SAAS_Contatos')
+      .select('id, contaId, telefone, lid')
+      .eq('id', conversa.contatoId)
+      .maybeSingle();
+
+    if (error) {
+      throw mapSupabaseError(error, `Erro ao buscar contato ${conversa.contatoId}`);
+    }
+    if (data?.contaId === mensagem.contaId) contato = data;
+  }
+
+  return { mensagem, conversa, contato };
+}
+
+export async function marcarMensagemChatEnviada(
+  idMensagem,
+  { tipoMensagem, arquivoUrl, messageEvolutionId, metaStatus },
+) {
+  const payload = {
+    enviada: true,
+    tipoMensagem: tipoMensagem || 'conversation',
+    messageEvolutionId: messageEvolutionId ?? null,
+  };
+
+  if (arquivoUrl !== undefined) payload.arquivoUrl = arquivoUrl;
+  if (metaStatus !== undefined) payload.metaStatus = metaStatus;
+
+  const { error } = await supabase.from('SAAS_Mensagens').update(payload).eq('id', idMensagem);
+
+  if (error) {
+    throw mapSupabaseError(error, `Erro ao marcar mensagem ${idMensagem} como enviada`);
+  }
+}
+
 export async function fetchEvolutionConexaoDaConta(contaId) {
   if (!contaId) return null;
 

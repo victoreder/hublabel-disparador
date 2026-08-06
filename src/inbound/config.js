@@ -106,6 +106,9 @@ export function getInboundConfig() {
     evolutionWebhookLegacyPath: expressPath(p.evolutionLegacy),
     agentPollMs: optionalInt('AGENT_POLL_MS', 500),
     metaGraphApiVersion: process.env.META_GRAPH_API_VERSION?.trim() || 'v25.0',
+    evolutionBaseUrl:
+      process.env.EVOLUTION_BASE_URL?.trim().replace(/\/+$/, '') ||
+      'https://evolution2.victoreder.com.br',
     ragPath: buildWebhookSubPath(p.evolution, RAG_INSERIR_CONHECIMENTO_SUFFIX),
     syncTemplatesPath: buildWebhookSubPath(p.evolution, SYNC_TEMPLATES_SUFFIX),
     metaApiPaths: {

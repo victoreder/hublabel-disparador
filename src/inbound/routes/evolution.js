@@ -1,5 +1,6 @@
 import { logger } from '../../logger.js';
 import { handleEvolutionWebhook } from '../evolution/handler.js';
+import { handleChatSendRequest, isChatSendRequest } from './chatSend.js';
 import {
   handleRagIngestRequest,
   isRagIngestRequest,
@@ -40,6 +41,7 @@ function evolutionHandler(inboundConfig) {
     const startedAt = Date.now();
 
     const dispatch = () => {
+      const isChatSend = isChatSendRequest(req);
       const isRag = isRagIngestRequest(req);
       const isSyncTemplates = isSyncTemplatesRequest(req);
 
@@ -51,9 +53,14 @@ function evolutionHandler(inboundConfig) {
         event: req.body?.event ?? null,
         instance: req.body?.instance ?? null,
         acao: req.body?.acao ?? req.query?.acao ?? null,
+        isChatSend,
         isRag,
         isSyncTemplates,
       });
+
+      if (isChatSend) {
+        return handleChatSendRequest(req, res);
+      }
 
       if (isSyncTemplates) {
         return handleSyncTemplatesRequest(req, res);

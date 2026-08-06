@@ -1,3 +1,10 @@
+import { createEvolutionClient, EvolutionError } from '../../evolution/client.js';
+import {
+  isEnderecamentoFallbackError,
+  isLidJid,
+  normalizeLidJid,
+  resolveLidDoTelefone,
+} from '../../evolution/lid.js';
 import { saveMensagemIA, updateConversaUltimaMensagem } from '../../supabase.js';
 import { logger } from '../../logger.js';
 import { stripActionMarkers } from './parseActions.js';
@@ -16,6 +23,24 @@ const MEDIA_DEDUPE_MS = 120_000;
 
 function telefoneDigits(remoteJid) {
   return String(remoteJid || '').replace('@s.whatsapp.net', '').replace(/\D/g, '');
+}
+
+function evolutionClientFromJob(job) {
+  const { serverUrl, apikey } = job.envio ?? {};
+  if (!serverUrl || !apikey) return null;
+  return createEvolutionClient({
+    evolutionBaseUrl: String(serverUrl).replace(/\/+$/, ''),
+    evolutionApiKey: apikey,
+  });
+}
+
+function destinosEvolutionDoJob(job) {
+  const telefone = job.telefone;
+  const lid = normalizeLidJid(job.lid);
+  if (!telefone && !lid) return [];
+  if (lid && telefone) return [lid, telefone];
+  if (lid) return [lid];
+  return [telefone];
 }
 
 function mediaDedupeKey(job, url) {
@@ -57,7 +82,8 @@ async function evolutionRequest(job, path, body) {
 
   const json = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(json?.message || json?.error || `Evolution HTTP ${response.status}`);
+    const message = json?.message || json?.error || `Evolution HTTP ${response.status}`;
+    throw new EvolutionError(response.status, String(message), json);
   }
   return json;
 }
@@ -185,7 +211,7 @@ export async function sendAgentChunk(job, chunk, agentConfig) {
   return { messageId, mensagem: mensagemSalvar, tipoMensagem, arquivoUrl };
 }
 
-async function sendEvolutionChunk(job, kind, text, number, agentConfig) {
+async function sendEvolutionOnce(job, kind, text, number, agentConfig) {
   const instance = job.envio.instance;
   const delay = Math.max(0, Number(agentConfig?.evolutionSendDelayMs ?? 300) || 0);
 
@@ -222,6 +248,56 @@ async function sendEvolutionChunk(job, kind, text, number, agentConfig) {
   }
 
   return evolutionRequest(job, `/message/sendMedia/${instance}`, body);
+}
+
+/**
+ * Contatos migrados para @lid falham no telefone (Nack 463).
+ * Preferir lid do inbound quando conhecido; senão telefone + fallback on-demand.
+ */
+async function sendEvolutionChunk(job, kind, text, _number, agentConfig) {
+  const destinos = destinosEvolutionDoJob(job);
+  if (!destinos.length) throw new Error('Destino Evolution ausente no job');
+
+  const tentados = new Set();
+  let ultimoErro;
+
+  while (destinos.length) {
+    const destino = destinos.shift();
+    if (!destino || tentados.has(destino)) continue;
+    tentados.add(destino);
+
+    try {
+      const result = await sendEvolutionOnce(job, kind, text, destino, agentConfig);
+      if (isLidJid(destino)) {
+        logger.info('Agente enviou via @lid', {
+          conversaId: job?.conversaId,
+          enderecamento: 'lid',
+        });
+      }
+      return result;
+    } catch (err) {
+      if (!isEnderecamentoFallbackError(err)) throw err;
+      ultimoErro = err;
+
+      logger.warn('Agente: falha de endereçamento Evolution — tentando outro JID', {
+        conversaId: job?.conversaId,
+        destino,
+        message: err instanceof Error ? err.message : String(err),
+      });
+
+      if (!destinos.length && !isLidJid(destino)) {
+        const evolution = evolutionClientFromJob(job);
+        const lidResolvido = await resolveLidDoTelefone({
+          evolutionClient: evolution,
+          instanceName: job.envio?.instance,
+          telefone: destino,
+        });
+        if (lidResolvido) destinos.push(lidResolvido);
+      }
+    }
+  }
+
+  throw ultimoErro || new Error('Falha ao enviar pela Evolution');
 }
 
 async function sendMetaChunk(job, kind, text, to, agentConfig) {

@@ -117,7 +117,17 @@ async function executarEnviarMidia(acao, ctx) {
   const markdown = `[(${type})](${url})`;
   const kind = classifyChunk(markdown);
 
-  await sendAgentChunk(ctx.job, { kind, text: markdown }, ctx.agentConfig);
+  const sent = await sendAgentChunk(ctx.job, { kind, text: markdown }, ctx.agentConfig);
+  if (sent?.skipped) {
+    return {
+      success: true,
+      skipped: true,
+      reason: sent.reason || 'media-already-sent',
+      arquivoId: arquivoId || null,
+      url,
+      tipoArquivo: type,
+    };
+  }
   if (urlNorm && ctx.midiasEnviadas instanceof Set) ctx.midiasEnviadas.add(urlNorm);
   return { success: true, arquivoId: arquivoId || null, url, tipoArquivo: type };
 }

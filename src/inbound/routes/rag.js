@@ -14,6 +14,8 @@ const uploadFields = upload.fields([
   { name: 'data', maxCount: 1 },
   { name: 'file', maxCount: 1 },
   { name: 'documento', maxCount: 1 },
+  { name: 'arquivo', maxCount: 1 },
+  { name: 'midia', maxCount: 1 },
 ]);
 
 function sanitizeBody(body = {}) {

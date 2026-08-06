@@ -7,6 +7,7 @@ import {
   mapMessageType,
 } from './client.js';
 import { ensureContactValidatedForDispatch } from './validarContato.js';
+import { isEnderecamentoFallbackError, isLidJid, resolveLidDoTelefone } from './lid.js';
 import * as evolutionDb from './supabase.js';
 
 const MSG_INEXISTENTE = 'Contato inexistente';
@@ -113,6 +114,56 @@ export function createDisparadorEvolution(config) {
     throw lastError;
   }
 
+  /**
+   * Contatos com conta migrada para o endereçamento @lid não recebem mensagem pelo telefone
+   * (Nack 463). Quando o @lid é conhecido ele vira o destino principal; caso contrário, o
+   * telefone é tentado primeiro e o @lid entra como fallback (resolvido on-demand).
+   */
+  async function sendComFallbackEnderecamento(detalhe, { telefoneDestino, lidDestino, lidAlternativo }) {
+    if (isGrupo(detalhe) || !telefoneDestino) {
+      const messageType = await sendWithRetry(detalhe, telefoneDestino);
+      return { messageType, destinoUsado: getDestino(detalhe, telefoneDestino) };
+    }
+
+    const destinos = lidDestino ? [lidDestino, telefoneDestino] : [telefoneDestino];
+    const tentados = new Set();
+    let ultimoErro;
+
+    while (destinos.length) {
+      const destino = destinos.shift();
+      if (!destino || tentados.has(destino)) continue;
+      tentados.add(destino);
+
+      try {
+        const messageType = await sendWithRetry(detalhe, destino);
+        return { messageType, destinoUsado: destino };
+      } catch (err) {
+        if (!isEnderecamentoFallbackError(err)) throw err;
+        ultimoErro = err;
+
+        logger.warn('Falha de envio Evolution — tentando outro endereçamento', {
+          detailId: detalhe.id,
+          disparoId: detalhe.idDisparo,
+          destino,
+          message: err instanceof Error ? err.message : String(err),
+        });
+
+        if (!destinos.length && !isLidJid(destino)) {
+          const lidResolvido =
+            lidAlternativo ||
+            (await resolveLidDoTelefone({
+              evolutionClient: evolution,
+              instanceName: detalhe.InstanceName,
+              telefone: destino,
+            }));
+          if (lidResolvido) destinos.push(lidResolvido);
+        }
+      }
+    }
+
+    throw ultimoErro;
+  }
+
   async function markInvalidContact(detalhe) {
     await evolutionDb.markFailed(detalhe.id, {
       userMessage: MSG_INEXISTENTE,
@@ -154,6 +205,8 @@ export function createDisparadorEvolution(config) {
 
     let telefoneDestino = null;
     let idContato = detalhe.idContato;
+    let lidDestino = null;
+    let lidAlternativo = null;
 
     if (tipo === 'Individual') {
       const validation = await ensureContactValidatedForDispatch(detalhe, evolution);
@@ -163,10 +216,16 @@ export function createDisparadorEvolution(config) {
       }
       telefoneDestino = validation.jid;
       idContato = validation.idContato;
+      lidDestino = validation.lid ?? null;
+      lidAlternativo = validation.lidAlternativo ?? null;
     }
 
     try {
-      const messageType = await sendWithRetry(detalhe, telefoneDestino);
+      const { messageType, destinoUsado } = await sendComFallbackEnderecamento(detalhe, {
+        telefoneDestino,
+        lidDestino,
+        lidAlternativo,
+      });
       await evolutionDb.markSent(detalhe.id);
 
       if (tipo === 'Individual') {
@@ -199,6 +258,7 @@ export function createDisparadorEvolution(config) {
         detailId: detalhe.id,
         disparoId: detalhe.idDisparo,
         tipo,
+        enderecamento: isLidJid(destinoUsado) ? 'lid' : 'telefone',
       });
     } catch (err) {
       await handleFailure(detalhe, err);
