@@ -4,6 +4,8 @@ import {
   createEvolutionClient,
   classifyEvolutionError,
   EvolutionError,
+  isInstanceConnectionOpen,
+  isRetryableEvolutionKind,
   mapMessageType,
 } from './client.js';
 import { ensureContactValidatedForDispatch } from './validarContato.js';
@@ -104,14 +106,59 @@ export function createDisparadorEvolution(config) {
       } catch (err) {
         lastError = err;
         const kind = classifyEvolutionError(err);
-        if ((kind === 'timeout' || kind === 'offline') && attempt < config.maxRetries) {
-          await sleep(config.retryDelayMs);
+        if (isRetryableEvolutionKind(kind) && attempt < config.maxRetries) {
+          const delayMs = config.retryDelayMs * (attempt + 1);
+          logger.warn('Retry de envio Evolution', {
+            detailId: detalhe.id,
+            disparoId: detalhe.idDisparo,
+            attempt: attempt + 1,
+            maxRetries: config.maxRetries,
+            kind,
+            delayMs,
+            message: err instanceof Error ? err.message : String(err),
+          });
+          await sleep(delayMs);
           continue;
         }
         throw err;
       }
     }
     throw lastError;
+  }
+
+  /**
+   * Só bloqueia/troca conexão se o estado real da instância não estiver open.
+   * Connection Closed / 500 com instância ainda conectada = falha de envio.
+   */
+  async function shouldSwapForDisconnect(detalhe, kind) {
+    if (kind !== 'disconnected' && kind !== 'connectionClosed') return false;
+
+    const instanceName = detalhe.InstanceName;
+    if (!instanceName) return true;
+
+    try {
+      const statePayload = await evolution.getConnectionState(instanceName);
+      const open = isInstanceConnectionOpen(statePayload);
+      logger.info('Estado da instância Evolution após falha de envio', {
+        detailId: detalhe.id,
+        disparoId: detalhe.idDisparo,
+        instanceName,
+        kind,
+        open,
+        statePayload,
+      });
+      return !open;
+    } catch (stateErr) {
+      logger.warn('Não foi possível verificar connectionState — não bloqueando conexão', {
+        detailId: detalhe.id,
+        disparoId: detalhe.idDisparo,
+        instanceName,
+        kind,
+        message: stateErr instanceof Error ? stateErr.message : String(stateErr),
+      });
+      // Sem confirmação de desconexão: trata como erro de envio, não swap.
+      return false;
+    }
   }
 
   /**
@@ -178,11 +225,12 @@ export function createDisparadorEvolution(config) {
     const kind = classifyEvolutionError(err);
     const { statusHttp, respostaHttp, errorMessage } = getEvolutionErrorDetails(err);
 
-    if (kind === 'disconnected') {
+    if (await shouldSwapForDisconnect(detalhe, kind)) {
       await evolutionDb.swapConnection(detalhe.idDisparo, detalhe.idConexao);
-      logger.warn('Conexão trocada após desconexão Evolution', {
+      logger.warn('Conexão trocada após desconexão Evolution confirmada', {
         disparoId: detalhe.idDisparo,
         detailId: detalhe.id,
+        kind,
         statusHttp,
         respostaHttp,
       });
@@ -193,6 +241,14 @@ export function createDisparadorEvolution(config) {
     if (kind === 'apiError') userMessage = 'Erro na API';
     else if (kind === 'timeout') userMessage = 'Timeout ao enviar mensagem';
     else if (kind === 'offline') userMessage = 'Servidor Evolution indisponivel';
+    else if (kind === 'connectionClosed') {
+      userMessage = 'Falha transitória de envio (Connection Closed)';
+    } else if (kind === 'retryable') {
+      userMessage = 'Erro temporário na Evolution';
+    } else if (kind === 'disconnected') {
+      // Estado ainda open (ou não verificável): não bloquear a conexão.
+      userMessage = 'Falha de envio com sinal de desconexão não confirmada';
+    }
 
     await evolutionDb.markFailed(detalhe.id, { userMessage, statusHttp, respostaHttp });
   }
