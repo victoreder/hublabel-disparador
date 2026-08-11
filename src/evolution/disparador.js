@@ -267,6 +267,21 @@ export function createDisparadorEvolution(config) {
     if (tipo === 'Individual') {
       const validation = await ensureContactValidatedForDispatch(detalhe, evolution);
       if (!validation.ok) {
+        if (validation.reason === 'api_error' && validation.error) {
+          await handleFailure(detalhe, validation.error);
+          const { statusHttp, respostaHttp } = getEvolutionErrorDetails(validation.error);
+          logger.error('Falha ao validar contato Evolution', {
+            detailId: detalhe.id,
+            disparoId: detalhe.idDisparo,
+            message:
+              validation.error instanceof Error
+                ? validation.error.message
+                : String(validation.error),
+            statusHttp,
+            respostaHttp,
+          });
+          return;
+        }
         await markInvalidContact(detalhe);
         return;
       }

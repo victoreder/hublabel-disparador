@@ -60,7 +60,8 @@ export async function ensureContactValidatedForDispatch(detalhe, evolutionClient
       detailId: detalhe.id,
       message: err instanceof Error ? err.message : String(err),
     });
-    return { ok: false, reason: MSG_INEXISTENTE };
+    // Erro de API/instância ≠ número inválido — só exists:false marca inexistente.
+    return { ok: false, reason: 'api_error', error: err };
   }
 
   const valid = pickValidWhatsAppResult(results, candidates);
