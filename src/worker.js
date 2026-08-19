@@ -27,6 +27,8 @@ import {
   saveTemplateMessageToChat,
 } from './supabase.js';
 
+const MSG_CONTATO_INEXISTENTE = 'Contato inexistente';
+
 export function createWorker() {
   let running = false;
   let stopped = false;
@@ -176,9 +178,14 @@ export function createWorker() {
       const statusHttp = error instanceof MetaApiError ? error.status : null;
       const respostaHttp = error instanceof MetaApiError ? error.body : null;
 
+      // Número sem WhatsApp / inválido (erro de destinatário da Meta, após tentar
+      // as variantes com/sem 9): salva como "Contato inexistente".
+      const contatoInexistente = isRecipientPhoneError(error);
+      const mensagemErro = contatoInexistente ? MSG_CONTATO_INEXISTENTE : error.message;
+
       await markDetailFailed(detail.id, {
         statusHttp,
-        mensagemErro: error.message,
+        mensagemErro,
         respostaHttp,
       });
 
@@ -186,6 +193,8 @@ export function createWorker() {
         detailId: detail.id,
         disparoId: detail.idDisparo,
         message: error.message,
+        mensagemErro,
+        contatoInexistente,
         statusHttp,
       });
     }
