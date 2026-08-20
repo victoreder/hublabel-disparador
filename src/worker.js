@@ -41,6 +41,8 @@ export function createWorker() {
     skipped: 0,
     lastActivityAt: null,
     lastError: null,
+    lastIdleReason: null,
+    lastEligibleDisparoIds: null,
   };
 
   async function start() {
@@ -85,10 +87,21 @@ export function createWorker() {
 
   async function processNext() {
     const disparoIds = await fetchActiveDisparoIds();
-    if (!disparoIds.length) return false;
+    if (!disparoIds.length) {
+      stats.lastIdleReason = 'sem_disparos_apioficial_elegiveis';
+      stats.lastEligibleDisparoIds = null;
+      return false;
+    }
 
     const candidates = await fetchPendingDetails(disparoIds, 1);
-    if (!candidates.length) return false;
+    if (!candidates.length) {
+      stats.lastIdleReason = 'sem_detalhes_pending_na_janela';
+      stats.lastEligibleDisparoIds = disparoIds.slice(0, 20);
+      return false;
+    }
+
+    stats.lastIdleReason = null;
+    stats.lastEligibleDisparoIds = null;
 
     const candidate = candidates[0];
     if (stopped) return true;

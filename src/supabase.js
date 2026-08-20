@@ -80,7 +80,8 @@ function mapSupabaseError(error, context) {
 }
 
 const INACTIVE_DISPARO = new Set(['pausado', 'cancelado', 'finalizado']);
-const AGENDAMENTO_TOLERANCIA_MS = 24 * 60 * 60 * 1000;
+/** Após o horário agendado, ainda processa por até 7 dias (antes: 1 dia — campanhas atrasadas ficavam pending para sempre). */
+const AGENDAMENTO_TOLERANCIA_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** StatusDisparo e TipoDisparo: comparação case insensitive */
 export function isDisparoInactive(statusDisparo) {
@@ -96,7 +97,7 @@ export function isDisparoScheduledForFuture(dataAgendamento) {
   return new Date(dataAgendamento).getTime() > Date.now();
 }
 
-/** Ignora se DataAgendamento passou há mais de 1 dia */
+/** Ignora se DataAgendamento passou há mais de 7 dias */
 export function isDisparoAgendamentoExpirado(dataAgendamento) {
   if (!dataAgendamento) return false;
   return new Date(dataAgendamento).getTime() < Date.now() - AGENDAMENTO_TOLERANCIA_MS;
@@ -111,10 +112,18 @@ export function isDisparoEligible(disparo) {
   return true;
 }
 
+/**
+ * Busca só API Oficial ativos no banco (evita o limite ~1000 do PostgREST
+ * que, sem filtro, devolvia os disparos mais antigos e ignorava campanhas novas).
+ */
 export async function fetchActiveDisparoIds() {
   const { data, error } = await supabase
     .from('SAAS_Disparos')
-    .select('id, StatusDisparo, TipoDisparo, DataAgendamento');
+    .select('id, StatusDisparo, TipoDisparo, DataAgendamento')
+    .ilike('TipoDisparo', 'apioficial')
+    .in('StatusDisparo', ['Aguardando', 'Em andamento'])
+    .order('id', { ascending: false })
+    .limit(1000);
 
   if (error) throw mapSupabaseError(error, 'Erro ao buscar disparos ativos');
 
@@ -124,11 +133,14 @@ export async function fetchActiveDisparoIds() {
 export async function fetchPendingDetails(disparoIds, limit = 1) {
   if (!disparoIds.length) return [];
 
+  const nowIso = new Date().toISOString();
   const { data, error } = await supabase
     .from('SAAS_Detalhes_Disparos')
     .select('id, idDisparo, idContato, Mensagem, idConexao, Status, KeyRedis, respostaHttp')
     .eq('Status', 'pending')
     .in('idDisparo', disparoIds)
+    // create_disparo_oficial grava dataEnvio (= schedule ou now+2min); respeitar antes de enviar.
+    .or(`dataEnvio.is.null,dataEnvio.lte."${nowIso}"`)
     .order('id', { ascending: true })
     .limit(limit);
 
