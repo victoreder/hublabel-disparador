@@ -28,7 +28,11 @@ function normalizeFlowType(body) {
 
   const flowTypeRaw = body?.flowType || body?.flow_type || null;
 
-  if (flowTypeRaw === 'coexistence' || embeddedSignupEvent === EMBEDDED_SIGNUP_EVENT_COEXISTENCE) {
+  if (
+    flowTypeRaw === 'coexistence' ||
+    flowTypeRaw === 'whatsapp_business_app_onboarding' ||
+    embeddedSignupEvent === EMBEDDED_SIGNUP_EVENT_COEXISTENCE
+  ) {
     return { flowType: 'coexistence', embeddedSignupEvent: embeddedSignupEvent || EMBEDDED_SIGNUP_EVENT_COEXISTENCE };
   }
 
