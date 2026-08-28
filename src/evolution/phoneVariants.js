@@ -5,7 +5,15 @@ import {
   resolveBrazilPhoneForMeta,
 } from '../phone.js';
 
-/** Variantes BR (com/sem 9) para whatsappNumbers — envia todas de uma vez. */
+function isLandlineResolution(action) {
+  return action === 'fixo-12' || action === 'remove-nine-fixo';
+}
+
+/**
+ * Variantes BR para whatsappNumbers.
+ * Celular: com e sem 9 (mesmo número em formatos antigo/novo).
+ * Fixo (local 2-5): só o 12 dígitos — 3333-4444 e 93333-4444 são números diferentes.
+ */
 export function getValidationNumberCandidates(raw) {
   const original = normalizePhone(raw);
   if (!original) return [];
@@ -14,9 +22,13 @@ export function getValidationNumberCandidates(raw) {
     return [original];
   }
 
-  const { phone } = resolveBrazilPhoneForMeta(original);
-  const candidates = new Set([original, phone]);
+  const { phone, action } = resolveBrazilPhoneForMeta(original);
 
+  if (isLandlineResolution(action)) {
+    return [phone];
+  }
+
+  const candidates = new Set([original, phone]);
   const alt = removeBrazilMobileNine(phone) || addBrazilMobileNine(phone);
   if (alt) candidates.add(alt);
 

@@ -1,25 +1,45 @@
 import { logger } from '../logger.js';
-import { extractLidFromWhatsAppNumbersRow, normalizeLidJid } from './lid.js';
+import { normalizePhone, resolveBrazilPhoneForMeta } from '../phone.js';
+import { extractLidFromWhatsAppNumbersRow, isLidJid, normalizeLidJid } from './lid.js';
 import { getValidationNumberCandidates } from './phoneVariants.js';
 import { persistValidatedContactPhone } from './mergeContatos.js';
 import * as evolutionDb from './supabase.js';
 
 const MSG_INEXISTENTE = 'Contato inexistente';
 
+function toPhoneJid(digits) {
+  return `${digits}@s.whatsapp.net`;
+}
+
 function pickValidWhatsAppResult(results, candidates) {
   if (!Array.isArray(results)) return null;
 
   for (const candidate of candidates) {
-    const match = results.find(
-      (row) =>
-        row?.exists === true &&
-        row?.jid &&
-        String(row.number || row.jid).replace(/\D/g, '') === candidate.replace(/\D/g, ''),
-    );
-    if (match?.jid) return match;
+    const match = results.find((row) => {
+      if (row?.exists !== true || !row?.jid) return false;
+      const queried = normalizePhone(row.number);
+      const jidDigits = normalizePhone(row.jid);
+      return queried === candidate || jidDigits === candidate;
+    });
+    if (!match?.jid) continue;
+
+    const { phone: resolved, action } = resolveBrazilPhoneForMeta(candidate);
+    if (action === 'fixo-12' || action === 'remove-nine-fixo') {
+      const jidDigits = normalizePhone(match.jid);
+      if (jidDigits !== resolved) {
+        logger.warn('whatsappNumbers reescreveu fixo com 9 — usando o número original', {
+          candidate,
+          jidRecebido: match.jid,
+          jidUsado: toPhoneJid(resolved),
+        });
+        return { ...match, jid: toPhoneJid(resolved) };
+      }
+    }
+
+    return match;
   }
 
-  return results.find((row) => row?.exists === true && row?.jid) ?? null;
+  return null;
 }
 
 export async function ensureContactValidatedForDispatch(detalhe, evolutionClient) {
@@ -33,9 +53,22 @@ export async function ensureContactValidatedForDispatch(detalhe, evolutionClient
   }
 
   if (contato.validado === true && contato.telefone) {
+    let jid = contato.telefone;
+    const digits = normalizePhone(jid);
+    if (digits && !isLidJid(jid)) {
+      const { phone, action } = resolveBrazilPhoneForMeta(digits);
+      if (action === 'remove-nine-fixo' && phone) {
+        jid = toPhoneJid(phone);
+        logger.warn('Contato validado com 9 em número fixo — corrigindo destino', {
+          contatoId: contato.id,
+          telefoneSalvo: contato.telefone,
+          jidCorrigido: jid,
+        });
+      }
+    }
     return {
       ok: true,
-      jid: contato.telefone,
+      jid,
       idContato: contato.id,
       lid: normalizeLidJid(contato.lid),
     };
