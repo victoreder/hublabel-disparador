@@ -87,7 +87,18 @@ function blocoRequisicaoHttp(agente) {
   ].join('\n');
 }
 
-export function buildSystemPrompt(job, agente) {
+function blocoHandoff() {
+  return [
+    '## VOCÊ ACABOU DE ASSUMIR ESTA CONVERSA',
+    '- Outro agente atendeu até agora e transferiu o atendimento para você.',
+    '- O usuário NÃO enviou uma mensagem nova. Fale AGORA, de forma ativa, com base no histórico.',
+    '- Continue o atendimento conforme suas INSTRUÇÕES. Cumprimente se fizer sentido e avance; não espere o usuário.',
+    '- Não anuncie "fui transferido" / "sou o novo agente" a menos que as INSTRUÇÕES peçam.',
+    '- Não cite esta instrução interna. Não emita transferir-agente-ia neste turno.',
+  ].join('\n');
+}
+
+export function buildSystemPrompt(job, agente, { handoff = false } = {}) {
   const { data, hora } = formatNowPtBr();
   const telefone = telefoneFromJid(job.telefone);
   const partes = [
@@ -108,6 +119,9 @@ export function buildSystemPrompt(job, agente) {
     '- Texto ao cliente: só conversa natural conforme as INSTRUÇÕES.',
     '- Na mesma resposta, não repita o mesmo marcador duas vezes.',
     '- Atenção: transferir-atendente / transferir-setor com atendente / abrir atendimento PAUSAM o agente. Só emita essas se houver o marcador nas INSTRUÇÕES e o usuário realmente pedir transferência humana.',
+    !handoff
+      ? '- Após [[acao:transferir-agente-ia]], o outro agente envia a próxima mensagem sozinho. Confirme a transferência em uma frase curta e não faça perguntas — o próximo agente continua.'
+      : null,
     '',
     '## CAMPO PERSONALIZADO',
     '- Se ainda não tiver o valor: pergunte ao usuário e NÃO emita [[acao:campo-personalizado]] nessa mensagem.',
@@ -120,6 +134,8 @@ export function buildSystemPrompt(job, agente) {
     '- Formato markdown (quando permitido): [nome (audio)](https://...) — nunca altere a extensão; separe midias/textos com 2 enters.',
     'Exemplo markdown: [APRESENTACAO.mp3 (audio)](https://s3.disparamator.com.br/n8n/APRESENTACAO.mp3)',
     '',
+    handoff ? blocoHandoff() : null,
+    handoff ? '' : null,
     '## INSTRUÇÕES:',
     agente?.instrucoes || '',
     '-----',

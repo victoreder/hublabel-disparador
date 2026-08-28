@@ -154,6 +154,15 @@ function scrubActionNarration(text) {
     .trim();
 }
 
+const MAX_HANDOFF_DEPTH = 1;
+
+const HANDOFF_TRIGGER = [
+  '[Instrução interna do sistema — o usuário NÃO enviou esta mensagem.]',
+  'Você acabou de assumir esta conversa após transferência de outro agente.',
+  'Leia o histórico e envie agora a primeira mensagem ao usuário, de forma natural e alinhada às suas INSTRUÇÕES.',
+  'Continue o atendimento a partir do contexto. Não espere o usuário falar. Não cite esta instrução.',
+].join('\n');
+
 /** Ações que o usuário “vê” e devem manter ordem relativa ao texto. */
 const USER_FACING_ACTIONS = new Set(['enviar-midia']);
 
@@ -189,14 +198,14 @@ function trackTokenUsageInBackground(agente, job, agentConfig, totalTokens) {
 /**
  * Gera e envia a resposta. Respeita AbortSignal — se abortado cedo, não envia.
  */
-async function runAgentGeneration(job, agente, agentConfig, inputText, { signal, beforeSend, markSending } = {}) {
+async function runAgentGeneration(job, agente, agentConfig, inputText, { signal, beforeSend, markSending, handoff = false, handoffDepth = 0 } = {}) {
   if (signal?.aborted) {
     const err = new Error('Geração abortada');
     err.name = 'AbortError';
     throw err;
   }
 
-  const systemPrompt = buildSystemPrompt(job, agente);
+  const systemPrompt = buildSystemPrompt(job, agente, { handoff });
   const history = await loadChatHistory(job.conversaId, agente.qntMsgHistorico ?? 20);
 
   let chatResult;
@@ -317,6 +326,7 @@ async function runAgentGeneration(job, agente, agentConfig, inputText, { signal,
   let chunksEnviados = 0;
   let acoesExecutadas = 0;
   let tokensExtras = 0;
+  let transferredToAgenteId = null;
   const sentParts = [];
 
   for (const segment of segments) {
@@ -363,6 +373,13 @@ async function runAgentGeneration(job, agente, agentConfig, inputText, { signal,
           if (normalizeTipo(segment.content?.tipo) === 'enviar-midia') {
             const d = segment.content?.dados || {};
             sentParts.push(`[midia:${d.arquivoId || d.url || ''}]`);
+          }
+          if (
+            normalizeTipo(segment.content?.tipo) === 'transferir-agente-ia' &&
+            resultado?.agenteId &&
+            Number(resultado.agenteId) !== Number(agente.id)
+          ) {
+            transferredToAgenteId = Number(resultado.agenteId);
           }
         }
       } catch (error) {
@@ -444,13 +461,85 @@ async function runAgentGeneration(job, agente, agentConfig, inputText, { signal,
     toolsExecuted,
     totalTokens,
     tokensExtras,
+    handoff,
   });
 
-  return {
+  const result = {
     replyText: sentParts.join('\n').trim() || stripActionMarkers(output),
     inputText,
     aborted: false,
   };
+
+  if (transferredToAgenteId && handoffDepth < MAX_HANDOFF_DEPTH) {
+    const handoffResult = await runTransferredAgentGreeting({
+      job,
+      agentConfig,
+      fromAgenteId: agente.id,
+      toAgenteId: transferredToAgenteId,
+      signal,
+      markSending,
+      handoffDepth,
+    });
+    if (handoffResult?.replyText) {
+      result.replyText = [result.replyText, handoffResult.replyText].filter(Boolean).join('\n').trim();
+    }
+  }
+
+  return result;
+}
+
+async function runTransferredAgentGreeting({
+  job,
+  agentConfig,
+  fromAgenteId,
+  toAgenteId,
+  signal,
+  markSending,
+  handoffDepth,
+}) {
+  let novoAgente;
+  try {
+    novoAgente = await fetchAgente(toAgenteId);
+  } catch (error) {
+    logger.warn('Handoff: falha ao carregar novo agente', {
+      conversaId: job.conversaId,
+      toAgenteId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+
+  if (!novoAgente) {
+    logger.warn('Handoff: novo agente não encontrado', {
+      conversaId: job.conversaId,
+      toAgenteId,
+    });
+    return null;
+  }
+
+  if (novoAgente.ativo === false) {
+    logger.info('Handoff: novo agente inativo — sem mensagem ativa', {
+      conversaId: job.conversaId,
+      toAgenteId,
+    });
+    return null;
+  }
+
+  job.agente = novoAgente;
+  job.agenteId = novoAgente.id;
+
+  logger.info('Handoff: novo agente enviará a primeira mensagem', {
+    conversaId: job.conversaId,
+    de: fromAgenteId,
+    para: novoAgente.id,
+  });
+
+  return runAgentGeneration(job, novoAgente, agentConfig, HANDOFF_TRIGGER, {
+    signal,
+    markSending,
+    handoff: true,
+    handoffDepth: handoffDepth + 1,
+  });
 }
 
 export async function processAgentJob(job) {
@@ -498,7 +587,7 @@ export async function processAgentJob(job) {
     agentConfig,
     text: textoPreprocessado,
     runGeneration: (inputText, ctx) =>
-      runAgentGeneration(job, agente, agentConfig, inputText, ctx),
+      runAgentGeneration(job, job.agente || agente, agentConfig, inputText, ctx),
     analyzePending: (args) => analyzePendingCovered(args),
   });
 }
