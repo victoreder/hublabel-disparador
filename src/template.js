@@ -1,3 +1,5 @@
+import { normalizePhone } from './phone.js';
+
 /**
  * Converte variáveis resolvidas + KeyRedis em components da Meta.
  * Variáveis vêm de SAAS_Templates_Meta.variaveisCampos (não do Payload do detalhe).
@@ -84,10 +86,15 @@ function buildButtonComponent(button) {
 }
 
 export function buildMetaTemplateMessage({ phone, templateName, language, components }) {
+  const to = normalizePhone(phone);
+  if (!to) {
+    throw new Error('Telefone destino inválido para envio na Meta');
+  }
+
   return {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
-    to: phone,
+    to,
     type: 'template',
     template: {
       name: templateName,

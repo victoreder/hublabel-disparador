@@ -209,6 +209,8 @@ export function createWorker() {
         mensagemErro,
         contatoInexistente,
         statusHttp,
+        metaErrorCode: error instanceof MetaApiError ? error.body?.error?.code ?? null : null,
+        metaErrorDetails: error instanceof MetaApiError ? error.body?.error?.error_data?.details ?? null : null,
       });
     }
   }
@@ -286,11 +288,29 @@ async function sendDetail(detail) {
 
   const { components: templateParts } = parseTemplateComponentes(template.componentes);
   const bodyComponent = templateParts.find((c) => String(c?.type || '').toUpperCase() === 'BODY');
+  const headerComponent = templateParts.find((c) => String(c?.type || '').toUpperCase() === 'HEADER');
   const requiredBodyVars = extractVariableIndexes(getComponentText(bodyComponent));
   if (requiredBodyVars.length > 0 && (!payload.body || payload.body.length < requiredBodyVars.length)) {
     throw new Error(
       `Template exige ${requiredBodyVars.length} variável(is) no body; variaveisCampos resolveu ${payload.body?.length ?? 0}`,
     );
+  }
+
+  const headerFormat = String(headerComponent?.format || '').toLowerCase();
+  if (['image', 'video', 'document'].includes(headerFormat) && !String(detail.KeyRedis || '').trim()) {
+    throw new Error(
+      `Template exige mídia no header (${headerFormat}) mas KeyRedis está vazio no detalhe ${detail.id}`,
+    );
+  }
+
+  const headerIndexes = extractVariableIndexes(getComponentText(headerComponent));
+  if (headerFormat === 'text' && headerIndexes.length > 0) {
+    const headerValue = payload.header?.text;
+    if (headerValue == null || String(headerValue).trim() === '') {
+      throw new Error(
+        `Template exige variável no header de texto; variaveisCampos não resolveu valor para o detalhe ${detail.id}`,
+      );
+    }
   }
 
   const components = buildTemplateComponents(payload, detail.KeyRedis);
@@ -353,9 +373,12 @@ async function sendDetail(detail) {
       if (hasAlternate && isRecipientPhoneError(error)) {
         logger.warn('Falha no telefone, tentando variante BR (nono dígito)', {
           detailId: detail.id,
-          telefone: formatPhoneForLog(phone),
+          telefoneEnviado: phone,
+          telefoneLegivel: formatPhoneForLog(phone),
           message: error.message,
-          proximo: formatPhoneForLog(phoneCandidates[i + 1]),
+          proximoEnviado: phoneCandidates[i + 1],
+          proximoLegivel: formatPhoneForLog(phoneCandidates[i + 1]),
+          metaErrorDetails: error.body?.error?.error_data?.details ?? null,
         });
         continue;
       }

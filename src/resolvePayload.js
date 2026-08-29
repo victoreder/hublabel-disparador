@@ -1,3 +1,5 @@
+import { normalizePhone } from './phone.js';
+
 /**
  * Resolve variáveis do template a partir de variaveisCampos + dados do contato.
  * Fonte: SAAS_Templates_Meta.componentes.variaveisCampos ou coluna variaveisCampos.
@@ -97,7 +99,7 @@ function buildFieldResolver({ contato, valoresPorCampo, camposPorId }) {
     if (CAMPOS_PADRAO.has(padrao)) {
       if (padrao === 'nome') return String(contato?.nome ?? '');
       if (padrao === 'email') return String(contato?.email ?? '');
-      if (padrao === 'telefone') return String(contato?.telefone ?? '');
+      if (padrao === 'telefone') return normalizePhone(contato?.telefone) || '';
     }
 
     const id = Number(ref);
@@ -117,7 +119,7 @@ function buildFieldResolver({ contato, valoresPorCampo, camposPorId }) {
 
     if (nomeCampo === 'nome') return String(contato?.nome ?? '');
     if (nomeCampo === 'email') return String(contato?.email ?? '');
-    if (nomeCampo === 'telefone') return String(contato?.telefone ?? '');
+    if (nomeCampo === 'telefone') return normalizePhone(contato?.telefone) || '';
 
     const variaveis = contato?.variaveis && typeof contato.variaveis === 'object' ? contato.variaveis : {};
     if (campo?.nome) {

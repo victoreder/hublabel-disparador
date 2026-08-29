@@ -5,7 +5,6 @@ const TRANSIENT_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 
 /** Erros Meta que indicam telefone inválido / sem WhatsApp — tentar variante BR. */
 const RECIPIENT_ERROR_CODES = new Set([
-  131008, // Required parameter invalid (phone)
   131009, // Parameter invalid
   131026, // Message undeliverable
   131030, // Recipient not in allowed list
@@ -15,11 +14,27 @@ const RECIPIENT_ERROR_CODES = new Set([
   135000, // Generic user error (sometimes phone)
 ]);
 
+function errorDetailsText(error) {
+  return String(error?.body?.error?.error_data?.details || '').toLowerCase();
+}
+
 export function isRecipientPhoneError(error) {
   if (!(error instanceof MetaApiError)) return false;
 
-  const code = error.body?.error?.code;
-  if (code != null && RECIPIENT_ERROR_CODES.has(Number(code))) {
+  const code = Number(error.body?.error?.code);
+  const details = errorDetailsText(error);
+
+  // 131008 é genérico ("Required parameter is missing") — pode ser template, não telefone.
+  if (code === 131008) {
+    return (
+      details.includes('to') ||
+      details.includes('phone') ||
+      details.includes('recipient') ||
+      details.includes('wa_id')
+    );
+  }
+
+  if (Number.isFinite(code) && RECIPIENT_ERROR_CODES.has(code)) {
     return true;
   }
 
