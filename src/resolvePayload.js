@@ -85,32 +85,6 @@ export function getComponentText(component) {
 
 const CAMPOS_PADRAO = new Set(['nome', 'email', 'telefone']);
 
-const DEFAULT_BODY_CAMPO_POR_INDICE = {
-  1: 'nome',
-  2: 'email',
-};
-
-const DEFAULT_HEADER_CAMPO_POR_INDICE = {
-  1: 'nome',
-};
-
-function resolveNomeContato(contato) {
-  const nome = String(contato?.nome ?? '').trim();
-  if (nome) return nome;
-
-  const telefone = normalizePhone(contato?.telefone);
-  if (telefone) return telefone;
-
-  return 'Cliente';
-}
-
-function resolveCampoPadrao(padrao, contato) {
-  if (padrao === 'nome') return resolveNomeContato(contato);
-  if (padrao === 'email') return String(contato?.email ?? '').trim();
-  if (padrao === 'telefone') return normalizePhone(contato?.telefone) || '';
-  return '';
-}
-
 function normalizeCampoRef(raw) {
   if (raw == null) return '';
   return String(raw).trim();
@@ -123,7 +97,9 @@ function buildFieldResolver({ contato, valoresPorCampo, camposPorId }) {
 
     const padrao = ref.toLowerCase();
     if (CAMPOS_PADRAO.has(padrao)) {
-      return resolveCampoPadrao(padrao, contato);
+      if (padrao === 'nome') return String(contato?.nome ?? '');
+      if (padrao === 'email') return String(contato?.email ?? '');
+      if (padrao === 'telefone') return normalizePhone(contato?.telefone) || '';
     }
 
     const id = Number(ref);
@@ -141,8 +117,8 @@ function buildFieldResolver({ contato, valoresPorCampo, camposPorId }) {
       .normalize('NFD')
       .replace(/\p{M}/gu, '');
 
-    if (nomeCampo === 'nome') return resolveNomeContato(contato);
-    if (nomeCampo === 'email') return String(contato?.email ?? '').trim();
+    if (nomeCampo === 'nome') return String(contato?.nome ?? '');
+    if (nomeCampo === 'email') return String(contato?.email ?? '');
     if (nomeCampo === 'telefone') return normalizePhone(contato?.telefone) || '';
 
     const variaveis = contato?.variaveis && typeof contato.variaveis === 'object' ? contato.variaveis : {};
@@ -157,20 +133,15 @@ function buildFieldResolver({ contato, valoresPorCampo, camposPorId }) {
       return String(variaveis[nomeCampo]);
     }
 
-    return resolveNomeContato(contato);
+    return String(contato?.nome ?? '');
   };
 }
 
-function resolveCampoRef(mapping, idx, defaults) {
-  const mapped = mapping?.[String(idx)] ?? mapping?.[idx];
-  if (mapped != null && String(mapped).trim() !== '') return mapped;
-  return defaults?.[idx] ?? defaults?.[String(idx)] ?? 'nome';
-}
-
-function resolveMappedParams(mapping, indexes, resolveField, defaults) {
+function resolveMappedParams(mapping, indexes, resolveField) {
   return indexes.map((idx) => {
-    const campoRef = resolveCampoRef(mapping, idx, defaults);
-    return resolveField(campoRef);
+    const campoId = mapping?.[String(idx)] ?? mapping?.[idx];
+    if (campoId == null) return '';
+    return resolveField(campoId);
   });
 }
 
@@ -247,21 +218,15 @@ export function resolveTemplatePayload({
   const headerIndexes = extractVariableIndexes(getComponentText(headerComponent));
 
   const resolved = {
-    body: resolveMappedParams(variaveisCampos.body, bodyIndexes, resolveField, DEFAULT_BODY_CAMPO_POR_INDICE),
+    body: resolveMappedParams(variaveisCampos.body, bodyIndexes, resolveField),
     buttons: resolveButtons(variaveisCampos, components, resolveField),
   };
 
   const headerFormat = String(headerComponent?.format || '').toLowerCase();
-  if (headerIndexes.length > 0) {
-    const headerText = resolveMappedParams(
-      variaveisCampos.header,
-      headerIndexes,
-      resolveField,
-      DEFAULT_HEADER_CAMPO_POR_INDICE,
-    );
-    const text = String(headerText[0] ?? '').trim();
-    if (text) {
-      resolved.header = { type: 'text', text };
+  if (headerIndexes.length > 0 && variaveisCampos.header) {
+    const headerText = resolveMappedParams(variaveisCampos.header, headerIndexes, resolveField);
+    if (headerText[0]) {
+      resolved.header = { type: 'text', text: headerText[0] };
     }
   } else if (['image', 'video', 'document'].includes(headerFormat)) {
     resolved.header = { type: headerFormat };
