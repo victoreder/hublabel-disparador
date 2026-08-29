@@ -9,6 +9,7 @@ import {
   parseTemplateComponentes,
   extractVariableIndexes,
   getComponentText,
+  assertTemplateTextParameters,
 } from './resolvePayload.js';
 import {
   claimDetail,
@@ -28,6 +29,18 @@ import {
 } from './supabase.js';
 
 const MSG_CONTATO_INEXISTENTE = 'Contato inexistente';
+const MSG_VARIAVEL_TEMPLATE_VAZIA = 'Variável do template sem valor';
+
+function formatDispatchError(error) {
+  if (!(error instanceof MetaApiError)) return error.message;
+
+  const details = String(error.body?.error?.error_data?.details || '');
+  if (details.includes('missing text value')) {
+    return MSG_VARIAVEL_TEMPLATE_VAZIA;
+  }
+
+  return error.message;
+}
 
 export function createWorker() {
   let running = false;
@@ -194,7 +207,7 @@ export function createWorker() {
       // Número sem WhatsApp / inválido (erro de destinatário da Meta, após tentar
       // as variantes com/sem 9): salva como "Contato inexistente".
       const contatoInexistente = isRecipientPhoneError(error);
-      const mensagemErro = contatoInexistente ? MSG_CONTATO_INEXISTENTE : error.message;
+      const mensagemErro = contatoInexistente ? MSG_CONTATO_INEXISTENTE : formatDispatchError(error);
 
       await markDetailFailed(detail.id, {
         statusHttp,
@@ -312,6 +325,8 @@ async function sendDetail(detail) {
       );
     }
   }
+
+  assertTemplateTextParameters(payload, template.componentes);
 
   const components = buildTemplateComponents(payload, detail.KeyRedis);
   const chat = buildTemplateChatPreview(template.componentes, payload, detail.KeyRedis, template.nome);
