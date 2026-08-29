@@ -31,6 +31,47 @@ import {
 const MSG_CONTATO_INEXISTENTE = 'Contato inexistente';
 const MSG_VARIAVEL_TEMPLATE_VAZIA = 'Variável do template sem valor';
 
+function parseRespostaHttp(raw) {
+  if (raw == null) return {};
+  if (typeof raw === 'object') return raw;
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) || {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function mergeRespostaHttpForSent(previous, resultBody, { phoneUsed, phoneOriginal }) {
+  const prev = parseRespostaHttp(previous);
+  const metaMessageId = resultBody?.messages?.[0]?.id ?? prev.metaMessageId ?? null;
+  const merged = {
+    ...prev,
+    ...resultBody,
+    metaMessageId,
+    _phoneUsed: phoneUsed,
+    _phoneOriginal: phoneOriginal,
+  };
+
+  // Preserva flags do retry via webhook (131026); sem isso o detalhe reentra em pending para sempre.
+  if (prev._webhookPhoneRetry === true) {
+    merged._webhookPhoneRetry = true;
+    merged._phoneUsedBeforeRetry = prev._phoneUsedBeforeRetry ?? prev._phoneUsed ?? null;
+    merged._phoneOverride = prev._phoneOverride ?? null;
+    merged._webhookFailedAt = prev._webhookFailedAt ?? null;
+    merged._webhookFailedWamid = prev._webhookFailedWamid ?? null;
+  }
+
+  return merged;
+}
+
+function isWebhookPhoneRetryResend(respostaHttp) {
+  const prev = parseRespostaHttp(respostaHttp);
+  return prev._webhookPhoneRetry === true || Boolean(normalizePhone(prev._phoneOverride));
+}
+
 function formatDispatchError(error) {
   if (!(error instanceof MetaApiError)) return error.message;
 
@@ -147,18 +188,18 @@ export function createWorker() {
       const result = await sendDetail(detail);
 
       const metaMessageId = result.body?.messages?.[0]?.id ?? null;
+      const respostaHttpMerged = mergeRespostaHttpForSent(detail.respostaHttp, result.body, {
+        phoneUsed: result.phoneUsed,
+        phoneOriginal: result.phoneOriginal,
+      });
 
       await markDetailSent(detail.id, {
         statusHttp: result.status,
-        respostaHttp: {
-          ...result.body,
-          metaMessageId,
-          _phoneUsed: result.phoneUsed,
-          _phoneOriginal: result.phoneOriginal,
-        },
+        respostaHttp: respostaHttpMerged,
       });
       const mostrarMensagem = disparo?.mostrarMensagem !== false;
-      if (metaMessageId && result.chat && mostrarMensagem) {
+      const salvarNoChat = !isWebhookPhoneRetryResend(detail.respostaHttp);
+      if (metaMessageId && result.chat && mostrarMensagem && salvarNoChat) {
         try {
           const chatResult = await saveTemplateMessageToChat({
             conexaoId: detail.idConexao,
@@ -183,6 +224,12 @@ export function createWorker() {
             message: chatError.message,
           });
         }
+      } else if (metaMessageId && result.chat && mostrarMensagem && !salvarNoChat) {
+        logger.info('Reenvio webhook (telefone alternativo): mensagem não duplicada no chat', {
+          detailId: detail.id,
+          disparoId: detail.idDisparo,
+          metaMessageId,
+        });
       } else if (metaMessageId && result.chat && !mostrarMensagem) {
         logger.info('Mensagem do disparo não salva no chat (mostrarMensagem=false)', {
           detailId: detail.id,
@@ -212,7 +259,10 @@ export function createWorker() {
       await markDetailFailed(detail.id, {
         statusHttp,
         mensagemErro,
-        respostaHttp,
+        respostaHttp: {
+          ...parseRespostaHttp(detail.respostaHttp),
+          ...(respostaHttp ?? {}),
+        },
       });
 
       logger.error('Falha ao enviar mensagem', {

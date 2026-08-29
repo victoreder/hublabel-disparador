@@ -247,7 +247,8 @@ export async function markDetailSent(detailId, { statusHttp, respostaHttp }) {
       respostaHttp,
       dataEnvio: new Date().toISOString(),
     })
-    .eq('id', detailId);
+    .eq('id', detailId)
+    .eq('Status', 'processing');
 
   if (error) throw mapSupabaseError(error, `Erro ao marcar detalhe ${detailId} como sent`);
 }
@@ -262,7 +263,8 @@ export async function markDetailFailed(detailId, { statusHttp, mensagemErro, res
       respostaHttp: respostaHttp ?? null,
       dataEnvio: new Date().toISOString(),
     })
-    .eq('id', detailId);
+    .eq('id', detailId)
+    .eq('Status', 'processing');
 
   if (error) throw mapSupabaseError(error, `Erro ao marcar detalhe ${detailId} como failed`);
 }
