@@ -458,6 +458,7 @@ export async function saveMetaMediaJob({
   link,
   nome_contato,
   mensagemRespondida,
+  from_me = false,
 }) {
   const { data, error } = await supabase.rpc('f_meta_salvar_mensagem_midia_job', {
     p_job: {
@@ -470,6 +471,7 @@ export async function saveMetaMediaJob({
       link,
       nome_contato: nome_contato,
       mensagemRespondida: mensagemRespondida ?? null,
+      from_me,
     },
   });
 

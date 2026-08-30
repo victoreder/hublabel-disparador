@@ -7,7 +7,7 @@ import { extractMediaJobs } from './parseEvents.js';
 import { processMediaJob } from './mediaPipeline.js';
 
 function scheduleFotoPerfilFromMetaResult(result, inboundConfig, conexao) {
-  if (!result?.contatoId || !result?.telefone) return;
+  if (!result?.contatoId || !result?.telefone || result?.fromMe) return;
 
   scheduleContatoFotoPerfilSync({
     contatoId: result.contatoId,
@@ -81,6 +81,16 @@ async function processAllEvents(events, inboundConfig) {
         continue;
       }
 
+      if (result?.echo || result?.fromMe) {
+        logger.info('Echo Meta salvo no chat', {
+          conversaId: result?.conversaId ?? null,
+          mensagemId: result?.mensagemId ?? null,
+          contatoId: result?.contatoId ?? null,
+          abriuAtendimentoHumano: Boolean(result?.abriuAtendimentoHumano),
+          segueFluxoIA: Boolean(result?.segueFluxoIA),
+        });
+      }
+
       const conexao = await loadConexaoForFotoPerfil(result);
       scheduleFotoPerfilFromMetaResult(result, inboundConfig, conexao);
 
@@ -120,20 +130,30 @@ async function processAllMediaJobs(jobs, inboundConfig) {
       });
 
       const conexao = await loadConexaoForFotoPerfil(result);
-      scheduleContatoFotoPerfilSync({
-        contatoId: result?.contatoId,
-        contatoCriado: Boolean(result?.contatoCriado),
-        telefone: result?.telefone || job.telefone,
-        fromMe: false,
-        canal: 'meta',
-        conexaoId: result?.conexaoId,
-        contaId: result?.contaId,
-        conexao,
-        s3Config: inboundConfig.s3,
-      });
+      if (!result?.fromMe) {
+        scheduleContatoFotoPerfilSync({
+          contatoId: result?.contatoId,
+          contatoCriado: Boolean(result?.contatoCriado),
+          telefone: result?.telefone || job.telefone,
+          fromMe: false,
+          canal: 'meta',
+          conexaoId: result?.conexaoId,
+          contaId: result?.contaId,
+          conexao,
+          s3Config: inboundConfig.s3,
+        });
+      }
 
       if (!isInboundMessageResult(result)) {
         continue;
+      }
+
+      if (result?.fromMe || job.from_me) {
+        logger.info('Echo Meta midia salva no chat', {
+          conversaId: result?.conversaId ?? null,
+          mensagemId: result?.mensagemId ?? null,
+          abriuAtendimentoHumano: Boolean(result?.abriuAtendimentoHumano),
+        });
       }
 
       if (result?.segueFluxoIA) {

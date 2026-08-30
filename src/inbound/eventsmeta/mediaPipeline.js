@@ -47,6 +47,7 @@ export async function processMediaJob(job, { s3Config, metaGraphApiVersion }) {
     link: publicLink,
     nome_contato: job.nome_contato,
     mensagemRespondida: job.mensagemRespondida,
+    from_me: Boolean(job.from_me),
   });
 
   logger.info('Mídia Meta salva no chat', {
@@ -54,6 +55,7 @@ export async function processMediaJob(job, { s3Config, metaGraphApiVersion }) {
     metaMessageId: job.meta_message_id,
     link: publicLink,
     mensagemId: result?.mensagemId ?? null,
+    fromMe: Boolean(job.from_me),
   });
 
   return result;
