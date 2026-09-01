@@ -8254,8 +8254,13 @@
 
           UPDATE public."SAAS_Mensagens"
           SET "metaStatus" = v_status->>'status',
-              enviada = CASE WHEN v_status->>'status' IN ('sent', 'delivered', 'read') THEN true ELSE enviada END
-          WHERE "metaMessageId" = v_wamid;
+              enviada = CASE WHEN v_status->>'status' IN ('sent', 'delivered', 'read') THEN true ELSE enviada END,
+              "metaMessageId" = CASE
+                WHEN NULLIF(trim(COALESCE("metaMessageId", '')), '') IS NULL THEN v_wamid
+                ELSE "metaMessageId"
+              END
+          WHERE "metaMessageId" = v_wamid
+             OR "messageEvolutionId" = v_wamid;
 
           IF v_status->>'status' = 'read' THEN
             UPDATE public."SAAS_Detalhes_Disparos" d
