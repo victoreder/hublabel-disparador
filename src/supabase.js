@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import ws from 'ws';
 import { config } from './config.js';
+import { addBrazilMobileNine, normalizePhone, removeBrazilMobileNine } from './phone.js';
 
 /**
  * Chaves novas do Supabase (sb_secret_*) não são JWT.
@@ -1014,6 +1015,46 @@ export async function notificarHumanoWhatsapp({ job, whatsappDestino, mensagem }
   }
 }
 
+async function conversaExisteParaDisparoChat({ conexaoId, contaId, telefone }) {
+  const digits = normalizePhone(telefone);
+  if (!digits) return false;
+
+  const alt = addBrazilMobileNine(digits) ?? removeBrazilMobileNine(digits);
+  const telefones = [
+    digits,
+    `${digits}@s.whatsapp.net`,
+    alt,
+    alt ? `${alt}@s.whatsapp.net` : null,
+  ].filter(Boolean);
+
+  const { data: contatos, error: contatoError } = await supabase
+    .from('SAAS_Contatos')
+    .select('id')
+    .eq('contaId', contaId)
+    .in('telefone', telefones)
+    .limit(1);
+
+  if (contatoError) {
+    throw mapSupabaseError(contatoError, 'Erro ao verificar contato do disparo no chat');
+  }
+  const contatoId = contatos?.[0]?.id;
+  if (!contatoId) return false;
+
+  const { data: conversa, error: conversaError } = await supabase
+    .from('SAAS_Conversas_Agentes')
+    .select('id')
+    .eq('contatoId', contatoId)
+    .eq('idConexao', conexaoId)
+    .limit(1)
+    .maybeSingle();
+
+  if (conversaError) {
+    throw mapSupabaseError(conversaError, 'Erro ao verificar conversa do disparo no chat');
+  }
+
+  return !!conversa?.id;
+}
+
 export async function saveTemplateMessageToChat({
   conexaoId,
   contaId,
@@ -1027,6 +1068,8 @@ export async function saveTemplateMessageToChat({
   if (!conexaoId || !contaId || !telefone) {
     throw new Error('conexaoId, contaId e telefone são obrigatórios para salvar no chat');
   }
+
+  const conversaJaExistia = await conversaExisteParaDisparoChat({ conexaoId, contaId, telefone });
 
   const { data, error } = await supabase.rpc('f_meta_salvar_mensagem_chat', {
     p_conexao_id: conexaoId,
@@ -1045,6 +1088,17 @@ export async function saveTemplateMessageToChat({
 
   if (data?.ok === false) {
     throw new Error(data.error || 'f_meta_salvar_mensagem_chat retornou erro');
+  }
+
+  if (!conversaJaExistia && data?.conversaId) {
+    const { error: statusError } = await supabase
+      .from('SAAS_Conversas_Agentes')
+      .update({ statusAtendimento: 'aguardando', pausado: false })
+      .eq('id', data.conversaId);
+
+    if (statusError) {
+      throw mapSupabaseError(statusError, 'Erro ao definir status aguardando no disparo Meta');
+    }
   }
 
   return data;
