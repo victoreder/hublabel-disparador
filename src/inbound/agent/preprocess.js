@@ -1,5 +1,22 @@
 import { logger } from '../../logger.js';
+import { fetchMensagemArquivoUrl } from '../../supabase.js';
 import { sendTextReply } from './sendReply.js';
+
+const MEDIA_MESSAGE_TYPES = new Set(['imageMessage', 'audioMessage', 'videoMessage', 'documentMessage', 'stickerMessage']);
+
+async function resolveArquivoUrl(job) {
+  if (job.arquivoUrl) return job.arquivoUrl;
+  if (!job.mensagemId) return null;
+  try {
+    return await fetchMensagemArquivoUrl(job.mensagemId);
+  } catch (error) {
+    logger.warn('Falha ao buscar arquivoUrl da mensagem', {
+      mensagemId: job.mensagemId,
+      message: error.message,
+    });
+    return null;
+  }
+}
 
 async function fetchBufferFromUrl(url) {
   const response = await fetch(url);
@@ -68,6 +85,10 @@ async function analyzeImage(agentConfig, buffer, mimeType = 'image/jpeg') {
 export async function preprocessInput(job, agente, agentConfig) {
   const type = job.messageType || 'conversation';
   const texto = job.textoEntrada?.trim() || '';
+
+  if (MEDIA_MESSAGE_TYPES.has(type) && !job.arquivoUrl) {
+    job.arquivoUrl = await resolveArquivoUrl(job);
+  }
 
   if (type === 'conversation' || type === 'documentMessage') {
     return texto || '(mensagem vazia)';

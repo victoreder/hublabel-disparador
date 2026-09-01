@@ -36,7 +36,7 @@ export function buildAgentJobFromMetaResult(metaResult) {
     telefone: metaResult.telefone ? `${metaResult.telefone}@s.whatsapp.net` : null,
     messageType: metaResult.tipoMensagem || 'conversation',
     textoEntrada: metaResult.mensagem ?? null,
-    arquivoUrl: metaResult.arquivoUrl ?? null,
+    arquivoUrl: metaResult.arquivoUrl ?? metaResult.link ?? null,
     agente: metaResult.agente ?? null,
     agenteId: metaResult.agenteId ?? metaResult.agente?.id ?? null,
     conexao: metaResult.conexao ?? null,

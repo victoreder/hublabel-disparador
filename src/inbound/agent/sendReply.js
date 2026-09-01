@@ -189,7 +189,9 @@ export async function sendAgentChunk(job, chunk, agentConfig) {
     mensagem: mensagemSalvar,
     tipoMensagem,
     arquivoUrl,
-    messageEvolutionId: messageId,
+    ...(apiOficial
+      ? { metaMessageId: messageId, metaStatus: 'sent' }
+      : { messageEvolutionId: messageId }),
   });
 
   // Não bloqueia o próximo chunk — update de conversa pode ir em background.

@@ -58,7 +58,12 @@ export async function processMediaJob(job, { s3Config, metaGraphApiVersion }) {
     fromMe: Boolean(job.from_me),
   });
 
-  return result;
+  return {
+    ...result,
+    arquivoUrl: publicLink,
+    mensagem: job.mensagem ?? result?.mensagem ?? null,
+    tipoMensagem: result?.tipoMensagem ?? job.tipo_mensagem ?? null,
+  };
 }
 
 async function fetchMetaMediaUrl(mediaId, accessToken, apiVersion) {

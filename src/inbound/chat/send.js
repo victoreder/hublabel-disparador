@@ -239,8 +239,9 @@ export async function enviarMensagemChat(body, inboundConfig) {
 
   await marcarMensagemChatEnviada(idMensagem, {
     tipoMensagem: 'conversation',
-    messageEvolutionId: messageId,
-    ...(conexao.apiOficial ? { metaStatus: 'sent' } : {}),
+    ...(conexao.apiOficial
+      ? { metaMessageId: messageId, metaStatus: 'sent' }
+      : { messageEvolutionId: messageId }),
   });
 
   return {
@@ -281,8 +282,9 @@ async function enviarLegendaAudio({
   if (contextoLegenda) {
     await marcarMensagemChatEnviada(contextoLegenda.mensagem.id, {
       tipoMensagem: 'conversation',
-      messageEvolutionId: messageId,
-      ...(conexao.apiOficial ? { metaStatus: 'sent' } : {}),
+      ...(conexao.apiOficial
+        ? { metaMessageId: messageId, metaStatus: 'sent' }
+        : { messageEvolutionId: messageId }),
     });
   }
 
@@ -359,8 +361,9 @@ export async function enviarMidiaChat(body, file, inboundConfig) {
   await marcarMensagemChatEnviada(idMensagem, {
     tipoMensagem: mapMessageType(tipoMensagem, response),
     arquivoUrl: arquivo.url,
-    messageEvolutionId: messageId,
-    ...(conexao.apiOficial ? { metaStatus: 'sent' } : {}),
+    ...(conexao.apiOficial
+      ? { metaMessageId: messageId, metaStatus: 'sent' }
+      : { messageEvolutionId: messageId }),
   });
 
   return {

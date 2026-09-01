@@ -544,7 +544,7 @@ export async function fetchContextoEnvioChat(idMensagem, idConexao) {
 
 export async function marcarMensagemChatEnviada(
   idMensagem,
-  { tipoMensagem, arquivoUrl, messageEvolutionId, metaStatus },
+  { tipoMensagem, arquivoUrl, messageEvolutionId, metaMessageId, metaStatus },
 ) {
   const payload = {
     enviada: true,
@@ -553,6 +553,7 @@ export async function marcarMensagemChatEnviada(
   };
 
   if (arquivoUrl !== undefined) payload.arquivoUrl = arquivoUrl;
+  if (metaMessageId !== undefined) payload.metaMessageId = metaMessageId;
   if (metaStatus !== undefined) payload.metaStatus = metaStatus;
 
   const { error } = await supabase.from('SAAS_Mensagens').update(payload).eq('id', idMensagem);
@@ -628,6 +629,18 @@ export async function addTokensUsuarioPorAgente(params) {
   return data;
 }
 
+export async function fetchMensagemArquivoUrl(idMensagem) {
+  const { data, error } = await supabase
+    .from('SAAS_Mensagens')
+    .select('arquivoUrl')
+    .eq('id', idMensagem)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, `Erro ao buscar arquivoUrl da mensagem ${idMensagem}`);
+  const url = data?.arquivoUrl?.trim();
+  return url || null;
+}
+
 export async function saveMensagemIA({
   contaId,
   conexaoId,
@@ -636,6 +649,8 @@ export async function saveMensagemIA({
   tipoMensagem,
   arquivoUrl,
   messageEvolutionId,
+  metaMessageId,
+  metaStatus,
 }) {
   const { error } = await supabase.from('SAAS_Mensagens').insert({
     contaId,
@@ -648,6 +663,8 @@ export async function saveMensagemIA({
     enviada: true,
     IA: true,
     messageEvolutionId: messageEvolutionId ?? null,
+    metaMessageId: metaMessageId ?? null,
+    metaStatus: metaStatus ?? null,
   });
 
   if (error) throw mapSupabaseError(error, 'Erro ao salvar mensagem IA');
