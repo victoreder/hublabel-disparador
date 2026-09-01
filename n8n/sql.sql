@@ -7689,7 +7689,7 @@
           p_conta_id,
           v_contato_id,
           NULLIF(trim(COALESCE(p_nome_contato, '')), ''),
-          'aguardando',
+          CASE WHEN p_from_me THEN 'aberto' ELSE 'aguardando' END,
           p_from_me
         )
         RETURNING id INTO v_conversa_id;
@@ -7779,9 +7779,7 @@
           'contaId', p_conta_id,
           'conexaoId', p_conexao_id,
           'tipoMensagem', v_tipo,
-          'telefone', v_telefone,
-          'mensagem', NULLIF(trim(COALESCE(p_mensagem, '')), ''),
-          'arquivoUrl', NULLIF(trim(COALESCE(p_arquivo_url, '')), '')
+          'telefone', v_telefone
         ) || COALESCE(v_fluxo - 'ok', '{}'::jsonb);
       END IF;
     END IF;
@@ -7864,9 +7862,7 @@
       'contaId', p_conta_id,
       'conexaoId', p_conexao_id,
       'tipoMensagem', v_tipo,
-      'telefone', v_telefone,
-      'mensagem', NULLIF(trim(COALESCE(p_mensagem, '')), ''),
-      'arquivoUrl', NULLIF(trim(COALESCE(p_arquivo_url, '')), '')
+      'telefone', v_telefone
     ) || COALESCE(v_fluxo - 'ok', '{}'::jsonb);
   EXCEPTION WHEN OTHERS THEN
     RETURN jsonb_build_object('ok', false, 'error', SQLERRM);
