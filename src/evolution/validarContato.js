@@ -54,22 +54,41 @@ export async function ensureContactValidatedForDispatch(detalhe, evolutionClient
 
   if (contato.validado === true && contato.telefone) {
     let jid = contato.telefone;
+    let idContato = contato.id;
     const digits = normalizePhone(jid);
     if (digits && !isLidJid(jid)) {
       const { phone, action } = resolveBrazilPhoneForMeta(digits);
       if (action === 'remove-nine-fixo' && phone) {
-        jid = toPhoneJid(phone);
-        logger.warn('Contato validado com 9 em número fixo — corrigindo destino', {
-          contatoId: contato.id,
-          telefoneSalvo: contato.telefone,
-          jidCorrigido: jid,
-        });
+        const jidCorrigido = toPhoneJid(phone);
+        if (jidCorrigido !== contato.telefone) {
+          logger.warn('Contato validado com 9 em número fixo — corrigindo destino', {
+            contatoId: contato.id,
+            telefoneSalvo: contato.telefone,
+            jidCorrigido,
+          });
+          const contaId = detalhe.UserId || contato.contaId;
+          try {
+            const persisted = await persistValidatedContactPhone({
+              contatoId: contato.id,
+              contaId,
+              jid: jidCorrigido,
+            });
+            jid = persisted.jid;
+            idContato = persisted.idContato;
+          } catch (err) {
+            logger.error('Erro ao persistir correção de fixo com 9', {
+              contatoId: contato.id,
+              message: err instanceof Error ? err.message : String(err),
+            });
+            jid = jidCorrigido;
+          }
+        }
       }
     }
     return {
       ok: true,
       jid,
-      idContato: contato.id,
+      idContato,
       lid: normalizeLidJid(contato.lid),
     };
   }
