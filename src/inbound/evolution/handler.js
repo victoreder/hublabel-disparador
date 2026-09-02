@@ -1,4 +1,5 @@
 import { logger } from '../../logger.js';
+import { resolveProvedorApi } from '../../provedorApi.js';
 import { fetchConexaoById, ingestaoMensagem } from '../../supabase.js';
 import { buildAgentJobFromIngestao } from '../agent/job.js';
 import { enqueueAgentJob } from '../agent/queue.js';
@@ -10,6 +11,8 @@ import {
   uploadBuffer,
   withFileExtension,
 } from '../storage/s3.js';
+import { handleUazapiWebhook } from '../uazapi/handler.js';
+import { isUazapiWebhookShape } from '../uazapi/organize.js';
 import {
   buildIngestaoPayload,
   extractOriginalFileName,
@@ -26,6 +29,21 @@ export async function handleEvolutionWebhook(req, inboundConfig) {
     return { status: 400, body: { ok: false, error: 'idConexao obrigatorio na query' } };
   }
 
+  const conexao = await fetchConexaoById(idConexao);
+  if (!conexao) {
+    return { status: 404, body: { ok: false, error: 'conexao nao encontrada' } };
+  }
+
+  const provedorQuery = String(req.query?.provedor || '').toLowerCase();
+  const provedor = resolveProvedorApi(conexao);
+  if (
+    provedor === 'uazapi' ||
+    provedorQuery === 'uazapi' ||
+    (isUazapiWebhookShape(body) && !body?.data?.key)
+  ) {
+    return handleUazapiWebhook(req, inboundConfig, conexao);
+  }
+
   const data = body.data ?? {};
   if (data.messageType === 'reactionMessage' || data.message?.reactionMessage) {
     return { status: 200, body: { ok: true, ignored: 'reaction' } };
@@ -34,11 +52,6 @@ export async function handleEvolutionWebhook(req, inboundConfig) {
   const organized = organizeEvolutionWebhook(body);
   if (!isAllowedEvolutionChat(organized.remoteJid)) {
     return { status: 200, body: { ok: true, ignored: 'group_or_invalid_jid' } };
-  }
-
-  const conexao = await fetchConexaoById(idConexao);
-  if (!conexao) {
-    return { status: 404, body: { ok: false, error: 'conexao nao encontrada' } };
   }
 
   if (isMediaMessageType(organized.messageType)) {

@@ -15,6 +15,60 @@ function groupingKey(remoteJid) {
   return `agent:group:${String(remoteJid || '').trim()}`;
 }
 
+function historyKey(conversaId) {
+  return `agent:hist:${conversaId}`;
+}
+
+/**
+ * Cache do histórico LLM por conversa.
+ * Payload: { lastId: number, messages: [{ id, role, content }] }
+ */
+export async function getChatHistoryCache(redisUrl, conversaId) {
+  const redis = getRedis(redisUrl);
+  if (!redis || conversaId == null) return null;
+  try {
+    const raw = await redis.get(historyKey(conversaId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.messages)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export async function setChatHistoryCache(redisUrl, conversaId, payload, ttlSec = 172800) {
+  const redis = getRedis(redisUrl);
+  if (!redis || conversaId == null || !payload) return;
+  try {
+    const ttl = Math.max(60, Number(ttlSec) || 172800);
+    await redis.set(historyKey(conversaId), JSON.stringify(payload), 'EX', ttl);
+  } catch {
+    // cache best-effort
+  }
+}
+
+export async function touchChatHistoryCache(redisUrl, conversaId, ttlSec = 172800) {
+  const redis = getRedis(redisUrl);
+  if (!redis || conversaId == null) return;
+  try {
+    const ttl = Math.max(60, Number(ttlSec) || 172800);
+    await redis.expire(historyKey(conversaId), ttl);
+  } catch {
+    // ignore
+  }
+}
+
+export async function invalidateChatHistoryCache(redisUrl, conversaId) {
+  const redis = getRedis(redisUrl);
+  if (!redis || conversaId == null) return;
+  try {
+    await redis.del(historyKey(conversaId));
+  } catch {
+    // ignore
+  }
+}
+
 /**
  * Lock atômico para ações 1x (notificar-humano, transferências).
  * Redis SET NX entre réplicas; fallback em memória no mesmo processo.

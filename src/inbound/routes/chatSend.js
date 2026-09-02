@@ -24,7 +24,13 @@ function parseMultipartData(body = {}) {
 }
 
 function isEvolutionWebhookShape(body = {}) {
-  return Boolean(body.event || body.instance || (body.data && typeof body.data === 'object'));
+  return Boolean(
+    body.event ||
+      body.EventType ||
+      body.instance ||
+      body.message ||
+      (body.data && typeof body.data === 'object'),
+  );
 }
 
 function actionFromRequest(req) {

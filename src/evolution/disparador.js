@@ -8,11 +8,22 @@ import {
   isRetryableEvolutionKind,
   mapMessageType,
 } from './client.js';
-import { ensureContactValidatedForDispatch } from './validarContato.js';
+import {
+  ensureContactValidatedForDispatch,
+  MSG_INEXISTENTE,
+  REASON_AMBIGUOUS,
+  REASON_API_ERROR,
+  REASON_INSTANCE_NOT_OPEN,
+} from './validarContato.js';
 import { isEnderecamentoFallbackError, isLidJid, resolveLidDoTelefone } from './lid.js';
+import {
+  createUazapiClient,
+  extractUazapiMessageId,
+  isUazapiConnected,
+  mapEvolutionMediaTypeToUazapi,
+  UazapiError,
+} from '../uazapi/client.js';
 import * as evolutionDb from './supabase.js';
-
-const MSG_INEXISTENTE = 'Contato inexistente';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -40,7 +51,7 @@ function hasMedia(detalhe) {
 }
 
 function getEvolutionErrorDetails(err) {
-  if (err instanceof EvolutionError) {
+  if (err instanceof EvolutionError || err instanceof UazapiError) {
     return {
       statusHttp: err.status,
       respostaHttp: err.body ?? null,
@@ -55,10 +66,32 @@ function getEvolutionErrorDetails(err) {
   };
 }
 
+function provedorDoDetalhe(detalhe) {
+  return String(detalhe.provedorApi || detalhe.ProvedorApi || 'evolution')
+    .toLowerCase()
+    .trim();
+}
+
+function uazapiClientFromDetalhe(detalhe) {
+  const baseUrl = String(detalhe.urlApi || detalhe.UrlApi || '').replace(/\/+$/, '');
+  const token = String(detalhe.ApikeyConexao || detalhe.Apikey || '').trim();
+  if (!baseUrl || !token) {
+    throw new Error('Conexao UazAPI incompleta no detalhe (urlApi/Apikey)');
+  }
+  return createUazapiClient({ baseUrl, instanceToken: token });
+}
+
+function telefoneDigits(value) {
+  return String(value || '')
+    .replace(/@.+$/, '')
+    .replace(/\D/g, '');
+}
+
 export function createDisparadorEvolution(config) {
   const evolution = createEvolutionClient(config);
 
   async function sendPayload(detalhe, telefoneDestino) {
+    const provedor = provedorDoDetalhe(detalhe);
     const instanceName = detalhe.InstanceName;
     const number = getDestino(detalhe, telefoneDestino);
     const mensagem = detalhe.Mensagem || '';
@@ -70,6 +103,38 @@ export function createDisparadorEvolution(config) {
       throw new Error(
         grupo ? 'WhatsAppIdGrupo ausente no detalhe' : 'TelefoneContato ausente no detalhe',
       );
+    }
+
+    if (provedor === 'uazapi') {
+      const uazapi = uazapiClientFromDetalhe(detalhe);
+      const destino = telefoneDigits(number) || number;
+
+      if (!hasMedia(detalhe)) {
+        const res = await uazapi.sendText(destino, mensagem);
+        return mapMessageType('conversation', { key: { id: extractUazapiMessageId(res) } });
+      }
+
+      const media = await probeMedia(detalhe.KeyRedis);
+      const type =
+        media.mediaType === 'audio'
+          ? 'ptt'
+          : mapEvolutionMediaTypeToUazapi(`${media.mediaType}Message`);
+
+      const mediaRes = await uazapi.sendMedia({
+        number: destino,
+        type,
+        file: detalhe.KeyRedis,
+        text: mensagem || undefined,
+        ...(media.mediaType === 'document' ? { docName: media.fileName } : {}),
+      });
+
+      if (media.mediaType === 'audio' && mensagem) {
+        await uazapi.sendText(destino, mensagem);
+      }
+
+      return mapMessageType(media.mediaType, {
+        key: { id: extractUazapiMessageId(mediaRes) },
+      });
     }
 
     if (!hasMedia(detalhe)) {
@@ -137,6 +202,20 @@ export function createDisparadorEvolution(config) {
     if (!instanceName) return true;
 
     try {
+      if (provedorDoDetalhe(detalhe) === 'uazapi') {
+        const uazapi = uazapiClientFromDetalhe(detalhe);
+        const statePayload = await uazapi.getStatus();
+        const open = isUazapiConnected(statePayload);
+        logger.info('Estado da instância UazAPI após falha de envio', {
+          detailId: detalhe.id,
+          disparoId: detalhe.idDisparo,
+          instanceName,
+          kind,
+          open,
+        });
+        return !open;
+      }
+
       const statePayload = await evolution.getConnectionState(instanceName);
       const open = isInstanceConnectionOpen(statePayload);
       logger.info('Estado da instância Evolution após falha de envio', {
@@ -167,6 +246,12 @@ export function createDisparadorEvolution(config) {
    * telefone é tentado primeiro e o @lid entra como fallback (resolvido on-demand).
    */
   async function sendComFallbackEnderecamento(detalhe, { telefoneDestino, lidDestino, lidAlternativo }) {
+    // UazAPI: envio só por telefone (sem fallback @lid).
+    if (provedorDoDetalhe(detalhe) === 'uazapi') {
+      const messageType = await sendWithRetry(detalhe, telefoneDestino);
+      return { messageType, destinoUsado: getDestino(detalhe, telefoneDestino) };
+    }
+
     if (isGrupo(detalhe) || !telefoneDestino) {
       const messageType = await sendWithRetry(detalhe, telefoneDestino);
       return { messageType, destinoUsado: getDestino(detalhe, telefoneDestino) };
@@ -265,9 +350,28 @@ export function createDisparadorEvolution(config) {
     let lidAlternativo = null;
 
     if (tipo === 'Individual') {
-      const validation = await ensureContactValidatedForDispatch(detalhe, evolution);
+      const validatorClient =
+        provedorDoDetalhe(detalhe) === 'uazapi'
+          ? uazapiClientFromDetalhe(detalhe)
+          : evolution;
+      const validation = await ensureContactValidatedForDispatch(detalhe, validatorClient);
       if (!validation.ok) {
-        if (validation.reason === 'api_error' && validation.error) {
+        if (validation.reason === MSG_INEXISTENTE) {
+          await markInvalidContact(detalhe);
+          return;
+        }
+
+        if (validation.reason === REASON_INSTANCE_NOT_OPEN) {
+          await evolutionDb.swapConnection(detalhe.idDisparo, detalhe.idConexao);
+          logger.warn('Conexão trocada — instância não open na validação do contato', {
+            detailId: detalhe.id,
+            disparoId: detalhe.idDisparo,
+            idConexao: detalhe.idConexao,
+          });
+          return;
+        }
+
+        if (validation.reason === REASON_API_ERROR && validation.error) {
           await handleFailure(detalhe, validation.error);
           const { statusHttp, respostaHttp } = getEvolutionErrorDetails(validation.error);
           logger.error('Falha ao validar contato Evolution', {
@@ -282,7 +386,19 @@ export function createDisparadorEvolution(config) {
           });
           return;
         }
-        await markInvalidContact(detalhe);
+
+        // ambiguous_result / desconhecido: transitório — nunca "Contato inexistente".
+        await evolutionDb.markFailed(detalhe.id, {
+          userMessage:
+            validation.reason === REASON_AMBIGUOUS
+              ? 'Falha transitória na validação do contato'
+              : String(validation.reason || 'Falha transitória na validação do contato'),
+        });
+        logger.warn('Validação de contato falhou sem veredito de inexistente', {
+          detailId: detalhe.id,
+          disparoId: detalhe.idDisparo,
+          reason: validation.reason,
+        });
         return;
       }
       telefoneDestino = validation.jid;

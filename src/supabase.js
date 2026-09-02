@@ -488,11 +488,173 @@ export async function saveMetaMediaJob({
 export async function fetchConexaoById(idConexao) {
   const { data, error } = await supabase
     .from('SAAS_Conexões')
-    .select('id, contaId, apiOficial, access_token, phone_number_id, NomeConexao, idAgente, instanceName, Apikey')
+    .select(
+      'id, contaId, apiOficial, access_token, phone_number_id, NomeConexao, idAgente, instanceName, Apikey, provedorApi, urlApi, Telefone, FotoPerfil',
+    )
     .eq('id', idConexao)
     .maybeSingle();
 
   if (error) throw mapSupabaseError(error, `Erro ao buscar conexão ${idConexao}`);
+  return data;
+}
+
+export async function fetchConfigUazapi() {
+  const { data, error } = await supabase
+    .from('SAAS_Config_Uazapi')
+    .select('id, url, token')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar SAAS_Config_Uazapi');
+  return data;
+}
+
+export async function fetchContaComPlano(contaId) {
+  const { data, error } = await supabase
+    .from('vw_Contas_Com_Plano')
+    .select('*')
+    .eq('id', contaId)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, `Erro ao buscar plano da conta ${contaId}`);
+  return data;
+}
+
+export async function obterApiNaoOficialConta(contaId) {
+  const { data, error } = await supabase.rpc('obter_api_nao_oficial_conta', {
+    p_conta_id: contaId,
+  });
+
+  if (error) {
+    // Fallback se a RPC ainda não foi aplicada: lê o plano via view/conta.
+    const conta = await fetchContaComPlano(contaId);
+    if (conta?.apiNaoOficial) return String(conta.apiNaoOficial);
+    if (conta?.plano_id != null) {
+      const { data: plano, error: planoError } = await supabase
+        .from('SAAS_Planos')
+        .select('apiNaoOficial')
+        .eq('id', conta.plano_id)
+        .maybeSingle();
+      if (planoError) throw mapSupabaseError(planoError, 'Erro ao buscar apiNaoOficial do plano');
+      return plano?.apiNaoOficial || 'evolution';
+    }
+    return 'evolution';
+  }
+
+  return data || 'evolution';
+}
+
+export async function insertConexaoNaoOficial(payload) {
+  const { data, error } = await supabase
+    .from('SAAS_Conexões')
+    .insert(payload)
+    .select('id, instanceName, NomeConexao, contaId, Apikey, provedorApi, urlApi')
+    .single();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao criar conexão');
+  return data;
+}
+
+
+export async function upsertConversasAgentes(items) {
+  const { data, error } = await supabase.rpc('f_upsert_conversas_agentes', {
+    p_items: items,
+  });
+
+  if (error) throw mapSupabaseError(error, 'Erro em f_upsert_conversas_agentes');
+  return data;
+}
+
+
+export async function updateConexaoByInstanceName(instanceName, payload) {
+  const { data, error } = await supabase
+    .from('SAAS_Conexões')
+    .update(payload)
+    .eq('instanceName', instanceName)
+    .select('id, instanceName, NomeConexao, Telefone, FotoPerfil, provedorApi, urlApi, Apikey')
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, `Erro ao atualizar conexão ${instanceName}`);
+  return data;
+}
+
+
+export async function fetchConexaoByInstanceName(instanceName) {
+  if (!instanceName) return null;
+
+  const { data, error } = await supabase
+    .from('SAAS_Conexões')
+    .select(
+      'id, contaId, instanceName, NomeConexao, Apikey, provedorApi, urlApi, Telefone, FotoPerfil, apiOficial',
+    )
+    .eq('instanceName', instanceName)
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw mapSupabaseError(error, `Erro ao buscar conexão ${instanceName}`);
+  }
+  return data;
+}
+
+export async function updateGrupoParticipantesCount(whatsAppId, participantes) {
+  const wid = String(whatsAppId || '').trim();
+  if (!wid) return { updated: 0, target: null };
+
+  // Modelo legado SAAS_Grupos (se ainda existir no projeto)
+  const grupos = await supabase
+    .from('SAAS_Grupos')
+    .update({ participantes })
+    .eq('WhatsAppId', wid)
+    .select('id');
+
+  if (!grupos.error && (grupos.data?.length || 0) > 0) {
+    return { updated: grupos.data.length, target: 'SAAS_Grupos' };
+  }
+
+  // Modelo atual: grupos em SAAS_Contatos (tipo=grupo, whatsappId em variaveis)
+  const { data: contatos, error } = await supabase
+    .from('SAAS_Contatos')
+    .select('id, variaveis')
+    .eq('tipo', 'grupo')
+    .filter('variaveis->>whatsappId', 'eq', wid);
+
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar grupo em SAAS_Contatos');
+
+  let updated = 0;
+  for (const row of contatos || []) {
+    const variaveis = {
+      ...(row.variaveis && typeof row.variaveis === 'object' ? row.variaveis : {}),
+      participantes,
+    };
+    const { error: upErr } = await supabase
+      .from('SAAS_Contatos')
+      .update({ variaveis })
+      .eq('id', row.id);
+    if (upErr) throw mapSupabaseError(upErr, `Erro ao atualizar participantes do grupo ${row.id}`);
+    updated += 1;
+  }
+
+  return { updated, target: 'SAAS_Contatos' };
+}
+
+export async function fetchConexaoByContaAndInstance(contaId, instanceName) {
+  const { data, error } = await supabase
+    .from('SAAS_Conexões')
+    .select(
+      'id, contaId, instanceName, NomeConexao, Apikey, provedorApi, urlApi, Telefone, FotoPerfil, apiOficial',
+    )
+    .eq('contaId', contaId)
+    .eq('instanceName', instanceName)
+    .maybeSingle();
+
+  if (error) {
+    throw mapSupabaseError(
+      error,
+      `Erro ao buscar conexão ${instanceName} da conta ${contaId}`,
+    );
+  }
   return data;
 }
 
@@ -568,7 +730,7 @@ export async function fetchEvolutionConexaoDaConta(contaId) {
 
   const { data, error } = await supabase
     .from('SAAS_Conexões')
-    .select('id, instanceName, Apikey')
+    .select('id, instanceName, Apikey, provedorApi, urlApi')
     .eq('contaId', contaId)
     .eq('apiOficial', false)
     .not('instanceName', 'is', null)

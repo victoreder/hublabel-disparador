@@ -7,6 +7,11 @@ import {
 } from '../../evolution/lid.js';
 import { saveMensagemIA, updateConversaUltimaMensagem } from '../../supabase.js';
 import { logger } from '../../logger.js';
+import {
+  createUazapiClient,
+  extractUazapiMessageId,
+  mapEvolutionMediaTypeToUazapi,
+} from '../../uazapi/client.js';
 import { stripActionMarkers } from './parseActions.js';
 import {
   classifyChunk,
@@ -146,6 +151,7 @@ export async function sendAgentChunk(job, chunk, agentConfig) {
   }
 
   const apiOficial = Boolean(job.envio?.apiOficial);
+  const provedorApi = String(job.envio?.provedorApi || '').toLowerCase();
   const number = job.telefone;
   const to = telefoneDigits(number);
 
@@ -156,6 +162,8 @@ export async function sendAgentChunk(job, chunk, agentConfig) {
 
   if (apiOficial) {
     sendResult = await sendMetaChunk(job, kind, text, to, agentConfig);
+  } else if (provedorApi === 'uazapi' || job.canal === 'uazapi') {
+    sendResult = await sendUazapiChunk(job, kind, text, to, agentConfig);
   } else {
     sendResult = await sendEvolutionChunk(job, kind, text, number, agentConfig);
   }
@@ -180,6 +188,7 @@ export async function sendAgentChunk(job, chunk, agentConfig) {
     sendResult?.key?.id ||
     sendResult?.messages?.[0]?.id ||
     sendResult?.messageId ||
+    extractUazapiMessageId(sendResult) ||
     null;
 
   await saveMensagemIA({
@@ -250,6 +259,49 @@ async function sendEvolutionOnce(job, kind, text, number, agentConfig) {
   }
 
   return evolutionRequest(job, `/message/sendMedia/${instance}`, body);
+}
+
+async function sendUazapiChunk(job, kind, text, to, agentConfig) {
+  const { serverUrl, apikey } = job.envio ?? {};
+  if (!serverUrl || !apikey) {
+    throw new Error('Dados UazAPI ausentes no job');
+  }
+
+  const number = String(to || '').replace(/\D/g, '');
+  if (!number) throw new Error('Destino UazAPI ausente no job');
+
+  const client = createUazapiClient({
+    baseUrl: String(serverUrl).replace(/\/+$/, ''),
+    instanceToken: apikey,
+  });
+
+  const delay = Math.max(0, Number(agentConfig?.evolutionSendDelayMs ?? 300) || 0);
+
+  if (kind === 'text') {
+    return client.sendText(number, plainTextFromChunk(text) || text, { delay });
+  }
+
+  const mediaUrl = extractMediaUrl(text);
+  if (!mediaUrl) {
+    return client.sendText(number, plainTextFromChunk(text) || text, { delay });
+  }
+
+  const type = mapEvolutionMediaTypeToUazapi(
+    kind === 'audio'
+      ? 'audioMessage'
+      : kind === 'image'
+        ? 'imageMessage'
+        : kind === 'video'
+          ? 'videoMessage'
+          : 'documentMessage',
+  );
+
+  return client.sendMedia({
+    number,
+    type,
+    file: mediaUrl,
+    ...(kind === 'document' ? { docName: fileNameFromUrl(mediaUrl) } : {}),
+  });
 }
 
 /**

@@ -206,7 +206,12 @@ async function runAgentGeneration(job, agente, agentConfig, inputText, { signal,
   }
 
   const systemPrompt = buildSystemPrompt(job, agente, { handoff });
-  const history = await loadChatHistory(job.conversaId, agente.qntMsgHistorico ?? 20);
+  const history = await loadChatHistory(
+    job.conversaId,
+    agente.qntMsgHistorico ?? 20,
+    agentConfig.redisUrl,
+    agentConfig.historyCacheTtlSec,
+  );
 
   let chatResult;
   try {

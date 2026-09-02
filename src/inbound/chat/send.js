@@ -8,11 +8,18 @@ import {
   resolveLidDoTelefone,
 } from '../../evolution/lid.js';
 import { logger } from '../../logger.js';
+import { resolveProvedorApi } from '../../provedorApi.js';
 import {
   fetchConexaoById,
   fetchContextoEnvioChat,
   marcarMensagemChatEnviada,
 } from '../../supabase.js';
+import { invalidateChatHistory } from '../agent/memory.js';
+import {
+  createUazapiClient,
+  extractUazapiMessageId,
+  mapEvolutionMediaTypeToUazapi,
+} from '../../uazapi/client.js';
 import { metaPost } from '../meta/graph.js';
 import { HttpError } from '../meta/httpError.js';
 import {
@@ -44,11 +51,15 @@ function inteiroObrigatorio(value, campo) {
   return numero;
 }
 
-function idResposta(response) {
+function idResposta(response, provedor) {
+  if (provedor === 'uazapi') {
+    return extractUazapiMessageId(response);
+  }
   return (
     response?.key?.id ||
     response?.messages?.[0]?.id ||
     response?.messageId ||
+    extractUazapiMessageId(response) ||
     null
   );
 }
@@ -66,6 +77,12 @@ function telefoneContexto(contexto, body) {
     body.telefone ||
     null
   );
+}
+
+function telefoneDigitsParaUazapi(value) {
+  return String(value ?? '')
+    .replace(/@.+$/, '')
+    .replace(/\D/g, '');
 }
 
 async function carregarContexto(body) {
@@ -98,7 +115,9 @@ async function carregarContexto(body) {
 }
 
 function clienteEvolution(conexao, inboundConfig) {
-  const baseUrl = String(inboundConfig.evolutionBaseUrl || '').replace(/\/+$/, '');
+  const baseUrl = String(
+    conexao.urlApi || inboundConfig.evolutionBaseUrl || '',
+  ).replace(/\/+$/, '');
   if (!baseUrl || !conexao.instanceName || !conexao.Apikey) {
     throw new HttpError('Conexao Evolution incompleta.', 400);
   }
@@ -106,6 +125,17 @@ function clienteEvolution(conexao, inboundConfig) {
   return createEvolutionClient({
     evolutionBaseUrl: baseUrl,
     evolutionApiKey: conexao.Apikey,
+  });
+}
+
+function clienteUazapi(conexao) {
+  const baseUrl = String(conexao.urlApi || '').replace(/\/+$/, '');
+  if (!baseUrl || !conexao.Apikey) {
+    throw new HttpError('Conexao UazAPI incompleta (urlApi/Apikey).', 400);
+  }
+  return createUazapiClient({
+    baseUrl,
+    instanceToken: conexao.Apikey,
   });
 }
 
@@ -207,19 +237,35 @@ async function uploadArquivo(file, inboundConfig, idMensagem) {
   };
 }
 
+function invalidarHistoricoAgente(contexto) {
+  const conversaId = contexto?.conversa?.id ?? contexto?.mensagem?.conversaId;
+  if (conversaId == null) return;
+  void invalidateChatHistory(conversaId).catch(() => {});
+}
+
 export async function enviarMensagemChat(body, inboundConfig) {
   const { conexao, contexto, idMensagem } = await carregarContexto(body);
   const mensagem = textoObrigatorio(body.mensagem, 'mensagem');
+  const provedor = resolveProvedorApi(conexao);
   let response;
   let destino;
 
-  if (conexao.apiOficial) {
+  if (provedor === 'oficial') {
     destino = telefoneMeta(telefoneContexto(contexto, body));
     response = await enviarMeta(
       conexao,
       inboundConfig,
       payloadMetaTexto(destino, mensagem, body.mensagemRespondida),
     );
+  } else if (provedor === 'uazapi') {
+    const uazapi = clienteUazapi(conexao);
+    destino = telefoneDigitsParaUazapi(telefoneContexto(contexto, body));
+    if (!destino) throw new HttpError('Telefone do contato nao encontrado.', 400);
+    response = await uazapi.sendText(destino, mensagem, {
+      ...(body.mensagemRespondida
+        ? { quoted: String(body.mensagemRespondida) }
+        : {}),
+    });
   } else {
     const evolution = clienteEvolution(conexao, inboundConfig);
     const enderecamento = await destinosEvolution({ evolution, conexao, contexto, body });
@@ -234,22 +280,27 @@ export async function enviarMensagemChat(body, inboundConfig) {
     destino = resultado.destino;
   }
 
-  const messageId = idResposta(response);
+  const messageId = idResposta(response, provedor);
   if (!messageId) throw new HttpError('Provedor nao retornou o id da mensagem.', 502);
 
   await marcarMensagemChatEnviada(idMensagem, {
     tipoMensagem: 'conversation',
-    ...(conexao.apiOficial
+    ...(provedor === 'oficial'
       ? { metaMessageId: messageId, metaStatus: 'sent' }
       : { messageEvolutionId: messageId }),
   });
+  invalidarHistoricoAgente(contexto);
 
   return {
     ok: true,
     acao: 'enviarMensagem',
-    provedor: conexao.apiOficial ? 'meta' : 'evolution',
+    provedor,
     messageId,
-    enderecamento: conexao.apiOficial ? 'telefone' : isLidJid(destino) ? 'lid' : 'telefone',
+    enderecamento: provedor === 'oficial' || provedor === 'uazapi'
+      ? 'telefone'
+      : isLidJid(destino)
+        ? 'lid'
+        : 'telefone',
   };
 }
 
@@ -260,15 +311,20 @@ async function enviarLegendaAudio({
   contextoLegenda,
   inboundConfig,
   evolution,
+  uazapi,
   enderecamento,
 }) {
   const legenda = String(body.caption ?? '').trim();
   if (!legenda) return null;
+  const provedor = resolveProvedorApi(conexao);
 
   let response;
-  if (conexao.apiOficial) {
+  if (provedor === 'oficial') {
     const to = telefoneMeta(telefoneContexto(contexto, body));
     response = await enviarMeta(conexao, inboundConfig, payloadMetaTexto(to, legenda));
+  } else if (provedor === 'uazapi') {
+    const number = telefoneDigitsParaUazapi(telefoneContexto(contexto, body));
+    response = await uazapi.sendText(number, legenda);
   } else {
     const resultado = await enviarEvolutionComFallback(enderecamento, (number) =>
       evolution.sendText(conexao.instanceName, number, legenda),
@@ -276,16 +332,17 @@ async function enviarLegendaAudio({
     response = resultado.response;
   }
 
-  const messageId = idResposta(response);
+  const messageId = idResposta(response, provedor);
   if (!messageId) throw new HttpError('Provedor nao retornou o id da legenda.', 502);
 
   if (contextoLegenda) {
     await marcarMensagemChatEnviada(contextoLegenda.mensagem.id, {
       tipoMensagem: 'conversation',
-      ...(conexao.apiOficial
+      ...(provedor === 'oficial'
         ? { metaMessageId: messageId, metaStatus: 'sent' }
         : { messageEvolutionId: messageId }),
     });
+    invalidarHistoricoAgente(contextoLegenda);
   }
 
   return messageId;
@@ -297,11 +354,15 @@ export async function enviarMidiaChat(body, file, inboundConfig) {
   const tipoMeta = TIPOS_MIDIA[tipoMensagem];
   if (!tipoMeta) throw new HttpError(`Tipo de midia nao suportado: ${tipoMensagem}`, 400);
 
+  const provedor = resolveProvedorApi(conexao);
   const arquivo = await uploadArquivo(file, inboundConfig, idMensagem);
   let evolution = null;
+  let uazapi = null;
   let enderecamento = null;
 
-  if (!conexao.apiOficial) {
+  if (provedor === 'uazapi') {
+    uazapi = clienteUazapi(conexao);
+  } else if (provedor === 'evolution') {
     evolution = clienteEvolution(conexao, inboundConfig);
     enderecamento = await destinosEvolution({ evolution, conexao, contexto, body });
   }
@@ -315,13 +376,14 @@ export async function enviarMidiaChat(body, file, inboundConfig) {
           contextoLegenda,
           inboundConfig,
           evolution,
+          uazapi,
           enderecamento,
         })
       : null;
 
   let response;
   let destino;
-  if (conexao.apiOficial) {
+  if (provedor === 'oficial') {
     destino = telefoneMeta(telefoneContexto(contexto, body));
     const media = { link: arquivo.url };
     if (body.caption && tipoMensagem !== 'audioMessage') media.caption = String(body.caption);
@@ -333,6 +395,19 @@ export async function enviarMidiaChat(body, file, inboundConfig) {
       to: destino,
       type: tipoMeta,
       [tipoMeta]: media,
+    });
+  } else if (provedor === 'uazapi') {
+    destino = telefoneDigitsParaUazapi(telefoneContexto(contexto, body));
+    if (!destino) throw new HttpError('Telefone do contato nao encontrado.', 400);
+    const type = mapEvolutionMediaTypeToUazapi(tipoMensagem);
+    response = await uazapi.sendMedia({
+      number: destino,
+      type,
+      file: arquivo.url,
+      ...(body.caption && tipoMensagem !== 'audioMessage'
+        ? { text: String(body.caption) }
+        : {}),
+      ...(tipoMensagem === 'documentMessage' ? { docName: arquivo.nome } : {}),
     });
   } else if (tipoMensagem === 'audioMessage') {
     const resultado = await enviarEvolutionComFallback(enderecamento, (number) =>
@@ -355,24 +430,31 @@ export async function enviarMidiaChat(body, file, inboundConfig) {
     destino = resultado.destino;
   }
 
-  const messageId = idResposta(response);
+  const messageId = idResposta(response, provedor);
   if (!messageId) throw new HttpError('Provedor nao retornou o id da midia.', 502);
 
   await marcarMensagemChatEnviada(idMensagem, {
-    tipoMensagem: mapMessageType(tipoMensagem, response),
+    tipoMensagem:
+      provedor === 'uazapi' ? tipoMensagem : mapMessageType(tipoMensagem, response),
     arquivoUrl: arquivo.url,
-    ...(conexao.apiOficial
+    ...(provedor === 'oficial'
       ? { metaMessageId: messageId, metaStatus: 'sent' }
       : { messageEvolutionId: messageId }),
   });
+  invalidarHistoricoAgente(contexto);
 
   return {
     ok: true,
     acao: 'enviarMidia',
-    provedor: conexao.apiOficial ? 'meta' : 'evolution',
+    provedor,
     messageId,
     captionMessageId,
     arquivoUrl: arquivo.url,
-    enderecamento: conexao.apiOficial ? 'telefone' : isLidJid(destino) ? 'lid' : 'telefone',
+    enderecamento:
+      provedor === 'oficial' || provedor === 'uazapi'
+        ? 'telefone'
+        : isLidJid(destino)
+          ? 'lid'
+          : 'telefone',
   };
 }

@@ -16,7 +16,8 @@ export function buildAgentJobFromIngestao({ canal, resultado, organized, conexao
     conexao: resultado.conexao ?? conexao,
     envio: {
       apiOficial: Boolean(conexao?.apiOficial),
-      serverUrl: organized.serverUrl,
+      provedorApi: conexao?.provedorApi || (canal === 'uazapi' ? 'uazapi' : 'evolution'),
+      serverUrl: organized.serverUrl || conexao?.urlApi || null,
       instance: organized.instance,
       apikey: organized.apikey,
       accessToken: conexao?.access_token ?? null,

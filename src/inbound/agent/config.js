@@ -40,6 +40,8 @@ export async function getAgentConfig() {
     pendingAnalysisModel: process.env.AGENT_PENDING_ANALYSIS_MODEL?.trim() || 'gpt-4o-mini',
     /** Delay Evolution sendText (ms). Default 300 — antes era 1000 fixo. */
     evolutionSendDelayMs: optionalInt('AGENT_EVOLUTION_SEND_DELAY_MS', 300),
+    /** TTL (s) do cache Redis do histórico do agente. Default 48h. */
+    historyCacheTtlSec: optionalInt('AGENT_HISTORY_CACHE_TTL_SEC', 48 * 60 * 60),
   };
 }
 

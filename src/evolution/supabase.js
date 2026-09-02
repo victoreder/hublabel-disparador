@@ -21,7 +21,12 @@ export async function fetchDisparosEvolutionJanela(now = new Date()) {
 
   return (data ?? []).filter((row) => {
     const statusDisparo = String(row.StatusDisparo || '');
-    return statusDisparo !== 'Pausado' && statusDisparo !== 'Cancelado';
+    if (statusDisparo === 'Pausado' || statusDisparo === 'Cancelado') return false;
+    const provedor = String(row.provedorApi || row.ProvedorApi || 'evolution')
+      .toLowerCase()
+      .trim();
+    // Oficial usa worker Meta; aqui só Evolution/UazAPI.
+    return provedor === 'evolution' || provedor === 'uazapi' || !provedor;
   });
 }
 

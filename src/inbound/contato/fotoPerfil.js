@@ -63,9 +63,36 @@ export async function precisaAtualizarFotoPerfil({ fotoPerfil, contatoCriado, s3
   return !(await isUrlImagemAcessivel(url));
 }
 
-export async function fetchEvolutionProfilePictureUrl({ serverUrl, instance, apikey, telefone }) {
+export async function fetchEvolutionProfilePictureUrl({ serverUrl, instance, apikey, telefone, provedorApi }) {
   const number = normalizeTelefone(telefone);
-  if (!serverUrl || !instance || !apikey || !number) return null;
+  if (!serverUrl || !apikey || !number) return null;
+
+  if (String(provedorApi || '').toLowerCase() === 'uazapi') {
+    try {
+      const response = await fetch(`${String(serverUrl).replace(/\/+$/, '')}/chat/details`, {
+        method: 'POST',
+        headers: {
+          token: apikey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ chatId: number }),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) return null;
+      return String(
+        json?.image ||
+          json?.imagePreview ||
+          json?.profilePicUrl ||
+          json?.profilePictureUrl ||
+          '',
+      ).trim() || null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (!instance) return null;
 
   const url = `${String(serverUrl).replace(/\/+$/, '')}/chat/fetchProfilePictureUrl/${instance}`;
   const response = await fetch(url, {
@@ -85,11 +112,23 @@ export async function fetchEvolutionProfilePictureUrl({ serverUrl, instance, api
 }
 
 async function resolveEvolutionCredentials({ evolution, conexao, contaId }) {
-  if (evolution?.server_url && evolution?.instance && evolution?.apikey) {
+  const provedorApi = String(conexao?.provedorApi || '').toLowerCase();
+
+  if (evolution?.server_url && evolution?.apikey) {
     return {
       serverUrl: evolution.server_url,
-      instance: evolution.instance,
+      instance: evolution.instance || conexao?.instanceName || null,
       apikey: evolution.apikey,
+      provedorApi: provedorApi || (evolution.server_url && conexao?.urlApi === evolution.server_url ? 'uazapi' : 'evolution'),
+    };
+  }
+
+  if (provedorApi === 'uazapi' && conexao?.urlApi && conexao?.Apikey) {
+    return {
+      serverUrl: String(conexao.urlApi).replace(/\/+$/, ''),
+      instance: conexao.instanceName || null,
+      apikey: conexao.Apikey,
+      provedorApi: 'uazapi',
     };
   }
 
@@ -101,6 +140,7 @@ async function resolveEvolutionCredentials({ evolution, conexao, contaId }) {
       serverUrl: baseUrl,
       instance: conexao.instanceName,
       apikey: conexao.Apikey,
+      provedorApi: 'evolution',
     };
   }
 
@@ -109,6 +149,7 @@ async function resolveEvolutionCredentials({ evolution, conexao, contaId }) {
       serverUrl: baseUrl,
       instance: conexao.instanceName,
       apikey: globalKey,
+      provedorApi: 'evolution',
     };
   }
 
@@ -118,9 +159,10 @@ async function resolveEvolutionCredentials({ evolution, conexao, contaId }) {
   if (!sibling?.instanceName || !baseUrl) return null;
 
   return {
-    serverUrl: baseUrl,
+    serverUrl: sibling.urlApi || baseUrl,
     instance: sibling.instanceName,
     apikey: sibling.Apikey || globalKey || null,
+    provedorApi: sibling.provedorApi || 'evolution',
   };
 }
 
