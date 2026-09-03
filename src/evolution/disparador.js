@@ -18,7 +18,9 @@ import {
 import { isEnderecamentoFallbackError, isLidJid, resolveLidDoTelefone } from './lid.js';
 import {
   createUazapiClient,
+  classifyUazapiError,
   extractUazapiMessageId,
+  isRetryableUazapiKind,
   isUazapiConnected,
   mapEvolutionMediaTypeToUazapi,
   UazapiError,
@@ -72,6 +74,15 @@ function provedorDoDetalhe(detalhe) {
     .trim();
 }
 
+function classifySendError(err) {
+  if (err instanceof UazapiError) return classifyUazapiError(err);
+  return classifyEvolutionError(err);
+}
+
+function isRetryableSendKind(kind) {
+  return isRetryableEvolutionKind(kind) || isRetryableUazapiKind(kind);
+}
+
 function uazapiClientFromDetalhe(detalhe) {
   const baseUrl = String(detalhe.urlApi || detalhe.UrlApi || '').replace(/\/+$/, '');
   const token = String(detalhe.ApikeyConexao || detalhe.Apikey || '').trim();
@@ -79,6 +90,14 @@ function uazapiClientFromDetalhe(detalhe) {
     throw new Error('Conexao UazAPI incompleta no detalhe (urlApi/Apikey)');
   }
   return createUazapiClient({ baseUrl, instanceToken: token });
+}
+
+/** Destino UazAPI: telefone em dígitos; mantém @g.us / @lid intactos. */
+function destinoUazapi(number) {
+  const raw = String(number || '').trim();
+  if (!raw) return '';
+  if (raw.includes('@g.us') || raw.includes('@lid')) return raw;
+  return telefoneDigits(raw) || raw;
 }
 
 function telefoneDigits(value) {
@@ -107,7 +126,7 @@ export function createDisparadorEvolution(config) {
 
     if (provedor === 'uazapi') {
       const uazapi = uazapiClientFromDetalhe(detalhe);
-      const destino = telefoneDigits(number) || number;
+      const destino = destinoUazapi(number);
 
       if (!hasMedia(detalhe)) {
         const res = await uazapi.sendText(destino, mensagem);
@@ -165,17 +184,19 @@ export function createDisparadorEvolution(config) {
 
   async function sendWithRetry(detalhe, telefoneDestino) {
     let lastError;
+    const provedor = provedorDoDetalhe(detalhe);
     for (let attempt = 0; attempt <= config.maxRetries; attempt += 1) {
       try {
         return await sendPayload(detalhe, telefoneDestino);
       } catch (err) {
         lastError = err;
-        const kind = classifyEvolutionError(err);
-        if (isRetryableEvolutionKind(kind) && attempt < config.maxRetries) {
+        const kind = classifySendError(err);
+        if (isRetryableSendKind(kind) && attempt < config.maxRetries) {
           const delayMs = config.retryDelayMs * (attempt + 1);
-          logger.warn('Retry de envio Evolution', {
+          logger.warn('Retry de envio nao oficial', {
             detailId: detalhe.id,
             disparoId: detalhe.idDisparo,
+            provedor,
             attempt: attempt + 1,
             maxRetries: config.maxRetries,
             kind,
@@ -307,14 +328,16 @@ export function createDisparadorEvolution(config) {
   }
 
   async function handleFailure(detalhe, err) {
-    const kind = classifyEvolutionError(err);
+    const provedor = provedorDoDetalhe(detalhe);
+    const kind = classifySendError(err);
     const { statusHttp, respostaHttp, errorMessage } = getEvolutionErrorDetails(err);
 
     if (await shouldSwapForDisconnect(detalhe, kind)) {
       await evolutionDb.swapConnection(detalhe.idDisparo, detalhe.idConexao);
-      logger.warn('Conexão trocada após desconexão Evolution confirmada', {
+      logger.warn('Conexão trocada após desconexão confirmada', {
         disparoId: detalhe.idDisparo,
         detailId: detalhe.id,
+        provedor,
         kind,
         statusHttp,
         respostaHttp,
@@ -325,11 +348,18 @@ export function createDisparadorEvolution(config) {
     let userMessage = errorMessage;
     if (kind === 'apiError') userMessage = 'Erro na API';
     else if (kind === 'timeout') userMessage = 'Timeout ao enviar mensagem';
-    else if (kind === 'offline') userMessage = 'Servidor Evolution indisponivel';
-    else if (kind === 'connectionClosed') {
+    else if (kind === 'offline') {
+      userMessage =
+        provedor === 'uazapi'
+          ? 'Servidor UazAPI indisponivel'
+          : 'Servidor Evolution indisponivel';
+    } else if (kind === 'connectionClosed') {
       userMessage = 'Falha transitória de envio (Connection Closed)';
     } else if (kind === 'retryable') {
-      userMessage = 'Erro temporário na Evolution';
+      userMessage =
+        provedor === 'uazapi'
+          ? 'Erro temporário na UazAPI'
+          : 'Erro temporário na Evolution';
     } else if (kind === 'disconnected') {
       // Estado ainda open (ou não verificável): não bloquear a conexão.
       userMessage = 'Falha de envio com sinal de desconexão não confirmada';
@@ -374,9 +404,10 @@ export function createDisparadorEvolution(config) {
         if (validation.reason === REASON_API_ERROR && validation.error) {
           await handleFailure(detalhe, validation.error);
           const { statusHttp, respostaHttp } = getEvolutionErrorDetails(validation.error);
-          logger.error('Falha ao validar contato Evolution', {
+          logger.error('Falha ao validar contato nao oficial', {
             detailId: detalhe.id,
             disparoId: detalhe.idDisparo,
+            provedor: provedorDoDetalhe(detalhe),
             message:
               validation.error instanceof Error
                 ? validation.error.message
@@ -441,18 +472,20 @@ export function createDisparadorEvolution(config) {
         }
       }
 
-      logger.info('Mensagem Evolution enviada', {
+      logger.info('Mensagem nao oficial enviada', {
         detailId: detalhe.id,
         disparoId: detalhe.idDisparo,
+        provedor: provedorDoDetalhe(detalhe),
         tipo,
         enderecamento: isLidJid(destinoUsado) ? 'lid' : 'telefone',
       });
     } catch (err) {
       await handleFailure(detalhe, err);
       const { statusHttp, respostaHttp } = getEvolutionErrorDetails(err);
-      logger.error('Falha ao enviar Evolution', {
+      logger.error('Falha ao enviar nao oficial', {
         detailId: detalhe.id,
         disparoId: detalhe.idDisparo,
+        provedor: provedorDoDetalhe(detalhe),
         tipo,
         message: err instanceof Error ? err.message : String(err),
         statusHttp,

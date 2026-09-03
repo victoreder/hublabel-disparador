@@ -38,6 +38,81 @@ export function extractUazapiErrorText(err) {
   );
 }
 
+function isClearDisconnectError(text) {
+  const t = String(text || '')
+    .toLowerCase()
+    .trim();
+  if (!t) return false;
+  return (
+    t.includes('instance is not connected') ||
+    t.includes('instance not connected') ||
+    t.includes('instance disconnected') ||
+    t.includes('not connected')
+  );
+}
+
+function isConnectionClosedError(text) {
+  const t = String(text || '')
+    .toLowerCase()
+    .trim();
+  return t.includes('connection closed') || t.includes('connection close');
+}
+
+/** Classifica erro UazAPI no mesmo vocabulário do disparador Evolution. */
+export function classifyUazapiError(err) {
+  if (!(err instanceof UazapiError)) return 'unexpected';
+  const status = err.status;
+  const message = extractUazapiErrorText(err).toLowerCase();
+
+  if (status === 504) return 'timeout';
+  if (status === 502) return 'offline';
+  if (status === 429) return 'retryable';
+  if (isConnectionClosedError(message)) return 'connectionClosed';
+  if (isClearDisconnectError(message)) return 'disconnected';
+  if (status === 400 || status === 401 || status === 403 || status === 404) {
+    return 'apiError';
+  }
+  if (status === 500 || status === 503) return 'retryable';
+  return 'unexpected';
+}
+
+export function isRetryableUazapiKind(kind) {
+  return (
+    kind === 'timeout' ||
+    kind === 'offline' ||
+    kind === 'connectionClosed' ||
+    kind === 'retryable'
+  );
+}
+
+function normalizeChatCheckResults(data, fallbackNumbers = []) {
+  const list = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.result)
+      ? data.result
+      : data
+        ? [data]
+        : [];
+
+  if (!list.length) {
+    return fallbackNumbers.map((number) => ({ number, exists: false, jid: null }));
+  }
+
+  return list.map((item, i) => {
+    const o = item && typeof item === 'object' ? item : {};
+    const jid = String(o.jid || o.JID || o.wa_chatid || '');
+    const exists = Boolean(
+      o.exists ?? o.isInWhatsapp ?? o.isWA ?? o.onWhatsapp ?? Boolean(jid),
+    );
+    return {
+      exists,
+      jid: jid || (exists ? `${fallbackNumbers[i] || ''}@s.whatsapp.net` : null),
+      number: String(o.number || o.query || o.phone || fallbackNumbers[i] || ''),
+      lid: o.lid || o.jidLid || o.lidJid || null,
+    };
+  });
+}
+
 export function isUazapiConnected(statusPayload) {
   const status = String(
     statusPayload?.instance?.status ||
@@ -107,7 +182,7 @@ export function createUazapiClient(config) {
   }
 
   function withToken(token) {
-    return {
+    const api = {
       getStatus() {
         return request('GET', '/instance/status', { token });
       },
@@ -137,11 +212,26 @@ export function createUazapiClient(config) {
       sendMedia(payload) {
         return request('POST', '/send/media', { token, body: payload });
       },
-      checkNumber(phone) {
-        return request('POST', '/chat/check', {
+      /**
+       * POST /chat/check — body { numbers: string[] }.
+       * Compatível com ensureContactValidatedForDispatch (Evolution API shape).
+       */
+      async checkWhatsAppNumbers(_instanceName, numbers) {
+        const cleaned = (Array.isArray(numbers) ? numbers : [numbers])
+          .map((n) => String(n || '').replace(/\D/g, ''))
+          .filter((n) => n.length >= 10);
+        if (!cleaned.length) return [];
+
+        const data = await request('POST', '/chat/check', {
           token,
-          body: { phone: String(phone) },
+          body: { numbers: cleaned },
         });
+
+        return normalizeChatCheckResults(data, cleaned);
+      },
+      async checkNumber(phone) {
+        const results = await api.checkWhatsAppNumbers(null, [phone]);
+        return results[0] || { exists: false, number: String(phone || ''), jid: null };
       },
       downloadMessage(payload) {
         return request('POST', '/message/download', { token, body: payload });
@@ -165,6 +255,7 @@ export function createUazapiClient(config) {
         });
       },
     };
+    return api;
   }
 
   return {
