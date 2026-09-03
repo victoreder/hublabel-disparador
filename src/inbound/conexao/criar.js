@@ -179,8 +179,10 @@ async function configureUazapiWebhook({ urlApi, apikey, webhookUrl }) {
 
   await client.setWebhook({
     url: webhookUrl,
+    enabled: true,
     events: ['messages'],
     excludeMessages: ['wasSentByApi'],
+    addUrlEvents: false,
   });
 }
 

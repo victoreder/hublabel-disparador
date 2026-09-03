@@ -55,7 +55,7 @@ export async function handleUazapiWebhook(req, inboundConfig, conexaoPreloaded) 
     return { status: 200, body: { ok: true, ignored: 'group_or_invalid_jid' } };
   }
 
-  if (isMediaMessageType(organized.messageType) && !organized.arquivoUrl) {
+  if (isMediaMessageType(organized.messageType) && !organized.arquivoUrl && !organized.isButtonReply) {
     organized.arquivoUrl = await processUazapiMedia(organized, inboundConfig).catch(
       (error) => {
         logger.warn('Falha ao processar midia UazAPI', { message: error.message });

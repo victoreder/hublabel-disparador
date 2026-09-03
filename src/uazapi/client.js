@@ -206,6 +206,19 @@ export function mapEvolutionMediaTypeToUazapi(messageType) {
 export function mapUazapiMessageTypeToEvolution(message) {
   const mediaType = String(message?.mediaType || message?.type || '').toLowerCase();
   const messageType = String(message?.messageType || '').toLowerCase();
+  const tipoHint = `${mediaType} ${messageType}`;
+
+  // Clique de botão/lista — sempre texto (antes de document!)
+  if (
+    /button|list.?response|interactive|native.?flow|buttons_response/i.test(tipoHint) ||
+    message?.vote ||
+    message?.buttonOrListid ||
+    message?.buttonOrListId ||
+    message?.selectedButtonId ||
+    message?.selectedDisplayText
+  ) {
+    return 'conversation';
+  }
 
   if (mediaType === 'image' || messageType.includes('image')) return 'imageMessage';
   if (mediaType === 'video' || messageType.includes('video')) return 'videoMessage';
