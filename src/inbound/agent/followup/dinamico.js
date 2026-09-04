@@ -1,4 +1,5 @@
 import { logger } from '../../../logger.js';
+import { supportsCustomTemperature } from '../config.js';
 import { computeTokenCredits } from '../tokens.js';
 
 const TZ = 'America/Sao_Paulo';
@@ -93,22 +94,24 @@ export async function detectarPrazoFollowup({
   const modelo = agentConfig.pendingAnalysisModel || 'gpt-4o-mini';
 
   try {
+    const body = {
+      model: modelo,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: 'Responda apenas JSON válido. Sem markdown.' },
+        ...hist,
+        { role: 'user', content: prompt },
+      ],
+    };
+    if (supportsCustomTemperature(modelo)) body.temperature = 0;
+
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${agentConfig.openaiApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: modelo,
-        temperature: 0,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: 'Responda apenas JSON válido. Sem markdown.' },
-          ...hist,
-          { role: 'user', content: prompt },
-        ],
-      }),
+      body: JSON.stringify(body),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(json.error?.message || `OpenAI ${res.status}`);

@@ -23,6 +23,7 @@ import {
 import { executeNotificarHumano } from './notifyHuman.js';
 import { extractActionsFromText } from './parseActions.js';
 import { classifyChunk, normalizeMediaUrl } from './parseResponse.js';
+import { normalizeMediaType } from './mediaType.js';
 import { tryAcquireActionLock } from './redis.js';
 import { sendAgentChunk } from './sendReply.js';
 
@@ -131,18 +132,6 @@ async function executarEnviarMidia(acao, ctx) {
   }
   if (urlNorm && ctx.midiasEnviadas instanceof Set) ctx.midiasEnviadas.add(urlNorm);
   return { success: true, arquivoId: arquivoId || null, url, tipoArquivo: type };
-}
-
-function normalizeMediaType(tipoArquivo, url) {
-  const t = String(tipoArquivo || '').toLowerCase();
-  if (t === 'image' || t === 'video' || t === 'audio' || t === 'pdf' || t === 'file') return t;
-
-  const ext = String(url || '').toLowerCase().split('?')[0].split('.').pop();
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
-  if (['mp4', 'mov', 'webm'].includes(ext)) return 'video';
-  if (['mp3', 'ogg', 'wav', 'm4a'].includes(ext)) return 'audio';
-  if (ext === 'pdf') return 'pdf';
-  return 'file';
 }
 
 async function executarAdicionarEtiqueta(acao, ctx) {

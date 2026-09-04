@@ -1,6 +1,7 @@
 import { logger } from '../../../logger.js';
 import { saveMensagemIA, updateConversaUltimaMensagem } from '../../../supabase.js';
 import { extractUazapiMessageId } from '../../../uazapi/client.js';
+import { normalizeMediaType } from '../mediaType.js';
 import { classifyChunk } from '../parseResponse.js';
 import { sendAgentChunk, sendTextReply } from '../sendReply.js';
 
@@ -8,14 +9,6 @@ function telefoneDigits(remoteJid) {
   return String(remoteJid || '').replace('@s.whatsapp.net', '').replace(/\D/g, '');
 }
 
-function tipoMidiaAgente(tipo) {
-  const t = String(tipo || '').toLowerCase();
-  if (t === 'imagem' || t === 'image') return 'image';
-  if (t === 'video') return 'video';
-  if (t === 'audio') return 'audio';
-  if (t === 'pdf') return 'pdf';
-  return 'file';
-}
 
 async function persistirSaida(job, mensagem, tipoMensagem, arquivoUrl, messageId) {
   const apiOficial = Boolean(job.envio?.apiOficial);
@@ -46,7 +39,7 @@ export async function enviarTextoFollowup(job, texto, agentConfig) {
   await sendTextReply(job, texto.trim(), agentConfig);
 }
 
-export async function enviarMidiaFollowup(job, tipo, url, caption, agentConfig) {
+export async function enviarMidiaFollowup(job, tipo, url, caption, agentConfig, mime) {
   const raw = String(url || '').trim();
   if (!raw || raw.startsWith('blob:')) {
     logger.warn('Follow-up: URL de mídia inválida (precisa ser http/https público)', {
@@ -55,7 +48,8 @@ export async function enviarMidiaFollowup(job, tipo, url, caption, agentConfig) 
     });
     return;
   }
-  const markdown = `[(${tipoMidiaAgente(tipo)})](${raw})`;
+  const type = normalizeMediaType(tipo, raw, mime);
+  const markdown = `[(${type})](${raw})`;
   const kind = classifyChunk(markdown);
   await sendAgentChunk(job, { kind, text: markdown }, agentConfig);
   if (caption?.trim()) await sendTextReply(job, caption.trim(), agentConfig);

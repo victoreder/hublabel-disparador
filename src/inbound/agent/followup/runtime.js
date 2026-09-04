@@ -9,6 +9,8 @@ import {
 } from '../../../supabase.js';
 import { getAgentConfig } from '../config.js';
 import { loadChatHistory } from '../memory.js';
+import { runAgentChat } from '../openai.js';
+import { stripActionMarkers } from '../parseActions.js';
 import { buildSystemPrompt } from '../prompt.js';
 import { saveAgentTokenUsage } from '../tokens.js';
 import { detectarPrazoFollowup, lerFollowupDinamico } from './dinamico.js';
@@ -251,16 +253,14 @@ function itensDoPasso(passo) {
 
 async function completarTextoIa({ job, agente, agentConfig, orientacao, motivo, vars }) {
   if (!agentConfig?.openaiApiKey) return '';
-  const modelo = String(agente.modelo || agentConfig.pendingAnalysisModel || 'gpt-4o-mini');
   const historico = await loadChatHistory(
     job.conversaId,
     Number(agente.qntMsgHistorico) || 20,
     agentConfig.redisUrl,
     agentConfig.historyCacheTtlSec,
   );
-  const systemPrompt = buildSystemPrompt(job, agente);
   const extra = aplicarVariaveis(orientacao, vars);
-  const instrucao =
+  const userMessage =
     motivo === 'dinamico'
       ? [
           'O cliente pediu para ser contactado neste momento.',
@@ -281,27 +281,18 @@ async function completarTextoIa({ job, agente, agentConfig, orientacao, motivo, 
           .filter(Boolean)
           .join('\n');
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${agentConfig.openaiApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: modelo,
-      temperature: 0.7,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...historico.slice(-12),
-        { role: 'user', content: instrucao },
-      ],
-    }),
+  const result = await runAgentChat({
+    agentConfig,
+    job,
+    agente,
+    systemPrompt: buildSystemPrompt(job, agente),
+    history: historico,
+    userMessage,
   });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error?.message || `OpenAI ${res.status}`);
-  const tot = Number(json.usage?.total_tokens ?? 0);
-  if (tot > 0) await saveAgentTokenUsage(job.agenteId, tot, modelo);
-  return String(json.choices?.[0]?.message?.content || '').trim();
+  if (result.totalTokens > 0) {
+    await saveAgentTokenUsage(job.agenteId, result.totalTokens, agente.modelo);
+  }
+  return stripActionMarkers(result.content || '').trim();
 }
 
 async function resolverTextoItem(row, agente, passo, item, agentConfig, job, vars, { opcional } = {}) {
@@ -347,7 +338,7 @@ async function enviarItem(row, agente, passo, item, agentConfig, job, vars) {
     const caption = await resolverTextoItem(row, agente, passo, item, agentConfig, job, vars, {
       opcional: true,
     });
-    await enviarMidiaFollowup(job, kind, url, caption, agentConfig);
+    await enviarMidiaFollowup(job, kind, url, caption, agentConfig, item.mime);
     return;
   }
   if (tipo === 'botoes' || tipo === 'lista') {
