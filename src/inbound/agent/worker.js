@@ -22,6 +22,7 @@ import { handleConversationTurn } from './conversationControl.js';
 import { analyzePendingCovered } from './pendingAnalysis.js';
 import { sendAgentChunk, notifyTokenUsage } from './sendReply.js';
 import { saveAgentTokenUsage } from './tokens.js';
+import { agendarFollowupsAposTurno, cancelarFollowup } from './followup/index.js';
 
 const TOOL_TO_ACAO = {
   NOTIFICAR_HUMANO: 'notificar-humano',
@@ -567,6 +568,8 @@ export async function processAgentJob(job) {
   job.agente = agente;
   job.agenteId = agente.id;
 
+  await cancelarFollowup(job.conversaId, 'cliente_respondeu').catch(() => {});
+
   const textoPreprocessado = await preprocessInput(job, agente, agentConfig);
   if (textoPreprocessado == null) return;
 
@@ -594,6 +597,8 @@ export async function processAgentJob(job) {
     runGeneration: (inputText, ctx) =>
       runAgentGeneration(job, job.agente || agente, agentConfig, inputText, ctx),
     analyzePending: (args) => analyzePendingCovered(args),
+    onTurnComplete: () =>
+      agendarFollowupsAposTurno(job, job.agente || agente, agentConfig),
   });
 }
 

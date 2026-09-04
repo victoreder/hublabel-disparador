@@ -4,6 +4,7 @@ import {
   createUazapiClient,
   mapUazapiMessageTypeToEvolution,
 } from '../../uazapi/client.js';
+import { aposInboundCliente } from '../agent/followup/index.js';
 import { buildAgentJobFromIngestao } from '../agent/job.js';
 import { enqueueAgentJob } from '../agent/queue.js';
 import { scheduleContatoFotoPerfilSync } from '../contato/fotoPerfil.js';
@@ -92,6 +93,15 @@ export async function handleUazapiWebhook(req, inboundConfig, conexaoPreloaded) 
   }
 
   if (resultado?.segueFluxoIA) {
+    if (!organized.fromMe) {
+      await aposInboundCliente({
+        resultado,
+        fromMe: false,
+        organized,
+        conexao,
+        canal: 'uazapi',
+      });
+    }
     const job = buildAgentJobFromIngestao({
       canal: 'uazapi',
       resultado,
@@ -107,12 +117,30 @@ export async function handleUazapiWebhook(req, inboundConfig, conexaoPreloaded) 
     };
     enqueueAgentJob(job);
   } else if (!organized.fromMe) {
-    logger.info('Agente não enfileirado', {
-      conexaoId: idConexao,
-      provedor: 'uazapi',
-      conversaId: resultado?.conversaId ?? null,
-      segueFluxoIA: Boolean(resultado?.segueFluxoIA),
+    const jobFollowup = await aposInboundCliente({
+      resultado,
+      fromMe: false,
+      organized,
+      conexao,
+      canal: 'uazapi',
     });
+    if (jobFollowup) {
+      jobFollowup.envio = {
+        ...jobFollowup.envio,
+        provedorApi: 'uazapi',
+        serverUrl: organized.serverUrl || conexao.urlApi,
+        instance: organized.instance || conexao.instanceName,
+        apikey: organized.apikey || conexao.Apikey,
+      };
+      enqueueAgentJob(jobFollowup);
+    } else {
+      logger.info('Agente não enfileirado', {
+        conexaoId: idConexao,
+        provedor: 'uazapi',
+        conversaId: resultado?.conversaId ?? null,
+        segueFluxoIA: Boolean(resultado?.segueFluxoIA),
+      });
+    }
   }
 
   return { status: 200, body: { ok: true, segueFluxoIA: Boolean(resultado?.segueFluxoIA) } };

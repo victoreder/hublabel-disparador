@@ -14,6 +14,7 @@ import {
   transferirConversaAgenteIA,
 } from '../../supabase.js';
 import { gerarPreenchimentoCrm } from './crmPreencher.js';
+import { cancelarFollowup } from './followup/index.js';
 import {
   applyHttpTemplates,
   dynamicHttpRequest,
@@ -189,6 +190,7 @@ async function executarTransferirAtendente(acao, ctx) {
     pausado: true,
     statusAtendimento: 'aberto',
   });
+  await cancelarFollowup(ctx.job.conversaId, 'humano_assumiu').catch(() => {});
   return { success: true, atendenteId, statusAtendimento: 'aberto', pausado: true };
 }
 
@@ -258,6 +260,9 @@ async function executarTransferirSetor(acao, ctx) {
     pausado: vincularAtendente ? true : undefined,
     statusAtendimento: vincularAtendente ? 'aberto' : undefined,
   });
+  if (vincularAtendente) {
+    await cancelarFollowup(ctx.job.conversaId, 'humano_assumiu').catch(() => {});
+  }
 
   return {
     success: true,

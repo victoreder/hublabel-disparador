@@ -173,6 +173,7 @@ export async function handleConversationTurn({
   text,
   runGeneration,
   analyzePending,
+  onTurnComplete,
 }) {
   const key = conversationKey(job);
   const redis = getRedis(agentConfig.redisUrl);
@@ -227,6 +228,7 @@ export async function handleConversationTurn({
       runGeneration,
       analyzePending,
       ttlSec,
+      onTurnComplete,
     });
     return;
   }
@@ -255,6 +257,7 @@ export async function handleConversationTurn({
       ttlSec,
       runGeneration,
       analyzePending,
+      onTurnComplete,
     }),
   );
 }
@@ -267,6 +270,7 @@ async function startGroupedProcessing({
   ttlSec,
   runGeneration,
   analyzePending,
+  onTurnComplete,
 }) {
   const redis = getRedis(agentConfig.redisUrl);
   if (getLocalProcessing(key)) {
@@ -303,6 +307,7 @@ async function startGroupedProcessing({
     runGeneration,
     analyzePending,
     ttlSec,
+    onTurnComplete,
   });
 }
 
@@ -319,6 +324,7 @@ async function runProcessing({
   runGeneration,
   analyzePending,
   ttlSec,
+  onTurnComplete,
 }) {
   const redis = getRedis(agentConfig.redisUrl);
   if (getLocalProcessing(key)) {
@@ -451,6 +457,7 @@ async function runProcessing({
       runGeneration,
       analyzePending,
       ttlSec,
+      onTurnComplete,
     });
     return;
   }
@@ -465,7 +472,16 @@ async function runProcessing({
       runGeneration,
       analyzePending,
       ttlSec,
+      onTurnComplete,
     });
+    if (typeof onTurnComplete === 'function') {
+      await onTurnComplete(result).catch((error) => {
+        logger.warn('ConvControl: onTurnComplete falhou', {
+          conversaId: job.conversaId,
+          message: error?.message,
+        });
+      });
+    }
   }
 }
 
@@ -478,6 +494,7 @@ async function processPendingsAfterReply({
   runGeneration,
   analyzePending,
   ttlSec,
+  onTurnComplete,
 }) {
   const redis = getRedis(agentConfig.redisUrl);
   const pendingItems = await listClaim(redis, pendingKey(key));
@@ -536,5 +553,6 @@ async function processPendingsAfterReply({
     runGeneration,
     analyzePending,
     ttlSec,
+    onTurnComplete,
   });
 }

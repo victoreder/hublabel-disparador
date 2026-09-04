@@ -1,6 +1,7 @@
 import { logger } from '../../logger.js';
 import { resolveProvedorApi } from '../../provedorApi.js';
 import { fetchConexaoById, ingestaoMensagem } from '../../supabase.js';
+import { aposInboundCliente } from '../agent/followup/index.js';
 import { buildAgentJobFromIngestao } from '../agent/job.js';
 import { enqueueAgentJob } from '../agent/queue.js';
 import { scheduleContatoFotoPerfilSync } from '../contato/fotoPerfil.js';
@@ -85,6 +86,15 @@ export async function handleEvolutionWebhook(req, inboundConfig) {
   }
 
   if (resultado?.segueFluxoIA) {
+    if (!organized.fromMe) {
+      await aposInboundCliente({
+        resultado,
+        fromMe: false,
+        organized,
+        conexao,
+        canal: 'evolution',
+      });
+    }
     const job = buildAgentJobFromIngestao({
       canal: 'evolution',
       resultado,
@@ -93,14 +103,25 @@ export async function handleEvolutionWebhook(req, inboundConfig) {
     });
     enqueueAgentJob(job);
   } else if (!organized.fromMe) {
-    logger.info('Agente não enfileirado', {
-      conexaoId: idConexao,
-      conversaId: resultado?.conversaId ?? null,
-      segueFluxoIA: Boolean(resultado?.segueFluxoIA),
-      parouPorPausado: Boolean(resultado?.parouPorPausado),
-      creditoEsgotado: Boolean(resultado?.creditoEsgotado),
-      agenteId: resultado?.agenteId ?? null,
+    const jobFollowup = await aposInboundCliente({
+      resultado,
+      fromMe: false,
+      organized,
+      conexao,
+      canal: 'evolution',
     });
+    if (jobFollowup) {
+      enqueueAgentJob(jobFollowup);
+    } else {
+      logger.info('Agente não enfileirado', {
+        conexaoId: idConexao,
+        conversaId: resultado?.conversaId ?? null,
+        segueFluxoIA: Boolean(resultado?.segueFluxoIA),
+        parouPorPausado: Boolean(resultado?.parouPorPausado),
+        creditoEsgotado: Boolean(resultado?.creditoEsgotado),
+        agenteId: resultado?.agenteId ?? null,
+      });
+    }
   }
 
   return { status: 200, body: { ok: true, segueFluxoIA: Boolean(resultado?.segueFluxoIA) } };

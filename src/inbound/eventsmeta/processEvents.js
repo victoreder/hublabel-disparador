@@ -1,5 +1,6 @@
 import { logger } from '../../logger.js';
 import { fetchConexaoById, processMetaEvent } from '../../supabase.js';
+import { aposInboundCliente } from '../agent/followup/index.js';
 import { buildAgentJobFromMetaResult } from '../agent/job.js';
 import { enqueueAgentJob } from '../agent/queue.js';
 import { scheduleContatoFotoPerfilSync } from '../contato/fotoPerfil.js';
@@ -95,21 +96,41 @@ async function processAllEvents(events, inboundConfig) {
       scheduleFotoPerfilFromMetaResult(result, inboundConfig, conexao);
 
       if (result?.segueFluxoIA) {
+        if (!result?.fromMe && !result?.echo) {
+          await aposInboundCliente({
+            resultado: result,
+            fromMe: false,
+            organized: result,
+            conexao,
+            canal: 'meta',
+          });
+        }
         enqueueAgentJob(buildAgentJobFromMetaResult(result));
-      } else {
-        logger.info('Agente não enfileirado (meta)', {
-          conversaId: result?.conversaId ?? null,
-          contatoId: result?.contatoId ?? null,
-          mensagemId: result?.mensagemId ?? null,
-          segueFluxoIA: Boolean(result?.segueFluxoIA),
-          parouPorPausado: Boolean(result?.parouPorPausado),
-          creditoEsgotado: Boolean(result?.creditoEsgotado),
-          agenteId: result?.agenteId ?? null,
-          motivoAtivacao: result?.motivoAtivacao ?? null,
-          skipped: Boolean(result?.skipped),
-          chatOk: result?.ok !== false,
-          chatError: result?.error ?? null,
+      } else if (!result?.fromMe && !result?.echo) {
+        const jobFollowup = await aposInboundCliente({
+          resultado: result,
+          fromMe: false,
+          organized: result,
+          conexao,
+          canal: 'meta',
         });
+        if (jobFollowup) {
+          enqueueAgentJob(jobFollowup);
+        } else {
+          logger.info('Agente não enfileirado (meta)', {
+            conversaId: result?.conversaId ?? null,
+            contatoId: result?.contatoId ?? null,
+            mensagemId: result?.mensagemId ?? null,
+            segueFluxoIA: Boolean(result?.segueFluxoIA),
+            parouPorPausado: Boolean(result?.parouPorPausado),
+            creditoEsgotado: Boolean(result?.creditoEsgotado),
+            agenteId: result?.agenteId ?? null,
+            motivoAtivacao: result?.motivoAtivacao ?? null,
+            skipped: Boolean(result?.skipped),
+            chatOk: result?.ok !== false,
+            chatError: result?.error ?? null,
+          });
+        }
       }
     } catch (error) {
       logger.error('Erro ao processar evento Meta', {
@@ -157,18 +178,38 @@ async function processAllMediaJobs(jobs, inboundConfig) {
       }
 
       if (result?.segueFluxoIA) {
+        if (!result?.fromMe && !job.from_me) {
+          await aposInboundCliente({
+            resultado: result,
+            fromMe: false,
+            organized: result,
+            conexao,
+            canal: 'meta',
+          });
+        }
         enqueueAgentJob(buildAgentJobFromMetaResult(result));
-      } else {
-        logger.info('Agente não enfileirado (meta midia)', {
-          conversaId: result?.conversaId ?? null,
-          contatoId: result?.contatoId ?? null,
-          mensagemId: result?.mensagemId ?? null,
-          segueFluxoIA: Boolean(result?.segueFluxoIA),
-          parouPorPausado: Boolean(result?.parouPorPausado),
-          creditoEsgotado: Boolean(result?.creditoEsgotado),
-          agenteId: result?.agenteId ?? null,
-          motivoAtivacao: result?.motivoAtivacao ?? null,
+      } else if (!result?.fromMe && !job.from_me) {
+        const jobFollowup = await aposInboundCliente({
+          resultado: result,
+          fromMe: false,
+          organized: result,
+          conexao,
+          canal: 'meta',
         });
+        if (jobFollowup) {
+          enqueueAgentJob(jobFollowup);
+        } else {
+          logger.info('Agente não enfileirado (meta midia)', {
+            conversaId: result?.conversaId ?? null,
+            contatoId: result?.contatoId ?? null,
+            mensagemId: result?.mensagemId ?? null,
+            segueFluxoIA: Boolean(result?.segueFluxoIA),
+            parouPorPausado: Boolean(result?.parouPorPausado),
+            creditoEsgotado: Boolean(result?.creditoEsgotado),
+            agenteId: result?.agenteId ?? null,
+            motivoAtivacao: result?.motivoAtivacao ?? null,
+          });
+        }
       }
     } catch (error) {
       logger.error('Erro no pipeline de mídia Meta', {

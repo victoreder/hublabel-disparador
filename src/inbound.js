@@ -1,4 +1,5 @@
 import express from 'express';
+import { startFollowupCron } from './inbound/agent/followup/index.js';
 import { processAgentJob } from './inbound/agent/worker.js';
 import { drainAgentQueue, getAgentQueueSize, startAgentQueueLoop } from './inbound/agent/queue.js';
 import { getInboundConfig } from './inbound/config.js';
@@ -130,6 +131,7 @@ async function main() {
   });
 
   startMetaTokenRenewalCron(inboundConfig);
+  startFollowupCron();
 
   startAgentQueueLoop(async (job) => {
     await processAgentJob(job);
