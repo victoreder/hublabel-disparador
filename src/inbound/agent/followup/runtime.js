@@ -19,10 +19,61 @@ import {
   enviarTextoFollowup,
 } from './send.js';
 
+function atrasoDoPasso(passo) {
+  const n = Number(passo?.atrasoMinutos ?? passo?.atrasoMin);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+function tipoMidiaPorArquivo(item) {
+  const mime = String(item?.mime || item?.mimetype || '').toLowerCase();
+  const nome = `${item?.url || ''} ${item?.nome || item?.nomeArquivo || ''}`.toLowerCase();
+  if (mime.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp)$/i.test(nome)) return 'imagem';
+  if (mime.startsWith('video/') || /\.(mp4|mov|webm|mkv)$/i.test(nome)) return 'video';
+  if (mime.startsWith('audio/') || /\.(mp3|ogg|opus|wav|m4a|aac)$/i.test(nome)) return 'audio';
+  return 'documento';
+}
+
+function normalizarItem(item) {
+  if (!item || !item.tipo) return null;
+  const tipo = String(item.tipo).toLowerCase();
+  if (tipo === 'midia' || tipo === 'media') {
+    return {
+      ...item,
+      tipo: tipoMidiaPorArquivo(item),
+      url: String(item.url || '').trim(),
+      nomeArquivo: item.nome || item.nomeArquivo || null,
+    };
+  }
+  return item;
+}
+
+function orientacaoDoPasso(passo) {
+  return String(passo?.instrucaoIa || passo?.mensagem || '').trim();
+}
+
+function normalizarPasso(passo) {
+  if (!passo) return null;
+  const atrasoMin = atrasoDoPasso(passo);
+  if (!atrasoMin) return null;
+  const itens = Array.isArray(passo.itens)
+    ? passo.itens.map(normalizarItem).filter(Boolean)
+    : [];
+  return {
+    ...passo,
+    atrasoMin,
+    modo: passo.modo === 'ia' ? 'ia' : 'fixa',
+    mensagem: orientacaoDoPasso(passo),
+    itens,
+    acaoFinal: passo.acaoFinal || 'nenhuma',
+  };
+}
+
 export function readFollowup(agente) {
   const raw = agente?.followup;
-  if (!raw || typeof raw !== 'object' || !raw.ativo) return null;
-  const passos = Array.isArray(raw.passos) ? raw.passos.filter((p) => p && Number(p.atrasoMin) > 0) : [];
+  if (!raw || typeof raw !== 'object' || raw.ativo !== true) return null;
+  const passos = (Array.isArray(raw.passos) ? raw.passos : [])
+    .map(normalizarPasso)
+    .filter(Boolean);
   if (!passos.length) return null;
   return {
     ativo: true,
@@ -193,7 +244,8 @@ function itensDoPasso(passo) {
   if (Array.isArray(passo.itens) && passo.itens.length) {
     return passo.itens.filter((it) => it && it.tipo);
   }
-  if (passo.mensagem?.trim()) return [{ tipo: 'texto', texto: passo.mensagem }];
+  const orientacao = orientacaoDoPasso(passo);
+  if (orientacao) return [{ tipo: 'texto', texto: orientacao }];
   return [];
 }
 
@@ -260,7 +312,7 @@ async function resolverTextoItem(row, agente, passo, item, agentConfig, job, var
       job,
       agente,
       agentConfig,
-      orientacao: String(item.texto || '').trim(),
+      orientacao: String(item.texto || orientacaoDoPasso(passo)).trim(),
       motivo: 'silencio',
       vars,
     });
@@ -282,13 +334,21 @@ async function enviarItem(row, agente, passo, item, agentConfig, job, vars) {
     await dispararFakeCallFollowup(job, item.segundos);
     return;
   }
-  if (tipo === 'imagem' || tipo === 'video' || tipo === 'audio' || tipo === 'documento') {
+  if (
+    tipo === 'midia' ||
+    tipo === 'media' ||
+    tipo === 'imagem' ||
+    tipo === 'video' ||
+    tipo === 'audio' ||
+    tipo === 'documento'
+  ) {
     const url = String(item.url || '').trim();
     if (!url) return;
+    const kind = tipo === 'midia' || tipo === 'media' ? tipoMidiaPorArquivo(item) : tipo;
     const caption = await resolverTextoItem(row, agente, passo, item, agentConfig, job, vars, {
       opcional: true,
     });
-    await enviarMidiaFollowup(job, tipo, url, caption, agentConfig);
+    await enviarMidiaFollowup(job, kind, url, caption, agentConfig);
     return;
   }
   if (tipo === 'botoes' || tipo === 'lista') {
@@ -362,7 +422,7 @@ async function enviarPasso(row, agente, passo, agentConfig) {
             job,
             agente,
             agentConfig,
-            orientacao: String(passo.mensagem || '').trim(),
+            orientacao: orientacaoDoPasso(passo),
             motivo: 'silencio',
             vars,
           })
