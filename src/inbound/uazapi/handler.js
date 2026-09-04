@@ -19,6 +19,7 @@ import { isMediaMessageType } from '../evolution/organize.js';
 import {
   buildIngestaoPayloadUazapi,
   isAllowedUazapiChat,
+  isPublicMediaUrl,
   organizeUazapiWebhook,
 } from './organize.js';
 
@@ -56,11 +57,11 @@ export async function handleUazapiWebhook(req, inboundConfig, conexaoPreloaded) 
     return { status: 200, body: { ok: true, ignored: 'group_or_invalid_jid' } };
   }
 
-  if (isMediaMessageType(organized.messageType) && !organized.arquivoUrl && !organized.isButtonReply) {
+  if (isMediaMessageType(organized.messageType) && !organized.isButtonReply) {
     organized.arquivoUrl = await processUazapiMedia(organized, inboundConfig).catch(
       (error) => {
         logger.warn('Falha ao processar midia UazAPI', { message: error.message });
-        return null;
+        return isPublicMediaUrl(organized.arquivoUrl) ? organized.arquivoUrl : null;
       },
     );
   }
@@ -89,6 +90,9 @@ export async function handleUazapiWebhook(req, inboundConfig, conexaoPreloaded) 
       conexao,
       evolution: payload.evolu,
       s3Config: inboundConfig.s3,
+      sourceUrl: organized.fotoUrl || null,
+      nomeContato: organized.pushName || null,
+      conversaId: resultado.conversaId || null,
     });
   }
 
@@ -147,12 +151,9 @@ export async function handleUazapiWebhook(req, inboundConfig, conexaoPreloaded) 
 }
 
 async function processUazapiMedia(organized, inboundConfig) {
-  if (!organized.serverUrl || !organized.apikey || !organized.messageId) {
-    return organized.arquivoUrl || null;
-  }
-
-  if (organized.arquivoUrl && /^https?:\/\//i.test(organized.arquivoUrl)) {
-    return organized.arquivoUrl;
+  const downloadId = organized.downloadId || organized.messageId;
+  if (!organized.serverUrl || !organized.apikey || !downloadId) {
+    return isPublicMediaUrl(organized.arquivoUrl) ? organized.arquivoUrl : null;
   }
 
   const client = createUazapiClient({
@@ -161,26 +162,42 @@ async function processUazapiMedia(organized, inboundConfig) {
   });
 
   const json = await client.downloadMessage({
-    id: organized.messageId,
+    id: downloadId,
     return_base64: true,
     return_link: true,
   });
 
-  const fileUrl = json?.fileURL || json?.url || json?.link || null;
-  if (fileUrl && /^https?:\/\//i.test(fileUrl)) {
-    return fileUrl;
+  const mime = json?.mimetype || json?.mimeType || organized.arquivoMime || null;
+  const base64 = json?.base64 || json?.data || json?.fileBase64 || null;
+  if (base64) {
+    const buffer = Buffer.from(String(base64).replace(/^data:[^;]+;base64,/, ''), 'base64');
+    return uploadUazapiMedia({ organized, inboundConfig, buffer, mime, json });
   }
 
-  const base64 = json?.base64 || json?.data || null;
-  if (!base64) {
-    throw new Error('UazAPI nao retornou midia');
+  const downloadedUrl = json?.fileURL || json?.fileUrl || json?.url || json?.link || null;
+  const publicUrl = [downloadedUrl, organized.arquivoUrl].find((url) => isPublicMediaUrl(url));
+  if (publicUrl) {
+    const buffer = await fetchPublicBuffer(publicUrl);
+    if (buffer) {
+      return uploadUazapiMedia({ organized, inboundConfig, buffer, mime, json });
+    }
+    return publicUrl;
   }
 
-  const buffer = Buffer.from(String(base64).replace(/^data:[^;]+;base64,/, ''), 'base64');
-  const ext = guessExtension(organized.messageType, json);
-  const safeMessageId = String(organized.messageId).replace(/[^a-zA-Z0-9._-]/g, '_');
+  throw new Error('UazAPI nao retornou midia');
+}
+
+async function fetchPublicBuffer(url) {
+  const response = await fetch(url);
+  if (!response.ok) return null;
+  return Buffer.from(await response.arrayBuffer());
+}
+
+async function uploadUazapiMedia({ organized, inboundConfig, buffer, mime, json }) {
+  const ext = guessExtension(organized.messageType, { ...json, mimetype: mime });
+  const safeMessageId = String(organized.messageId || organized.downloadId).replace(/[^a-zA-Z0-9._-]/g, '_');
   const originalName = withFileExtension(
-    sanitizeS3FileName(null, `${safeMessageId}.${ext}`),
+    sanitizeS3FileName(organized.arquivoNomeOriginal, `${safeMessageId}.${ext}`),
     ext,
   );
   const s3Key = `uazapi/${organized.instance || 'inst'}/${safeMessageId}/${originalName}`;
@@ -191,7 +208,7 @@ async function processUazapiMedia(organized, inboundConfig) {
     bucket: inboundConfig.s3.bucket,
     key: s3Key,
     body: buffer,
-    contentType: json?.mimetype || json?.mimeType || 'application/octet-stream',
+    contentType: mime || 'application/octet-stream',
   });
 
   return buildPublicS3Url(inboundConfig.s3.publicBaseUrl, s3Key);

@@ -237,9 +237,17 @@ export function createUazapiClient(config) {
         return request('POST', '/message/download', { token, body: payload });
       },
       getChatDetails(chatId) {
+        const number = String(chatId || '').replace(/@.+$/, '').trim();
         return request('POST', '/chat/details', {
           token,
-          body: { chatId: String(chatId) },
+          body: { number, chatId: number },
+        });
+      },
+      getNameAndImageURL(chatId) {
+        const number = String(chatId || '').replace(/@.+$/, '').trim();
+        return request('POST', '/chat/GetNameAndImageURL', {
+          token,
+          body: { number, preview: true, returnMoreNames: true },
         });
       },
       listChats() {
@@ -295,9 +303,15 @@ export function mapEvolutionMediaTypeToUazapi(messageType) {
 }
 
 export function mapUazapiMessageTypeToEvolution(message) {
-  const mediaType = String(message?.mediaType || message?.type || '').toLowerCase();
+  const typeFlat = String(message?.type || '').toLowerCase();
+  const mediaType = String(message?.mediaType || typeFlat || '').toLowerCase();
   const messageType = String(message?.messageType || '').toLowerCase();
-  const tipoHint = `${mediaType} ${messageType}`;
+  const content =
+    message?.content && typeof message.content === 'object' && !Array.isArray(message.content)
+      ? message.content
+      : {};
+  const mime = String(content.mimetype || content.mimeType || '').toLowerCase();
+  const tipoHint = `${mediaType} ${typeFlat} ${messageType}`;
 
   // Clique de botão/lista — sempre texto (antes de document!)
   if (
@@ -311,21 +325,47 @@ export function mapUazapiMessageTypeToEvolution(message) {
     return 'conversation';
   }
 
-  if (mediaType === 'image' || messageType.includes('image')) return 'imageMessage';
-  if (mediaType === 'video' || messageType.includes('video')) return 'videoMessage';
+  if (
+    mediaType === 'sticker' ||
+    typeFlat === 'sticker' ||
+    messageType.includes('sticker')
+  ) {
+    return 'stickerMessage';
+  }
+  if (
+    mediaType === 'image' ||
+    typeFlat === 'image' ||
+    messageType.includes('image') ||
+    mime.startsWith('image/')
+  ) {
+    return 'imageMessage';
+  }
+  if (
+    mediaType === 'video' ||
+    typeFlat === 'video' ||
+    messageType.includes('video') ||
+    mime.startsWith('video/')
+  ) {
+    return 'videoMessage';
+  }
   if (
     mediaType === 'audio' ||
     mediaType === 'ptt' ||
     mediaType === 'myaudio' ||
-    messageType.includes('audio')
+    typeFlat === 'audio' ||
+    typeFlat === 'ptt' ||
+    messageType.includes('audio') ||
+    mime.startsWith('audio/')
   ) {
     return 'audioMessage';
   }
-  if (mediaType === 'sticker' || messageType.includes('sticker')) return 'stickerMessage';
   if (
     mediaType === 'document' ||
     mediaType === 'file' ||
-    messageType.includes('document')
+    typeFlat === 'document' ||
+    typeFlat === 'file' ||
+    messageType.includes('document') ||
+    mime.includes('pdf')
   ) {
     return 'documentMessage';
   }

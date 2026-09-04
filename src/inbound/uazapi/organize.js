@@ -318,26 +318,67 @@ function resolveContactJid(message = {}, chat = {}) {
   );
 }
 
+function pickByNames(obj, names) {
+  if (!obj || typeof obj !== 'object') return null;
+  for (const name of names) {
+    const wanted = String(name).toLowerCase().replace(/_/g, '');
+    for (const [key, value] of Object.entries(obj)) {
+      if (key.toLowerCase().replace(/_/g, '') !== wanted) continue;
+      const text = value == null ? '' : String(value).trim();
+      if (text) return text;
+    }
+  }
+  return null;
+}
+
 function resolveContactName(message = {}, chat = {}) {
-  return firstNonEmpty(
-    chat.wa_contactName,
-    chat.wa_name,
-    chat.name,
-    message.pushName,
-    message.senderName,
-    message.name,
+  return (
+    pickByNames(chat, [
+      'wa_contactName',
+      'wa_name',
+      'name',
+      'lead_name',
+      'lead_fullName',
+    ]) ||
+    pickByNames(message, ['pushName', 'senderName', 'sender_name', 'notifyName', 'name'])
   );
+}
+
+function resolveFotoUrl(message = {}, chat = {}) {
+  return (
+    pickByNames(chat, ['imagePreview', 'image', 'profilePicUrl', 'profilePictureUrl']) ||
+    pickByNames(message, ['imagePreview', 'image', 'profilePicUrl', 'profilePictureUrl'])
+  );
+}
+
+/** URL do WhatsApp (mmg/pps) não é pública — download via API Uazapi. */
+export function isPublicMediaUrl(url) {
+  const text = String(url || '').trim();
+  if (!/^https?:\/\//i.test(text)) return false;
+  try {
+    const host = new URL(text).hostname.toLowerCase();
+    if (host === 'whatsapp.net' || host.endsWith('.whatsapp.net')) return false;
+    if (host === 'whatsapp.com' || host.endsWith('.whatsapp.com')) return false;
+  } catch {
+    return false;
+  }
+  return true;
 }
 
 function resolveMediaUrl(message = {}) {
   const content = objetoContent(message.content) || {};
-  return firstNonEmpty(
+  const candidates = [
     message.fileURL,
     message.fileUrl,
     message.mediaUrl,
     content.URL,
     content.url,
-  );
+  ];
+  for (const candidate of candidates) {
+    const text = firstNonEmpty(candidate);
+    if (isPublicMediaUrl(text)) return text;
+  }
+  return null;
 }
 
 function resolveMessageText(message = {}) {
@@ -366,7 +407,7 @@ export function isUazapiWebhookShape(body = {}) {
 
 export function organizeUazapiWebhook(body, conexao = {}) {
   const message = body?.message || body?.data?.message || body?.data || {};
-  const chat = body?.chat || body?.data?.chat || {};
+  const chat = body?.chat || body?.data?.chat || message?.chat || {};
 
   // Contato da conversa — NÃO usar sender_pn (em fromMe=true é o owner)
   const remoteJid = resolveContactJid(message, chat);
@@ -374,6 +415,9 @@ export function organizeUazapiWebhook(body, conexao = {}) {
   const fromMe = Boolean(message.fromMe);
   const contactName = resolveContactName(message, chat);
   const messageId = message.messageid || message.id || null;
+  const downloadId = message.id || message.messageid || null;
+  const contentObj = objetoContent(message.content) || {};
+  let arquivoMime = firstNonEmpty(contentObj.mimetype, contentObj.mimeType);
 
   const botao = extrairRespostaBotao(message);
 
@@ -392,24 +436,27 @@ export function organizeUazapiWebhook(body, conexao = {}) {
     mensagemRespondida = botao.quotedId || mensagemRespondida;
     arquivoUrl = null;
     arquivoNomeOriginal = null;
+    arquivoMime = null;
   }
 
   return {
     remoteJid,
     lid,
-    pushName: contactName,
+    pushName: fromMe ? null : contactName,
     fromMe,
     messageId,
+    downloadId,
     conversation,
     messageType,
     arquivoNomeOriginal,
+    arquivoMime,
     source: message.source || 'uazapi',
     serverUrl: body.BaseUrl || conexao.urlApi || null,
     instance: conexao.instanceName || body.instanceName || body.instance || null,
     apikey: body.token || conexao.Apikey || null,
     mensagemRespondida,
     arquivoUrl,
-    fotoUrl: firstNonEmpty(chat.imagePreview, chat.image, message.imagePreview),
+    fotoUrl: fromMe ? null : resolveFotoUrl(message, chat),
     isGroup: Boolean(message.isGroup || chat.wa_isGroup),
     owner: body.owner || null,
     wasSentByApi: Boolean(message.wasSentByApi),
@@ -444,11 +491,13 @@ export function buildIngestaoPayloadUazapi({ conexao, organized }) {
       arquivoUrl: organized.arquivoUrl,
       arquivoNomeOriginal: organized.arquivoNomeOriginal || null,
       mensagemRespondida: organized.mensagemRespondida,
+      fotoPerfil: organized.fotoUrl || null,
     },
     evolu: {
       server_url: organized.serverUrl,
       instance: organized.instance,
       apikey: organized.apikey,
+      provedorApi: 'uazapi',
     },
   };
 }
