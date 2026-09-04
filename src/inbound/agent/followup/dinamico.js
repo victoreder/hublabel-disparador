@@ -102,7 +102,6 @@ export async function detectarPrazoFollowup({
       body: JSON.stringify({
         model: modelo,
         temperature: 0,
-        max_tokens: 80,
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: 'Responda apenas JSON válido. Sem markdown.' },

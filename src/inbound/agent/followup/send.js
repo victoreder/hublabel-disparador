@@ -1,22 +1,20 @@
 import { logger } from '../../../logger.js';
 import { saveMensagemIA, updateConversaUltimaMensagem } from '../../../supabase.js';
 import { extractUazapiMessageId } from '../../../uazapi/client.js';
+import { classifyChunk } from '../parseResponse.js';
 import { sendAgentChunk, sendTextReply } from '../sendReply.js';
 
 function telefoneDigits(remoteJid) {
   return String(remoteJid || '').replace('@s.whatsapp.net', '').replace(/\D/g, '');
 }
 
-function mediaMarkdown(tipo, url) {
-  const tag =
-    tipo === 'imagem' || tipo === 'image'
-      ? 'image'
-      : tipo === 'video'
-        ? 'video'
-        : tipo === 'audio'
-          ? 'audio'
-          : 'file';
-  return `[arquivo (${tag})](${url})`;
+function tipoMidiaAgente(tipo) {
+  const t = String(tipo || '').toLowerCase();
+  if (t === 'imagem' || t === 'image') return 'image';
+  if (t === 'video') return 'video';
+  if (t === 'audio') return 'audio';
+  if (t === 'pdf') return 'pdf';
+  return 'file';
 }
 
 async function persistirSaida(job, mensagem, tipoMensagem, arquivoUrl, messageId) {
@@ -49,16 +47,17 @@ export async function enviarTextoFollowup(job, texto, agentConfig) {
 }
 
 export async function enviarMidiaFollowup(job, tipo, url, caption, agentConfig) {
-  if (!url) return;
-  const kind =
-    tipo === 'imagem' || tipo === 'image'
-      ? 'image'
-      : tipo === 'video'
-        ? 'video'
-        : tipo === 'audio'
-          ? 'audio'
-          : 'document';
-  await sendAgentChunk(job, { kind, text: mediaMarkdown(tipo, url) }, agentConfig);
+  const raw = String(url || '').trim();
+  if (!raw || raw.startsWith('blob:')) {
+    logger.warn('Follow-up: URL de mídia inválida (precisa ser http/https público)', {
+      conversaId: job?.conversaId,
+      url: raw || null,
+    });
+    return;
+  }
+  const markdown = `[(${tipoMidiaAgente(tipo)})](${raw})`;
+  const kind = classifyChunk(markdown);
+  await sendAgentChunk(job, { kind, text: markdown }, agentConfig);
   if (caption?.trim()) await sendTextReply(job, caption.trim(), agentConfig);
 }
 

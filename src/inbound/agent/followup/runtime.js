@@ -290,7 +290,6 @@ async function completarTextoIa({ job, agente, agentConfig, orientacao, motivo, 
     body: JSON.stringify({
       model: modelo,
       temperature: 0.7,
-      max_tokens: 400,
       messages: [
         { role: 'system', content: systemPrompt },
         ...historico.slice(-12),
