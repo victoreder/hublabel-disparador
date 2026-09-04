@@ -49,7 +49,7 @@ export async function enviarMidiaFollowup(job, tipo, url, caption, agentConfig, 
     return;
   }
   const type = normalizeMediaType(tipo, raw, mime);
-  const markdown = `[(${type})](${raw})`;
+  const markdown = `[(${type})](<${raw}>)`;
   const kind = classifyChunk(markdown);
   await sendAgentChunk(job, { kind, text: markdown }, agentConfig);
   if (caption?.trim()) await sendTextReply(job, caption.trim(), agentConfig);

@@ -1,4 +1,26 @@
-const MEDIA_URL_RE = /\]\((https?:\/\/[^)]+)\)/;
+function extractMarkdownHref(text) {
+  const s = String(text || '');
+  const angled = s.match(/\]\(\s*<(https?:\/\/[^>]+)>\s*\)/);
+  if (angled?.[1]) return angled[1].trim();
+
+  const marker = s.search(/\]\(\s*https?:\/\//i);
+  if (marker < 0) return null;
+  const open = s.indexOf('(', marker);
+  if (open < 0) return null;
+
+  let depth = 0;
+  for (let i = open; i < s.length; i += 1) {
+    if (s[i] === '(') depth += 1;
+    else if (s[i] === ')') {
+      depth -= 1;
+      if (depth === 0) {
+        const href = s.slice(open + 1, i).trim();
+        return /^https?:\/\//i.test(href) ? href : null;
+      }
+    }
+  }
+  return null;
+}
 
 export function splitAgentOutput(output, separarMensagens = true) {
   const text = String(output || '').trim();
@@ -23,8 +45,7 @@ export function classifyChunk(text) {
 }
 
 export function extractMediaUrl(text) {
-  const match = String(text || '').match(MEDIA_URL_RE);
-  return match?.[1] || null;
+  return extractMarkdownHref(text);
 }
 
 /** Normaliza URL de midia para dedupe (sem query/hash). */
@@ -43,7 +64,8 @@ export function normalizeMediaUrl(url) {
 
 export function plainTextFromChunk(text) {
   return String(text || '')
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '$1')
+    .replace(/\[([^\]]+)\]\(\s*<(https?:\/\/[^>]+)>\s*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\((https?:\/\/(?:[^()]|\([^()]*\))+)\)/g, '$1')
     .trim();
 }
 
