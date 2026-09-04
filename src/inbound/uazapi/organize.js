@@ -439,6 +439,14 @@ export function organizeUazapiWebhook(body, conexao = {}) {
     arquivoMime = null;
   }
 
+  if (!String(conversation || '').trim()) {
+    if (messageType === 'imageMessage') conversation = '[imagem]';
+    else if (messageType === 'audioMessage') conversation = '[audio]';
+    else if (messageType === 'videoMessage') conversation = '[video]';
+    else if (messageType === 'stickerMessage') conversation = '[sticker]';
+    else if (messageType === 'documentMessage') conversation = arquivoNomeOriginal || '[documento]';
+  }
+
   return {
     remoteJid,
     lid,
@@ -450,6 +458,7 @@ export function organizeUazapiWebhook(body, conexao = {}) {
     messageType,
     arquivoNomeOriginal,
     arquivoMime,
+    jpegThumbnail: firstNonEmpty(contentObj.JPEGThumbnail, contentObj.jpegThumbnail),
     source: message.source || 'uazapi',
     serverUrl: body.BaseUrl || conexao.urlApi || null,
     instance: conexao.instanceName || body.instanceName || body.instance || null,
