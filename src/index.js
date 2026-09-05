@@ -1,20 +1,22 @@
 import express from 'express';
 import { config } from './config.js';
+import { createEmailWorker } from './email/worker.js';
 import { logger } from './logger.js';
 import { getSupabaseKeyInfo, validateSupabaseConnection } from './supabase.js';
 import { createWorker } from './worker.js';
 
 const app = express();
 const worker = createWorker();
+const emailWorker = createEmailWorker();
 const startedAt = new Date().toISOString();
 
 app.get('/health', (_req, res) => {
-  const stats = worker.getStats();
   res.status(200).json({
     ok: true,
     service: 'hublabel-disparador-meta',
     startedAt,
-    worker: stats,
+    worker: worker.getStats(),
+    email: emailWorker.getStats(),
   });
 });
 
@@ -27,6 +29,7 @@ async function main() {
   logger.info('Supabase conectado', getSupabaseKeyInfo());
 
   await worker.start();
+  await emailWorker.start();
 
   app.listen(config.port, () => {
     logger.info('HTTP server ouvindo', { port: config.port, health: `/health` });
@@ -34,7 +37,7 @@ async function main() {
 
   const shutdown = async (signal) => {
     logger.info('Encerrando', { signal });
-    await worker.stop();
+    await Promise.all([worker.stop(), emailWorker.stop()]);
     process.exit(0);
   };
 

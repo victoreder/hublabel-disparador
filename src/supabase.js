@@ -93,6 +93,10 @@ export function isDisparoApiOficial(tipoDisparo) {
   return String(tipoDisparo || '').toLowerCase() === 'apioficial';
 }
 
+export function isDisparoEmail(tipoDisparo) {
+  return String(tipoDisparo || '').toLowerCase() === 'email';
+}
+
 export function isDisparoScheduledForFuture(dataAgendamento) {
   if (!dataAgendamento) return false;
   return new Date(dataAgendamento).getTime() > Date.now();
@@ -107,6 +111,15 @@ export function isDisparoAgendamentoExpirado(dataAgendamento) {
 export function isDisparoEligible(disparo) {
   if (!disparo) return false;
   if (!isDisparoApiOficial(disparo.TipoDisparo)) return false;
+  if (isDisparoInactive(disparo.StatusDisparo)) return false;
+  if (isDisparoScheduledForFuture(disparo.DataAgendamento)) return false;
+  if (isDisparoAgendamentoExpirado(disparo.DataAgendamento)) return false;
+  return true;
+}
+
+export function isDisparoEmailEligible(disparo) {
+  if (!disparo) return false;
+  if (!isDisparoEmail(disparo.TipoDisparo)) return false;
   if (isDisparoInactive(disparo.StatusDisparo)) return false;
   if (isDisparoScheduledForFuture(disparo.DataAgendamento)) return false;
   if (isDisparoAgendamentoExpirado(disparo.DataAgendamento)) return false;
@@ -131,13 +144,27 @@ export async function fetchActiveDisparoIds() {
   return (data ?? []).filter(isDisparoEligible).map((disparo) => disparo.id);
 }
 
+export async function fetchActiveEmailDisparoIds() {
+  const { data, error } = await supabase
+    .from('SAAS_Disparos')
+    .select('id, StatusDisparo, TipoDisparo, DataAgendamento')
+    .ilike('TipoDisparo', 'email')
+    .in('StatusDisparo', ['Aguardando', 'Em andamento'])
+    .order('id', { ascending: false })
+    .limit(1000);
+
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar disparos de e-mail ativos');
+
+  return (data ?? []).filter(isDisparoEmailEligible).map((disparo) => disparo.id);
+}
+
 export async function fetchPendingDetails(disparoIds, limit = 1) {
   if (!disparoIds.length) return [];
 
   const nowIso = new Date().toISOString();
   const { data, error } = await supabase
     .from('SAAS_Detalhes_Disparos')
-    .select('id, idDisparo, idContato, Mensagem, idConexao, Status, KeyRedis, respostaHttp')
+    .select('id, idDisparo, idContato, Mensagem, idConexao, Status, KeyRedis, respostaHttp, Payload')
     .eq('Status', 'pending')
     .in('idDisparo', disparoIds)
     // create_disparo_oficial grava dataEnvio (= schedule ou now+2min); respeitar antes de enviar.
@@ -166,7 +193,7 @@ export async function claimDetail(detailId) {
     .update({ Status: 'processing' })
     .eq('id', detailId)
     .eq('Status', 'pending')
-    .select('id, idDisparo, idContato, Mensagem, idConexao, Status, KeyRedis, respostaHttp')
+    .select('id, idDisparo, idContato, Mensagem, idConexao, Status, KeyRedis, respostaHttp, Payload')
     .maybeSingle();
 
   if (error) throw mapSupabaseError(error, `Erro ao claim do detalhe ${detailId}`);
@@ -304,6 +331,20 @@ export async function fetchConfigEmails() {
     .maybeSingle();
 
   if (error) throw mapSupabaseError(error, 'Erro ao buscar SAAS_Config_Emails');
+  return data;
+}
+
+export async function fetchRemetenteEmail(remetenteId) {
+  const id = Number.parseInt(String(remetenteId ?? ''), 10);
+  if (!Number.isFinite(id)) return null;
+
+  const { data, error } = await supabase
+    .from('SAAS_RemetentesEmails')
+    .select('id, contaId, nome, smtp_email, smtp_name, smtp_host, smtp_port, smtp_user, smtp_apikey')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, `Erro ao buscar remetente ${id}`);
   return data;
 }
 
@@ -760,6 +801,54 @@ export async function atualizarContatoFotoPerfil(contatoId, fotoPerfil) {
     .eq('id', contatoId);
 
   if (error) throw mapSupabaseError(error, `Erro ao atualizar fotoPerfil do contato ${contatoId}`);
+
+  await supabase
+    .from('SAAS_Conversas_Agentes')
+    .update({ fotoPerfil })
+    .eq('contatoId', contatoId);
+}
+
+export async function preencherNomeContatoEConversa({ contatoId, conversaId, nome }) {
+  const nomeLimpo = String(nome || '').trim();
+  if (!contatoId || !nomeLimpo) return;
+
+  const { data: contato, error: contatoError } = await supabase
+    .from('SAAS_Contatos')
+    .select('nome')
+    .eq('id', contatoId)
+    .maybeSingle();
+
+  if (contatoError) {
+    throw mapSupabaseError(contatoError, `Erro ao buscar nome do contato ${contatoId}`);
+  }
+
+  if (!String(contato?.nome || '').trim()) {
+    const { error } = await supabase
+      .from('SAAS_Contatos')
+      .update({ nome: nomeLimpo })
+      .eq('id', contatoId);
+    if (error) throw mapSupabaseError(error, `Erro ao atualizar nome do contato ${contatoId}`);
+  }
+
+  if (!conversaId) return;
+
+  const { data: conversa, error: conversaError } = await supabase
+    .from('SAAS_Conversas_Agentes')
+    .select('nomeConversa')
+    .eq('id', conversaId)
+    .maybeSingle();
+
+  if (conversaError) {
+    throw mapSupabaseError(conversaError, `Erro ao buscar nome da conversa ${conversaId}`);
+  }
+
+  if (!String(conversa?.nomeConversa || '').trim()) {
+    const { error } = await supabase
+      .from('SAAS_Conversas_Agentes')
+      .update({ nomeConversa: nomeLimpo })
+      .eq('id', conversaId);
+    if (error) throw mapSupabaseError(error, `Erro ao atualizar nomeConversa ${conversaId}`);
+  }
 }
 
 export async function ingestaoMensagem(payload) {
@@ -789,6 +878,45 @@ export async function addTokensUsuarioPorAgente(params) {
 
   if (error) throw mapSupabaseError(error, 'Erro em f_add_tokens_usuario_por_agente');
   return data;
+}
+
+export async function fetchCreditosConta(contaId) {
+  const { data, error } = await supabase
+    .from('vw_Contas_Com_Plano')
+    .select('id, status, "planoQntCreditos", total_creditos')
+    .eq('id', contaId)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar créditos da conta');
+  return data;
+}
+
+export async function addTokensConta({ contaId, qntTokens }) {
+  const creditos = Number(qntTokens) || 0;
+  if (!contaId || creditos <= 0) return { ok: true, ignorado: true };
+
+  const { data, error } = await supabase.rpc('f_add_tokens_conta', {
+    p_conta_id: contaId,
+    p_qnt_tokens: creditos,
+  });
+
+  if (!error) return data;
+
+  const { data: conta, error: readError } = await supabase
+    .from('SAAS_Contas')
+    .select('tokens')
+    .eq('id', contaId)
+    .maybeSingle();
+  if (readError) throw mapSupabaseError(readError, 'Erro ao ler tokens da conta');
+  if (!conta) return { ok: false, error: 'Conta não encontrada' };
+
+  const tokensNovo = Number(conta.tokens || 0) + creditos;
+  const { error: updError } = await supabase
+    .from('SAAS_Contas')
+    .update({ tokens: tokensNovo })
+    .eq('id', contaId);
+  if (updError) throw mapSupabaseError(updError, 'Erro ao debitar créditos da conta');
+  return { ok: true, contaId, tokensNovo, fallback: true };
 }
 
 export async function fetchMensagemArquivoUrl(idMensagem) {

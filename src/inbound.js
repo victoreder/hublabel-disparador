@@ -7,6 +7,7 @@ import { registerEventsMetaRoutes } from './inbound/routes/eventsmeta.js';
 import { registerEvolutionRoutes } from './inbound/routes/evolution.js';
 import { registerMetaApiRoutes, startMetaTokenRenewalCron } from './inbound/routes/metaApi.js';
 import { registerRagRoutes } from './inbound/routes/rag.js';
+import { registerGerarEmailRoutes } from './inbound/routes/gerarEmail.js';
 import { registerSyncTemplatesRoutes } from './inbound/routes/syncTemplates.js';
 import { logger } from './logger.js';
 import { getSupabaseKeyInfo, validateSupabaseConnection, fetchOpenAIApiKey } from './supabase.js';
@@ -84,6 +85,7 @@ async function main() {
         metaApi: inboundConfig.metaApiPaths,
         rag: inboundConfig.ragPath,
         syncTemplates: inboundConfig.syncTemplatesPath,
+        gerarEmail: inboundConfig.gerarEmailPath,
         slugs: inboundConfig.webhookPaths,
       },
     });
@@ -120,6 +122,11 @@ async function main() {
     parentPath: inboundConfig.evolutionWebhookPath,
   });
 
+  registerGerarEmailRoutes(app, {
+    path: inboundConfig.gerarEmailPath,
+    parentPath: inboundConfig.evolutionWebhookPath,
+  });
+
   logger.info('[inbound] rotas Meta registradas', inboundConfig.metaApiPaths);
   logger.info('[inbound] rota RAG registrada', {
     path: inboundConfig.ragPath,
@@ -128,6 +135,10 @@ async function main() {
   logger.info('[inbound] rota sincronizar-templates registrada', {
     path: inboundConfig.syncTemplatesPath,
     publicUrl: inboundConfig.publicWebhookUrls.sincronizarTemplates,
+  });
+  logger.info('[inbound] rota gerar-email registrada', {
+    path: inboundConfig.gerarEmailPath,
+    publicUrl: inboundConfig.publicWebhookUrls.gerarEmail,
   });
 
   startMetaTokenRenewalCron(inboundConfig);

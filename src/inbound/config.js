@@ -36,6 +36,7 @@ export const WEBHOOK_PATHS = {
 
 const RAG_INSERIR_CONHECIMENTO_SUFFIX = 'inserir-conhecimento';
 const SYNC_TEMPLATES_SUFFIX = 'sincronizar-templates';
+const GERAR_EMAIL_SUFFIX = 'gerar-email';
 
 /**
  * BACK_URL = origem + path opcional (ex.: https://webhook2.victoreder.com.br/webhook).
@@ -111,6 +112,7 @@ export function getInboundConfig() {
       'https://evolution2.victoreder.com.br',
     ragPath: buildWebhookSubPath(p.evolution, RAG_INSERIR_CONHECIMENTO_SUFFIX),
     syncTemplatesPath: buildWebhookSubPath(p.evolution, SYNC_TEMPLATES_SUFFIX),
+    gerarEmailPath: buildWebhookSubPath(p.evolution, GERAR_EMAIL_SUFFIX),
     metaApiPaths: {
       token: expressPath(p.metaToken),
       criarTemplate: expressPath(p.metaCriarTemplate),
@@ -151,6 +153,11 @@ export function getInboundConfig() {
       sincronizarTemplatesLegacy: buildPublicWebhookUrl(
         back.backUrl,
         `${p.evolution}/${SYNC_TEMPLATES_SUFFIX}`,
+      ),
+      gerarEmail: publicUrl(p.evolution),
+      gerarEmailLegacy: buildPublicWebhookUrl(
+        back.backUrl,
+        `${p.evolution}/${GERAR_EMAIL_SUFFIX}`,
       ),
     },
     calcularTokenUrl: publicUrl(p.calcularToken),

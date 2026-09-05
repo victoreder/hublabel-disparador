@@ -26,6 +26,7 @@ import {
   handleSyncTemplatesRequest,
   isSyncTemplatesRequest,
 } from './syncTemplates.js';
+import { handleGerarEmailRequest, isGerarEmailRequest } from './gerarEmail.js';
 
 function isMultipartRequest(req) {
   return String(req.headers['content-type'] || '').toLowerCase().includes('multipart/form-data');
@@ -67,6 +68,7 @@ function evolutionHandler(inboundConfig) {
       const isContarParticipantes = isContarParticipantesRequest(req);
       const isExportarParticipantes = isExportarParticipantesRequest(req);
       const isPuxarContatosWpp = isPuxarContatosWppRequest(req);
+      const isGerarEmail = isGerarEmailRequest(req);
 
       logger.info('[evolution-webhook] hit', {
         method: req.method,
@@ -87,6 +89,7 @@ function evolutionHandler(inboundConfig) {
         isContarParticipantes,
         isExportarParticipantes,
         isPuxarContatosWpp,
+        isGerarEmail,
       });
 
       if (isCriarConexao) {
@@ -115,6 +118,10 @@ function evolutionHandler(inboundConfig) {
 
       if (isPuxarContatosWpp) {
         return handlePuxarContatosWppRequest(req, res);
+      }
+
+      if (isGerarEmail) {
+        return handleGerarEmailRequest(req, res);
       }
 
       if (isChatSend) {
