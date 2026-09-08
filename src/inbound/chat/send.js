@@ -20,7 +20,8 @@ import {
   extractUazapiMessageId,
   mapEvolutionMediaTypeToUazapi,
 } from '../../uazapi/client.js';
-import { metaPost } from '../meta/graph.js';
+import { prepararAudioOficial } from './audioOficial.js';
+import { metaPost, metaUploadWhatsAppMedia } from '../meta/graph.js';
 import { HttpError } from '../meta/httpError.js';
 import {
   buildPublicS3Url,
@@ -355,7 +356,16 @@ export async function enviarMidiaChat(body, file, inboundConfig) {
   if (!tipoMeta) throw new HttpError(`Tipo de midia nao suportado: ${tipoMensagem}`, 400);
 
   const provedor = resolveProvedorApi(conexao);
-  const arquivo = await uploadArquivo(file, inboundConfig, idMensagem);
+  let arquivoFonte = file;
+  if (provedor === 'oficial' && tipoMensagem === 'audioMessage') {
+    arquivoFonte = await prepararAudioOficial(file);
+    logger.info('[chat-envio] audio oficial preparado', {
+      mimeOriginal: file?.mimetype || null,
+      convertido: Boolean(arquivoFonte.convertido),
+      bytes: arquivoFonte.buffer?.length || 0,
+    });
+  }
+  const arquivo = await uploadArquivo(arquivoFonte, inboundConfig, idMensagem);
   let evolution = null;
   let uazapi = null;
   let enderecamento = null;
@@ -388,6 +398,19 @@ export async function enviarMidiaChat(body, file, inboundConfig) {
     const media = { link: arquivo.url };
     if (body.caption && tipoMensagem !== 'audioMessage') media.caption = String(body.caption);
     if (tipoMensagem === 'documentMessage') media.filename = arquivo.nome;
+    if (tipoMensagem === 'audioMessage') {
+      const mediaId = await metaUploadWhatsAppMedia({
+        version: inboundConfig.metaGraphApiVersion,
+        phoneNumberId: conexao.phone_number_id,
+        accessToken: conexao.access_token,
+        buffer: arquivoFonte.buffer,
+        mimeType: 'audio/ogg',
+        filename: 'audio.ogg',
+      });
+      media.id = mediaId;
+      delete media.link;
+      media.voice = true;
+    }
 
     response = await enviarMeta(conexao, inboundConfig, {
       messaging_product: 'whatsapp',

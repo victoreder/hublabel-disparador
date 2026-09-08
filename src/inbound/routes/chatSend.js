@@ -98,16 +98,20 @@ export async function handleChatSendRequest(req, res) {
   const action = actionFromRequest(req);
   const isMedia = action === 'enviarmidia' || action === 'enviaraudio';
 
+  const uploaded = pickUploadedFile(req);
   logger.info('[chat-envio] hit', {
     method: req.method,
     path: req.path,
     body: safeBody(body),
-    hasFile: Boolean(pickUploadedFile(req)),
+    hasFile: Boolean(uploaded),
+    mime: uploaded?.mimetype || null,
+    originalname: uploaded?.originalname || null,
+    size: uploaded?.size || uploaded?.buffer?.length || null,
   });
 
   try {
     const result = isMedia
-      ? await enviarMidiaChat(body, pickUploadedFile(req), req.app.locals.inboundConfig)
+      ? await enviarMidiaChat(body, uploaded, req.app.locals.inboundConfig)
       : await enviarMensagemChat(body, req.app.locals.inboundConfig);
 
     logger.info('[chat-envio] ok', {

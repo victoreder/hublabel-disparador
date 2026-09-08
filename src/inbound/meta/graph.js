@@ -62,6 +62,50 @@ export async function metaPost({ version, path, accessToken, body, query = {}, h
   return data;
 }
 
+export async function metaUploadWhatsAppMedia({
+  version,
+  phoneNumberId,
+  accessToken,
+  buffer,
+  mimeType,
+  filename,
+}) {
+  const type = String(mimeType || 'application/octet-stream');
+  const bytes = Buffer.isBuffer(buffer)
+    ? new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)
+    : buffer instanceof Uint8Array
+      ? buffer
+      : new Uint8Array(buffer);
+  const form = new FormData();
+  form.append('messaging_product', 'whatsapp');
+  form.append('type', type);
+  form.append('file', new Blob([bytes], { type }), filename || 'arquivo');
+
+  const url = `${graphBase(version)}/${String(phoneNumberId).replace(/^\//, '')}/media`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: form,
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data.error || !data.id) {
+    logger.warn('[meta-graph] upload midia erro', {
+      path: `${phoneNumberId}/media`,
+      status: response.status,
+      message: metaErrorMessage(data, 'Falha ao enviar midia para a Meta.'),
+      code: data?.error?.code ?? null,
+    });
+    throw new HttpError(
+      metaErrorMessage(data, 'Falha ao enviar midia para a Meta.'),
+      response.status >= 400 ? response.status : 502,
+    );
+  }
+
+  return data.id;
+}
+
 export async function metaDelete({ version, path, accessToken, query = {} }) {
   const params = new URLSearchParams(query);
   const url = `${graphBase(version)}/${path.replace(/^\//, '')}?${params.toString()}`;
