@@ -19,11 +19,12 @@ async function executar() {
 
 export function startFollowupCron() {
   if (timer) return;
+  const intervaloMs = 10_000;
   timer = setInterval(() => {
     void executar();
-  }, 60_000);
-  setTimeout(() => void executar(), 25_000);
-  logger.info('Cron de follow-up do agente iniciado', { intervaloMs: 60_000 });
+  }, intervaloMs);
+  setTimeout(() => void executar(), 3_000);
+  logger.info('Cron de follow-up do agente iniciado', { intervaloMs });
 }
 
 export function stopFollowupCron() {
