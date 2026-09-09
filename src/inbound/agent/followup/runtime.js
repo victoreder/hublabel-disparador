@@ -15,6 +15,14 @@ import { buildSystemPrompt } from '../prompt.js';
 import { saveAgentTokenUsage } from '../tokens.js';
 import { detectarPrazoFollowup, lerFollowupDinamico } from './dinamico.js';
 import {
+  SLUG_ENCERRADO,
+  classificarEtapaFollowup,
+  etapaPorSlug,
+  indicePassoEtapa,
+  lerEtapasFollowup,
+  temFollowupAvancado,
+} from './etapas.js';
+import {
   dispararFakeCallFollowup,
   enviarMenuFollowup,
   enviarMidiaFollowup,
@@ -73,17 +81,87 @@ function normalizarPasso(passo) {
 export function readFollowup(agente) {
   const raw = agente?.followup;
   if (!raw || typeof raw !== 'object' || raw.ativo !== true) return null;
-  const passos = (Array.isArray(raw.passos) ? raw.passos : [])
-    .map(normalizarPasso)
-    .filter(Boolean);
-  if (!passos.length) return null;
+  const avancado = temFollowupAvancado(raw);
+  const etapas = avancado
+    ? lerEtapasFollowup(raw)
+        .map((e) => ({
+          ...e,
+          passos: e.passos.map(normalizarPasso).filter(Boolean),
+        }))
+        .filter((e) => e.passos.length)
+    : [];
+  const passos = avancado
+    ? []
+    : (Array.isArray(raw.passos) ? raw.passos : []).map(normalizarPasso).filter(Boolean);
+  if (!etapas.length && !passos.length) return null;
   return {
     ativo: true,
+    avancado,
     pararSeHumano: raw.pararSeHumano !== false,
     respeitarHorario: raw.respeitarHorario !== false,
+    etapas,
     passos,
     dinamico: raw.dinamico,
   };
+}
+
+function lerProgressoEtapas(row) {
+  const p = row?.progressoEtapas;
+  return p && typeof p === 'object' && !Array.isArray(p) ? { ...p } : {};
+}
+
+function payloadCadencia(job, extra) {
+  return {
+    idConta: job.contaId,
+    idConversa: job.conversaId,
+    idAgente: job.agenteId,
+    idContato: job.contatoId || null,
+    idConexao: job.conexaoId || null,
+    canal: job.canal || null,
+    telefone: job.telefone || null,
+    tipo: 'cadencia',
+    ...extra,
+  };
+}
+
+async function registrarCreditosClassificacao(agenteId, det) {
+  if (!agenteId || !det || !(Number(det.promptTokens) > 0 || Number(det.completionTokens) > 0)) {
+    return;
+  }
+  await saveAgentTokenUsage(
+    agenteId,
+    Number(det.promptTokens) + Number(det.completionTokens),
+    det.modelo,
+  );
+}
+
+async function resolverEtapaAtual({ job, agente, fu, agentConfig, row }) {
+  const historico = await loadChatHistory(
+    job.conversaId,
+    Number(agente.qntMsgHistorico) || 20,
+    agentConfig?.redisUrl,
+    agentConfig?.historyCacheTtlSec,
+  );
+  const det = await classificarEtapaFollowup({
+    agentConfig,
+    historico,
+    etapas: fu.etapas,
+  });
+  await registrarCreditosClassificacao(job.agenteId || agente.id, det);
+
+  if (det.falhou) {
+    const fallback = etapaPorSlug(fu.etapas, row?.etapaAtual);
+    if (fallback) return { slug: fallback.slug, etapa: fallback, falhou: false };
+    return { slug: null, etapa: null, falhou: true };
+  }
+
+  const slug = det.slug || null;
+  if (!slug || slug === SLUG_ENCERRADO) {
+    return { slug: SLUG_ENCERRADO, etapa: null, falhou: false };
+  }
+  const etapa = etapaPorSlug(fu.etapas, slug);
+  if (!etapa) return { slug: SLUG_ENCERRADO, etapa: null, falhou: false };
+  return { slug, etapa, falhou: false };
 }
 
 function aplicarVariaveis(texto, ctx) {
@@ -251,7 +329,7 @@ function itensDoPasso(passo) {
   return [];
 }
 
-async function completarTextoIa({ job, agente, agentConfig, orientacao, motivo, vars }) {
+async function completarTextoIa({ job, agente, agentConfig, orientacao, motivo, vars, etapa }) {
   if (!agentConfig?.openaiApiKey) return '';
   const historico = await loadChatHistory(
     job.conversaId,
@@ -260,6 +338,16 @@ async function completarTextoIa({ job, agente, agentConfig, orientacao, motivo, 
     agentConfig.historyCacheTtlSec,
   );
   const extra = aplicarVariaveis(orientacao, vars);
+  const blocoEtapa = etapa
+    ? [
+        `O cliente está na etapa "${etapa.nome || etapa.slug}".`,
+        `Essa etapa ainda NÃO foi cumprida: ${etapa.criterio}.`,
+        etapa.perguntaPendente ? `Pergunta pendente desta etapa: ${etapa.perguntaPendente}` : '',
+        'Retome ESTA etapa. Não pule o funil. Não avance para a próxima etapa.',
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : '';
   const userMessage =
     motivo === 'dinamico'
       ? [
@@ -275,6 +363,7 @@ async function completarTextoIa({ job, agente, agentConfig, orientacao, motivo, 
           'O cliente parou de responder nesta conversa.',
           'Escreva UMA única mensagem curta e natural para retomar o contato,',
           'no mesmo tom do agente, sem parecer robótico e sem repetir a última mensagem.',
+          blocoEtapa,
           extra ? `Orientação para esta tentativa: ${extra}` : '',
           'Responda somente com o texto da mensagem.',
         ]
@@ -295,7 +384,16 @@ async function completarTextoIa({ job, agente, agentConfig, orientacao, motivo, 
   return stripActionMarkers(result.content || '').trim();
 }
 
-async function resolverTextoItem(row, agente, passo, item, agentConfig, job, vars, { opcional } = {}) {
+async function resolverTextoItem(
+  row,
+  agente,
+  passo,
+  item,
+  agentConfig,
+  job,
+  vars,
+  { opcional, etapa } = {},
+) {
   if (passo.modo === 'ia') {
     if (opcional && !String(item.texto || '').trim()) return '';
     return completarTextoIa({
@@ -305,6 +403,7 @@ async function resolverTextoItem(row, agente, passo, item, agentConfig, job, var
       orientacao: String(item.texto || orientacaoDoPasso(passo)).trim(),
       motivo: 'silencio',
       vars,
+      etapa: etapa || job.etapaFollowup || null,
     });
   }
   return aplicarVariaveis(item.texto || '', vars);
@@ -337,6 +436,7 @@ async function enviarItem(row, agente, passo, item, agentConfig, job, vars) {
     const kind = tipo === 'midia' || tipo === 'media' ? tipoMidiaPorArquivo(item) : tipo;
     const caption = await resolverTextoItem(row, agente, passo, item, agentConfig, job, vars, {
       opcional: true,
+      etapa: job.etapaFollowup,
     });
     await enviarMidiaFollowup(job, kind, url, caption, agentConfig, item.mime);
     return;
@@ -401,8 +501,9 @@ async function enviarItem(row, agente, passo, item, agentConfig, job, vars) {
   if (texto.trim()) await enviarTextoFollowup(job, texto, agentConfig);
 }
 
-async function enviarPasso(row, agente, passo, agentConfig) {
+async function enviarPasso(row, agente, passo, agentConfig, etapa) {
   const job = await jobDeFollowup(row, agente);
+  job.etapaFollowup = etapa || null;
   const vars = await contextoVariaveis(job);
   const itens = itensDoPasso(passo);
   if (!itens.length) {
@@ -415,6 +516,7 @@ async function enviarPasso(row, agente, passo, agentConfig) {
             orientacao: orientacaoDoPasso(passo),
             motivo: 'silencio',
             vars,
+            etapa,
           })
         : aplicarVariaveis(passo.mensagem || '', vars);
     if (texto?.trim()) await enviarTextoFollowup(job, texto, agentConfig);
@@ -486,7 +588,7 @@ export async function agendarFollowupDinamico(job, agente, agentConfig) {
   }
 }
 
-export async function agendarFollowup(job, agente) {
+export async function agendarFollowup(job, agente, agentConfig) {
   const fu = readFollowup(agente);
   if (!fu) return;
   if (await conversaTemConversao(job.conversaId)) return;
@@ -505,10 +607,15 @@ export async function agendarFollowup(job, agente) {
 
   const { data: existente } = await supabase
     .from('FollowupExecucao')
-    .select('passoAtual, status')
+    .select('id, passoAtual, status, etapaAtual, progressoEtapas')
     .eq('idConversa', job.conversaId)
     .eq('tipo', 'cadencia')
     .maybeSingle();
+
+  if (fu.avancado) {
+    await agendarCadenciaEtapas(job, agente, fu, agentConfig, existente);
+    return;
+  }
 
   if (existente?.status === 'concluido') return;
 
@@ -518,21 +625,75 @@ export async function agendarFollowup(job, agente) {
 
   const agora = new Date().toISOString();
   await supabase.from('FollowupExecucao').upsert(
-    {
-      idConta: job.contaId,
-      idConversa: job.conversaId,
-      idAgente: job.agenteId,
-      idContato: job.contatoId || null,
-      idConexao: job.conexaoId || null,
-      canal: job.canal || null,
-      telefone: job.telefone || null,
-      tipo: 'cadencia',
+    payloadCadencia(job, {
       passoAtual,
       proximoEm: new Date(Date.now() + Number(passo.atrasoMin) * 60_000).toISOString(),
       status: 'agendado',
       motivoParada: null,
       atualizadoEm: agora,
-    },
+    }),
+    { onConflict: 'idConversa,tipo' },
+  );
+}
+
+async function concluirCadencia(jobOuRow, extra) {
+  const idConversa = jobOuRow.conversaId || jobOuRow.idConversa;
+  const agora = new Date().toISOString();
+  const patch = { status: 'concluido', atualizadoEm: agora, ...extra };
+  if (jobOuRow.id) {
+    await supabase.from('FollowupExecucao').update(patch).eq('id', jobOuRow.id);
+    return;
+  }
+  await supabase
+    .from('FollowupExecucao')
+    .update(patch)
+    .eq('idConversa', idConversa)
+    .eq('tipo', 'cadencia');
+}
+
+async function agendarCadenciaEtapas(job, agente, fu, agentConfig, existente) {
+  const resolved = await resolverEtapaAtual({ job, agente, fu, agentConfig, row: existente });
+  if (resolved.falhou) return;
+  if (resolved.slug === SLUG_ENCERRADO || !resolved.etapa) {
+    if (existente) {
+      await concluirCadencia(existente, {
+        motivoParada: 'etapa_encerrada',
+        etapaAtual: SLUG_ENCERRADO,
+      });
+    }
+    return;
+  }
+
+  const progresso = lerProgressoEtapas(existente);
+  const idx = indicePassoEtapa(progresso, resolved.slug);
+  const passo = resolved.etapa.passos[idx];
+  if (!passo) {
+    await supabase.from('FollowupExecucao').upsert(
+      payloadCadencia(job, {
+        passoAtual: idx,
+        etapaAtual: resolved.slug,
+        progressoEtapas: progresso,
+        proximoEm: new Date().toISOString(),
+        status: 'concluido',
+        motivoParada: 'etapa_esgotada',
+        atualizadoEm: new Date().toISOString(),
+      }),
+      { onConflict: 'idConversa,tipo' },
+    );
+    return;
+  }
+
+  const agora = new Date().toISOString();
+  await supabase.from('FollowupExecucao').upsert(
+    payloadCadencia(job, {
+      passoAtual: idx,
+      etapaAtual: resolved.slug,
+      progressoEtapas: progresso,
+      proximoEm: new Date(Date.now() + Number(passo.atrasoMin) * 60_000).toISOString(),
+      status: 'agendado',
+      motivoParada: null,
+      atualizadoEm: agora,
+    }),
     { onConflict: 'idConversa,tipo' },
   );
 }
@@ -542,7 +703,7 @@ export async function agendarFollowupsAposTurno(job, agente, agentConfig) {
   await agendarFollowupDinamico(job, agente, agentConfig).catch((err) =>
     logger.warn('Agendar follow-up dinâmico', { message: err.message, conversaId: job.conversaId }),
   );
-  await agendarFollowup(job, agente).catch((err) =>
+  await agendarFollowup(job, agente, agentConfig).catch((err) =>
     logger.warn('Agendar follow-up cadência', { message: err.message, conversaId: job.conversaId }),
   );
 }
@@ -588,14 +749,134 @@ async function revalidarComum(row, agente, pararSeHumano, respeitarHorario) {
   return { ok: true, conversa };
 }
 
+async function processarCadenciaPorEtapas(row, agente, fu, agentConfig) {
+  const check = await revalidarComum(row, agente, fu.pararSeHumano, fu.respeitarHorario);
+  if (!check.ok) return;
+
+  const job = await jobDeFollowup(row, agente);
+  const resolved = await resolverEtapaAtual({ job, agente, fu, agentConfig, row });
+  const agora = new Date().toISOString();
+
+  if (resolved.falhou) {
+    await adiarFollowup(row.id, 15);
+    return;
+  }
+
+  if (resolved.slug === SLUG_ENCERRADO || !resolved.etapa) {
+    await supabase
+      .from('FollowupExecucao')
+      .update({
+        status: 'concluido',
+        motivoParada: 'etapa_encerrada',
+        etapaAtual: SLUG_ENCERRADO,
+        atualizadoEm: agora,
+      })
+      .eq('id', row.id);
+    return;
+  }
+
+  const progresso = lerProgressoEtapas(row);
+  const idx = indicePassoEtapa(progresso, resolved.slug);
+  const passo = resolved.etapa.passos[idx];
+  if (!passo) {
+    await supabase
+      .from('FollowupExecucao')
+      .update({
+        status: 'concluido',
+        motivoParada: 'etapa_esgotada',
+        etapaAtual: resolved.slug,
+        progressoEtapas: progresso,
+        passoAtual: idx,
+        atualizadoEm: agora,
+      })
+      .eq('id', row.id);
+    return;
+  }
+
+  await enviarPasso(row, agente, passo, agentConfig, resolved.etapa);
+
+  const proxIndex = idx + 1;
+  const novoProgresso = { ...progresso, [resolved.slug]: proxIndex };
+  const acao = passo.acaoFinal || 'nenhuma';
+
+  if (acao === 'transferir_humano') {
+    await abrirAtendimentoHumano({ telefone: row.telefone, conexaoId: row.idConexao });
+    await supabase
+      .from('FollowupExecucao')
+      .update({
+        status: 'concluido',
+        passoAtual: proxIndex,
+        etapaAtual: resolved.slug,
+        progressoEtapas: novoProgresso,
+        motivoParada: 'transferido_humano',
+        atualizadoEm: agora,
+      })
+      .eq('id', row.id);
+    return;
+  }
+
+  if (acao === 'encerrar') {
+    await supabase
+      .from('SAAS_Conversas_Agentes')
+      .update({ statusAtendimento: 'fechado', pausado: true })
+      .eq('id', row.idConversa);
+    await supabase
+      .from('FollowupExecucao')
+      .update({
+        status: 'concluido',
+        passoAtual: proxIndex,
+        etapaAtual: resolved.slug,
+        progressoEtapas: novoProgresso,
+        motivoParada: 'encerrar',
+        atualizadoEm: agora,
+      })
+      .eq('id', row.id);
+    return;
+  }
+
+  const proxPasso = resolved.etapa.passos[proxIndex];
+  if (!proxPasso) {
+    await supabase
+      .from('FollowupExecucao')
+      .update({
+        status: 'concluido',
+        passoAtual: proxIndex,
+        etapaAtual: resolved.slug,
+        progressoEtapas: novoProgresso,
+        motivoParada: 'etapa_esgotada',
+        atualizadoEm: agora,
+      })
+      .eq('id', row.id);
+    return;
+  }
+
+  await supabase
+    .from('FollowupExecucao')
+    .update({
+      passoAtual: proxIndex,
+      etapaAtual: resolved.slug,
+      progressoEtapas: novoProgresso,
+      proximoEm: new Date(Date.now() + Number(proxPasso.atrasoMin) * 60_000).toISOString(),
+      status: 'agendado',
+      atualizadoEm: agora,
+    })
+    .eq('id', row.id);
+}
+
 async function processarCadencia(row, agentConfig) {
-  const passoAtual = Number(row.passoAtual || 0);
   const agente = row.idAgente ? await fetchAgente(row.idAgente) : null;
   const fu = agente ? readFollowup(agente) : null;
   if (!agente || !fu || agente.ativo === false) {
     await pararFollowup(row.id, 'agente_indisponivel');
     return;
   }
+
+  if (fu.avancado) {
+    await processarCadenciaPorEtapas(row, agente, fu, agentConfig);
+    return;
+  }
+
+  const passoAtual = Number(row.passoAtual || 0);
   const passo = fu.passos[passoAtual];
   if (!passo) {
     await supabase
