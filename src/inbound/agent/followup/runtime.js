@@ -8,6 +8,7 @@ import {
   supabase,
 } from '../../../supabase.js';
 import { getAgentConfig } from '../config.js';
+import { getInboundConfig } from '../../config.js';
 import { loadChatHistory } from '../memory.js';
 import { runAgentChat } from '../openai.js';
 import { stripActionMarkers } from '../parseActions.js';
@@ -271,31 +272,67 @@ async function ultimaMensagemEhEntrada(idConversa) {
 function buildEnvio(conexao, canal) {
   if (!conexao) return {};
   const provedor = resolveProvedorApi(conexao);
+  const isUazapi = provedor === 'uazapi' || canal === 'uazapi';
+  const isOficial = Boolean(conexao.apiOficial) || provedor === 'oficial' || canal === 'meta';
+  let serverUrl = String(conexao.urlApi || '').replace(/\/+$/, '');
+  if (!serverUrl && !isUazapi && !isOficial) {
+    serverUrl = String(getInboundConfig().evolutionBaseUrl || '').replace(/\/+$/, '');
+  }
+  const apikey =
+    conexao.Apikey ||
+    (!isUazapi && !isOficial ? String(process.env.EVOLUTION_API_KEY || '').trim() || null : null);
   return {
-    apiOficial: Boolean(conexao.apiOficial) || provedor === 'oficial' || canal === 'meta',
+    apiOficial: isOficial,
     provedorApi: provedor === 'oficial' ? 'evolution' : provedor,
-    serverUrl: conexao.urlApi || null,
+    serverUrl: serverUrl || null,
     instance: conexao.instanceName || null,
-    apikey: conexao.Apikey || null,
+    apikey: apikey || null,
     accessToken: conexao.access_token ?? null,
     phoneNumberId: conexao.phone_number_id ?? null,
   };
 }
 
+async function resolverConexaoFollowup(row) {
+  if (row.idConexao) {
+    const direta = await fetchConexaoById(row.idConexao);
+    if (direta) return direta;
+  }
+  if (!row.idConversa) return null;
+  const { data: conv } = await supabase
+    .from('SAAS_Conversas_Agentes')
+    .select('idConexao')
+    .eq('id', row.idConversa)
+    .maybeSingle();
+  if (!conv?.idConexao) return null;
+  return fetchConexaoById(conv.idConexao);
+}
+
 async function jobDeFollowup(row, agente) {
-  const conexao = row.idConexao ? await fetchConexaoById(row.idConexao) : null;
+  const conexao = await resolverConexaoFollowup(row);
   const canal = row.canal || (conexao?.apiOficial ? 'meta' : resolveProvedorApi(conexao));
+  const envio = buildEnvio(conexao, canal);
+  if (!envio.apiOficial && (!envio.serverUrl || !envio.apikey || (canal !== 'uazapi' && !envio.instance))) {
+    logger.warn('Follow-up: conexão incompleta para envio', {
+      conversaId: row.idConversa,
+      conexaoId: conexao?.id || row.idConexao || null,
+      canal,
+      provedorApi: envio.provedorApi || null,
+      temUrl: Boolean(envio.serverUrl),
+      temInstance: Boolean(envio.instance),
+      temApikey: Boolean(envio.apikey),
+    });
+  }
   return {
     canal,
     contaId: row.idConta,
-    conexaoId: row.idConexao,
+    conexaoId: conexao?.id || row.idConexao,
     conversaId: row.idConversa,
     contatoId: row.idContato,
     telefone: row.telefone,
     agenteId: row.idAgente,
     agente: agente || undefined,
     conexao,
-    envio: buildEnvio(conexao, canal),
+    envio,
     textoEntrada: null,
   };
 }
