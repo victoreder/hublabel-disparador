@@ -91,6 +91,9 @@ export async function preprocessInput(job, agente, agentConfig) {
   }
 
   if (type === 'conversation' || type === 'documentMessage') {
+    if ((job.isButtonReply || job.idInterativo) && texto) {
+      return `O contato clicou no botão: "${texto}"`;
+    }
     return texto || '(mensagem vazia)';
   }
 

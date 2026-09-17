@@ -1,6 +1,7 @@
 import { logger } from '../../logger.js';
 import { fetchAgente } from '../../supabase.js';
 import { executeAgentAction, normalizeTipo } from './actions.js';
+import { attachPendingBotoes } from './botoes.js';
 import { getAgentConfig } from './config.js';
 import { loadChatHistory } from './memory.js';
 import { notifyOpenAiSemSaldo } from './notifyHuman.js';
@@ -54,6 +55,9 @@ function actionDedupeKey(acao) {
   }
   if (tipo === 'enviar-midia') {
     return `${tipo}:${dados.arquivoId || dados.url || ''}`;
+  }
+  if (tipo === 'enviar-botoes') {
+    return `${tipo}:${dados.estilo || dados.formato || ''}:${JSON.stringify(dados.opcoes || [])}`;
   }
   if (tipo === 'crm' || tipo === 'crm-mover' || tipo === 'crm-preencher' || tipo === 'crm-criar') {
     return `${tipo}:${dados.modo || ''}:${dados.quadroId || ''}:${dados.etapaId || ''}`;
@@ -165,7 +169,7 @@ const HANDOFF_TRIGGER = [
 ].join('\n');
 
 /** Ações que o usuário “vê” e devem manter ordem relativa ao texto. */
-const USER_FACING_ACTIONS = new Set(['enviar-midia']);
+const USER_FACING_ACTIONS = new Set(['enviar-midia', 'enviar-botoes']);
 
 function prioritizeSegmentsForFastReply(segments) {
   const primary = [];
@@ -259,9 +263,15 @@ async function runAgentGeneration(job, agente, agentConfig, inputText, { signal,
   }
 
   const rawSegments = parseAgentOutputWithActions(output);
-  const segments = prioritizeSegmentsForFastReply(
-    prepareSegments(rawSegments, toolsExecuted, job.conversaId),
+  const prepared = prepareSegments(rawSegments, toolsExecuted, job.conversaId);
+  const withPendingBotoes = attachPendingBotoes(prepared);
+  const temEnviarBotoes = withPendingBotoes.some(
+    (s) => s.type === 'action' && normalizeTipo(s.content?.tipo) === 'enviar-botoes',
   );
+  // Com botões (ESPERA), preserva ordem original — não reordena CRM para depois do menu.
+  const segments = temEnviarBotoes
+    ? withPendingBotoes
+    : prioritizeSegmentsForFastReply(withPendingBotoes);
   const acoesNoOutput = rawSegments.filter((s) => s.type === 'action').map((s) => s.content?.tipo);
   const acoesAposDedupe = segments.filter((s) => s.type === 'action').map((s) => s.content?.tipo);
 
@@ -380,6 +390,10 @@ async function runAgentGeneration(job, agente, agentConfig, inputText, { signal,
             const d = segment.content?.dados || {};
             sentParts.push(`[midia:${d.arquivoId || d.url || ''}]`);
           }
+          if (normalizeTipo(segment.content?.tipo) === 'enviar-botoes') {
+            const corpo = segment.content?.dados?._corpoMenu || segment.content?.dados?.texto || '';
+            if (corpo) sentParts.push(String(corpo).slice(0, 500));
+          }
           if (
             normalizeTipo(segment.content?.tipo) === 'transferir-agente-ia' &&
             resultado?.agenteId &&
@@ -387,6 +401,13 @@ async function runAgentGeneration(job, agente, agentConfig, inputText, { signal,
           ) {
             transferredToAgenteId = Number(resultado.agenteId);
           }
+        }
+        // ESPERA: após enviar-botoes, corta o restante desta resposta.
+        if (resultado?.espera && normalizeTipo(segment.content?.tipo) === 'enviar-botoes') {
+          logger.info('Agente: ESPERA após enviar-botoes — interrompe segmentos restantes', {
+            conversaId: job.conversaId,
+          });
+          break;
         }
       } catch (error) {
         logger.warn('Falha ao executar ação do agente — ignorado', {

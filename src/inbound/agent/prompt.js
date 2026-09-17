@@ -87,6 +87,21 @@ function blocoRequisicaoHttp(agente) {
   ].join('\n');
 }
 
+function blocoEnviarBotoes(agente) {
+  const src = String(agente?.instrucoes || '');
+  if (!/enviar[_-]?botoes/i.test(src) && !/enviar[_-]?botao/i.test(src)) return null;
+
+  return [
+    '## ENVIO DE BOTÕES',
+    '- Escreva a pergunta ao contato na mesma resposta.',
+    '- Emita o marcador [[acao:{"tipo":"enviar-botoes",...}]] no FIM dessa resposta — COPIE o marcador completo das INSTRUÇÕES (com as opções).',
+    '- Os botões/lista vão JUNTO com essa pergunta na mesma mensagem. O sistema junta o texto + menu.',
+    '- PROIBIDO: dizer "clique abaixo", listar as opções no texto, ou anunciar que vai enviar botões.',
+    '- NÃO use ferramenta para isso — só o marcador [[acao:]].',
+    '- Depois de emitir enviar-botoes, NÃO continue com outras ações na mesma resposta; aguarde a escolha do contato no próximo turno.',
+  ].join('\n');
+}
+
 function blocoHandoff() {
   return [
     '## VOCÊ ACABOU DE ASSUMIR ESTA CONVERSA',
@@ -134,6 +149,7 @@ export function buildSystemPrompt(job, agente, { handoff = false } = {}) {
     '- Formato markdown (quando permitido): [nome (audio)](https://...) — nunca altere a extensão; separe midias/textos com 2 enters.',
     'Exemplo markdown: [APRESENTACAO.mp3 (audio)](https://s3.disparamator.com.br/n8n/APRESENTACAO.mp3)',
     '',
+    blocoEnviarBotoes(agente),
     handoff ? blocoHandoff() : null,
     handoff ? '' : null,
     '## INSTRUÇÕES:',

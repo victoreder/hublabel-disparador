@@ -12,6 +12,7 @@ export function buildAgentJobFromIngestao({ canal, resultado, organized, conexao
     textoEntrada: organized.conversation,
     arquivoUrl: organized.arquivoUrl,
     idInterativo: organized.idInterativo || null,
+    isButtonReply: Boolean(organized.isButtonReply),
     agente: resultado.agente ?? null,
     agenteId: resultado.agente?.id ?? resultado.agenteId ?? null,
     conexao: resultado.conexao ?? conexao,
@@ -28,6 +29,12 @@ export function buildAgentJobFromIngestao({ canal, resultado, organized, conexao
 }
 
 export function buildAgentJobFromMetaResult(metaResult) {
+  const tipo = metaResult.tipoMensagem || 'conversation';
+  const isButtonReply =
+    tipo === 'interactive' ||
+    tipo === 'button' ||
+    Boolean(metaResult.idInterativo);
+
   return {
     canal: 'meta',
     contaId: metaResult.contaId,
@@ -36,9 +43,11 @@ export function buildAgentJobFromMetaResult(metaResult) {
     mensagemId: metaResult.mensagemId,
     contatoId: metaResult.contatoId,
     telefone: metaResult.telefone ? `${metaResult.telefone}@s.whatsapp.net` : null,
-    messageType: metaResult.tipoMensagem || 'conversation',
+    messageType: isButtonReply ? 'conversation' : tipo,
     textoEntrada: metaResult.mensagem ?? null,
     arquivoUrl: metaResult.arquivoUrl ?? metaResult.link ?? null,
+    idInterativo: metaResult.idInterativo ?? null,
+    isButtonReply,
     agente: metaResult.agente ?? null,
     agenteId: metaResult.agenteId ?? metaResult.agente?.id ?? null,
     conexao: metaResult.conexao ?? null,

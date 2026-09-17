@@ -20,12 +20,14 @@ import {
   dynamicHttpRequest,
   resolveHttpRequestConfig,
 } from './httpRequest.js';
+import { buildMenuPayload, corpoMenuBotoes } from './botoes.js';
 import { executeNotificarHumano } from './notifyHuman.js';
 import { extractActionsFromText } from './parseActions.js';
 import { classifyChunk, normalizeMediaUrl } from './parseResponse.js';
 import { normalizeMediaType } from './mediaType.js';
 import { tryAcquireActionLock } from './redis.js';
-import { sendAgentChunk } from './sendReply.js';
+import { sendAgentMenuOrFallback } from './sendMenu.js';
+import { sendAgentChunk, sendTextReply } from './sendReply.js';
 
 function normalizeTipo(tipo) {
   const t = String(tipo || '')
@@ -58,6 +60,10 @@ function normalizeTipo(tipo) {
     'campo_personalizado': 'campo-personalizado',
     'enviar_midia': 'enviar-midia',
     'enviar-media': 'enviar-midia',
+    'enviar_botoes': 'enviar-botoes',
+    'enviar-botao': 'enviar-botoes',
+    'enviar_botao': 'enviar-botoes',
+    'enviar-botoes': 'enviar-botoes',
     'ferramenta_http': 'ferramenta-http',
     'requisicao-http': 'ferramenta-http',
     'requisicao_http': 'ferramenta-http',
@@ -433,8 +439,43 @@ async function executarFerramentaHttp(acao, ctx) {
   return dynamicHttpRequest(resolved);
 }
 
+/**
+ * Envia pergunta + botões/lista na mesma mensagem.
+ * Corpo = texto antes do marcador (_corpoMenu) ou dados.texto.
+ * Tipo ESPERA: worker para após esta ação (próximo turno após o clique).
+ */
+async function executarEnviarBotoes(acao, ctx) {
+  const dados = acao.dados ?? {};
+  const corpo = corpoMenuBotoes(dados._corpoMenu || dados.texto || dados.corpo || '');
+  const menu = buildMenuPayload(dados);
+
+  if (!menu) {
+    if (corpo) await sendTextReply(ctx.job, corpo, ctx.agentConfig);
+    return { success: false, error: 'opcoes_ausentes', espera: true };
+  }
+
+  const result = await sendAgentMenuOrFallback(
+    ctx.job,
+    corpo || 'Escolha uma opção:',
+    menu,
+    ctx.agentConfig,
+  );
+
+  if (result?.fallbackText) {
+    return { success: false, error: result.error || 'menu_falhou', espera: true };
+  }
+
+  return {
+    success: true,
+    espera: true,
+    estilo: menu.tipo,
+    opcoes: menu.choices.length,
+  };
+}
+
 const EXECUTORES = {
   'enviar-midia': executarEnviarMidia,
+  'enviar-botoes': executarEnviarBotoes,
   'adicionar-etiqueta': executarAdicionarEtiqueta,
   'remover-etiqueta': executarRemoverEtiqueta,
   'campo-personalizado': executarCampoPersonalizado,
