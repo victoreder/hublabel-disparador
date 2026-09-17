@@ -105,7 +105,12 @@ async function processAllEvents(events, inboundConfig) {
             canal: 'meta',
           });
         }
-        enqueueAgentJob(buildAgentJobFromMetaResult(result));
+        enqueueAgentJob(
+          buildAgentJobFromMetaResult({
+            ...result,
+            conexao: result.conexao || conexao,
+          }),
+        );
       } else if (!result?.fromMe && !result?.echo) {
         const jobFollowup = await aposInboundCliente({
           resultado: result,
@@ -187,7 +192,12 @@ async function processAllMediaJobs(jobs, inboundConfig) {
             canal: 'meta',
           });
         }
-        enqueueAgentJob(buildAgentJobFromMetaResult(result));
+        enqueueAgentJob(
+          buildAgentJobFromMetaResult({
+            ...result,
+            conexao: result.conexao || conexao,
+          }),
+        );
       } else if (!result?.fromMe && !job.from_me) {
         const jobFollowup = await aposInboundCliente({
           resultado: result,

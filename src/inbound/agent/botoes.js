@@ -94,7 +94,7 @@ function isTipoEnviarBotoes(tipo) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/_/g, '-');
-  return t === 'enviar-botoes' || t === 'enviarbotoes';
+  return t === 'enviar-botoes' || t === 'enviarbotoes' || t === 'enviar-botao' || t === 'enviarbotao';
 }
 
 export function agenteTemEnviarBotoes(agente) {
