@@ -103,8 +103,15 @@ async function fetchUazapiChats(conexao) {
     baseUrl,
     instanceToken: conexao.Apikey,
   });
-  const json = await client.listChats();
-  return asChatArray(json);
+  const chats = [];
+  const pageSize = 50;
+  for (let offset = 0; ; offset += pageSize) {
+    const json = await client.listChats({ limit: pageSize, offset });
+    const page = asChatArray(json);
+    chats.push(...page);
+    if (page.length < pageSize) break;
+  }
+  return chats;
 }
 
 function mapEvolutionChat(chat, { idConexao, userId }) {

@@ -141,7 +141,7 @@ export function createUazapiClient(config) {
   }
 
   async function request(method, path, { auth = 'instance', token, body } = {}) {
-    const headers = {};
+    const headers = { Accept: 'application/json' };
     if (auth === 'admin') {
       if (!adminToken) throw new Error('UazAPI admintoken ausente');
       headers.admintoken = adminToken;
@@ -250,8 +250,14 @@ export function createUazapiClient(config) {
           body: { number, preview: true, returnMoreNames: true },
         });
       },
-      listChats() {
-        return request('GET', '/chat/list', { token });
+      listChats({ limit = 50, offset = 0 } = {}) {
+        return request('POST', '/chat/find', {
+          token,
+          body: { limit, offset },
+        });
+      },
+      listContacts() {
+        return request('GET', '/contacts', { token });
       },
       listGroups() {
         return request('GET', '/group/list', { token });
