@@ -29,6 +29,23 @@ function asArray(payload) {
   return [];
 }
 
+function payloadShape(payload) {
+  if (Array.isArray(payload)) return 'array';
+  if (payload == null) return 'null';
+  if (typeof payload !== 'object') return typeof payload;
+  if (Array.isArray(payload.contacts)) return 'contacts';
+  if (Array.isArray(payload.data)) return 'data';
+  return 'object';
+}
+
+function apiHost(url) {
+  try {
+    return new URL(String(url || '')).host;
+  } catch {
+    return null;
+  }
+}
+
 async function resolveConexao(body) {
   if (body.idConexao != null && body.idConexao !== '') {
     const id = inteiroObrigatorio(body.idConexao, 'idConexao');
@@ -245,38 +262,89 @@ export async function exportarParticipantesGrupo(body, inboundConfig) {
 
 /** acao: puxarContatosWpp — retorna contatos brutos (sem upsert no banco). */
 export async function puxarContatosWpp(body, inboundConfig) {
+  const startedAt = Date.now();
+  const resolveStartedAt = Date.now();
+  logger.info('[puxar-contatos-wpp] requisicao recebida', {
+    idConexao: body.idConexao ?? null,
+    instanceName: body.instanceName ?? null,
+  });
+
   const conexao = await resolveConexao(body);
+  const resolveDurationMs = Date.now() - resolveStartedAt;
   const provedor = resolveProvedorApi(conexao);
 
-  logger.info('[puxar-contatos-wpp] inicio', {
+  logger.info('[puxar-contatos-wpp] conexao localizada', {
     idConexao: conexao.id,
     provedor,
     instanceName: conexao.instanceName,
+    resolveDurationMs,
   });
 
   let chats;
+  let providerDurationMs;
   if (provedor === 'uazapi') {
-    const contatos = await uazapiClient(conexao).listContacts();
+    const providerStartedAt = Date.now();
+    logger.info('[puxar-contatos-wpp] consultando UazAPI', {
+      idConexao: conexao.id,
+      method: 'GET',
+      endpoint: '/contacts',
+      apiHost: apiHost(conexao.urlApi),
+    });
+
+    let contatos;
+    try {
+      contatos = await uazapiClient(conexao).listContacts();
+      providerDurationMs = Date.now() - providerStartedAt;
+    } catch (error) {
+      providerDurationMs = Date.now() - providerStartedAt;
+      logger.error('[puxar-contatos-wpp] UazAPI falhou', {
+        idConexao: conexao.id,
+        endpoint: '/contacts',
+        providerDurationMs,
+        upstreamStatus: error?.status ?? null,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+
     chats = Array.isArray(contatos)
       ? contatos
       : Array.isArray(contatos?.contacts)
         ? contatos.contacts
         : asArray(contatos);
+
+    logger.info('[puxar-contatos-wpp] UazAPI respondeu', {
+      idConexao: conexao.id,
+      endpoint: '/contacts',
+      providerDurationMs,
+      payloadShape: payloadShape(contatos),
+      total: chats.length,
+    });
   } else {
+    const providerStartedAt = Date.now();
     const auth = evolutionAuth(conexao, inboundConfig);
     const json = await evolutionPost(
       `/chat/findChats/${encodeURIComponent(auth.instanceName)}`,
       auth,
       {},
     );
+    providerDurationMs = Date.now() - providerStartedAt;
     chats = asArray(json);
   }
 
-  logger.info('[puxar-contatos-wpp] ok', {
+  const logResult = {
     idConexao: conexao.id,
     provedor,
     total: chats.length,
-  });
+    resolveDurationMs,
+    providerDurationMs,
+    durationMs: Date.now() - startedAt,
+  };
+  if (chats.length === 0) {
+    logger.warn('[puxar-contatos-wpp] concluido sem contatos', logResult);
+  } else {
+    logger.info('[puxar-contatos-wpp] concluido', logResult);
+  }
 
   return {
     ok: true,

@@ -141,7 +141,7 @@ export function createUazapiClient(config) {
   }
 
   async function request(method, path, { auth = 'instance', token, body } = {}) {
-    const headers = {};
+    const headers = { Accept: 'application/json' };
     if (auth === 'admin') {
       if (!adminToken) throw new Error('UazAPI admintoken ausente');
       headers.admintoken = adminToken;

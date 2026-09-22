@@ -1,6 +1,10 @@
 import { logger } from '../../logger.js';
 import { handleEvolutionWebhook } from '../evolution/handler.js';
 import {
+  handlePuxarContatosWppRequest,
+  isPuxarContatosWppRequest,
+} from './puxarContatos.js';
+import {
   handleRagIngestRequest,
   isRagIngestRequest,
   parseRagMultipart,
@@ -36,6 +40,7 @@ function evolutionHandler(inboundConfig) {
     const startedAt = Date.now();
 
     const dispatch = () => {
+      const isPuxarContatosWpp = isPuxarContatosWppRequest(req);
       logger.info('[evolution-webhook] hit', {
         method: req.method,
         path: req.path,
@@ -45,7 +50,12 @@ function evolutionHandler(inboundConfig) {
         instance: req.body?.instance ?? null,
         acao: req.body?.acao ?? req.query?.acao ?? null,
         isRag: isRagIngestRequest(req),
+        isPuxarContatosWpp,
       });
+
+      if (isPuxarContatosWpp) {
+        return handlePuxarContatosWppRequest(req, res);
+      }
 
       if (isRagIngestRequest(req)) {
         return handleRagIngestRequest(req, res);
