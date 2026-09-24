@@ -26,6 +26,7 @@ test('orienta a ferramenta de conhecimento a ignorar saudações e testes', () =
 test('mantém o fallback de produtos dentro da ferramenta sob demanda', () => {
   assert.match(toolsSource, /if \(name === 'consultar_conhecimento'\)/);
   assert.match(toolsSource, /selectAgentProductDocuments\(agente\?\.produtos, args\.pergunta\)/);
+  assert.match(toolsSource, /linkedDocuments:\s*savedProducts/);
 });
 
 test('obriga a consulta quando o usuário pede explicitamente pelo conhecimento', () => {

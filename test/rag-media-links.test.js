@@ -122,6 +122,47 @@ test('aceita fotos aninhadas no produto e publicUrl do storage', () => {
   assert.match(media[0].url, /frente\.jpg$/);
 });
 
+test('aceita produto serializado em JSON e aliases de URL usados pelo storage', () => {
+  const media = normalizeMediaLinks({
+    midias: [],
+    produto: JSON.stringify({
+      nome: 'Perfume Chinês',
+      fotos: [
+        {
+          arquivo: {
+            arquivoUrl: 'https://cdn.exemplo.com/produtos/perfume-chines/frente.webp',
+            mimetype: 'image/webp',
+          },
+        },
+        {
+          urlArquivo: 'https://cdn.exemplo.com/produtos/perfume-chines/verso.jpg',
+          tipoArquivo: 'imagem',
+        },
+      ],
+    }),
+  });
+
+  assert.equal(media.length, 2);
+  assert.equal(media[0].tipo, 'imagem');
+  assert.match(media[0].url, /frente\.webp$/);
+  assert.match(media[1].url, /verso\.jpg$/);
+});
+
+test('monta texto estruturado quando produto chega como JSON string', () => {
+  const text = resolveProductContent({
+    produto: JSON.stringify({
+      nome: 'Perfume Chinês',
+      descricao: 'Perfume ótimo para ocasiões especiais',
+      preco: 100,
+      imagens: ['https://cdn.exemplo.com/produtos/perfume-chines/foto.jpg'],
+    }),
+  });
+
+  assert.match(text, /Nome do produto: Perfume Chinês/);
+  assert.match(text, /Preço: 100/);
+  assert.doesNotMatch(text, /cdn\.exemplo\.com/);
+});
+
 test('contexto recuperado orienta preço exato e envio da foto', () => {
   const context = buildKnowledgeContext([
     {

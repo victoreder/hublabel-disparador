@@ -101,6 +101,7 @@ function handleIngest(req, res) {
         durationMs: Date.now() - startedAt,
         idUnico: result.idUnico,
         chunks: result.chunks,
+        midias: result.midias,
         deleted: result.deleted,
       });
       res.status(200).json(result);

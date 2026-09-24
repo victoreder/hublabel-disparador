@@ -12,15 +12,23 @@ function displayValue(value) {
   return String(value).trim() || null;
 }
 
+function parseProduct(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Converte os campos separados de um produto em um documento textual completo.
  * Os rótulos ajudam a busca semântica a relacionar perguntas a preço, estoque etc.
  */
 export function resolveProductContent(body = {}) {
-  const nested =
-    body.produto && typeof body.produto === 'object' && !Array.isArray(body.produto)
-      ? body.produto
-      : null;
+  const nested = parseProduct(body.produto ?? body.product);
   const source = nested ? { ...body, ...nested } : body;
   const kind = String(
     body.tipoConhecimento ?? body.tipo_conhecimento ?? body.categoria ?? body.tipo ?? '',
@@ -57,7 +65,21 @@ export function resolveProductContent(body = {}) {
     const extras = Object.entries(nested).filter(
       ([key, value]) =>
         !consumed.has(key) &&
-        !['midias', 'medias', 'media', 'fotos', 'imagens', 'images'].includes(key) &&
+        ![
+          'midias',
+          'medias',
+          'media',
+          'arquivos',
+          'anexos',
+          'galeria',
+          'fotos',
+          'foto',
+          'imagens',
+          'imagem',
+          'images',
+          'videos',
+          'video',
+        ].includes(key) &&
         value != null &&
         value !== '',
     );

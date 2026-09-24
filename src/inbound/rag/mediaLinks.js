@@ -31,6 +31,27 @@ function parseMediaInput(raw) {
   throw new HttpError('midias deve ser uma lista JSON de links', 400);
 }
 
+function parseObjectInput(raw) {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw;
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function firstPresent(sources, keys) {
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue;
+    for (const key of keys) {
+      if (source[key] != null && source[key] !== '') return source[key];
+    }
+  }
+  return null;
+}
+
 function normalizeMediaType(value) {
   const normalized = String(value ?? '').trim().toLowerCase();
   if (['image', 'imagem', 'foto'].includes(normalized)) return 'imagem';
@@ -102,22 +123,51 @@ function normalizeMediaItem(item, index) {
     throw new HttpError(`midias[${index}] deve ser um link ou objeto`, 400);
   }
 
+  const nestedSources = [
+    source,
+    source.arquivo,
+    source.file,
+    source.midia,
+    source.media,
+    source.imagem,
+    source.foto,
+  ];
   const url = normalizeUrl(
-    source.url ??
-      source.link ??
-      source.src ??
-      source.objectUrl ??
-      source.mediaUrl ??
-      source.publicUrl ??
-      source.downloadUrl,
+    firstPresent(nestedSources, [
+      'url',
+      'link',
+      'src',
+      'objectUrl',
+      'mediaUrl',
+      'publicUrl',
+      'downloadUrl',
+      'arquivoUrl',
+      'urlArquivo',
+      'fotoUrl',
+      'imagemUrl',
+      'videoUrl',
+      'url_publica',
+    ]),
     index,
   );
   const mimeType = normalizeOptionalText(
-    source.mimeType ?? source.mimetype ?? source.contentType,
+    firstPresent(nestedSources, [
+      'mimeType',
+      'mimetype',
+      'contentType',
+      'content_type',
+      'mime',
+    ]),
     100,
   );
   const tipo = inferMediaType({
-    explicitType: source.tipo ?? source.type ?? source.mediaType,
+    explicitType: firstPresent(nestedSources, [
+      'tipo',
+      'type',
+      'mediaType',
+      'tipoArquivo',
+      'tipoMidia',
+    ]),
     mimeType,
     url,
   });
@@ -156,21 +206,27 @@ function normalizeMediaItem(item, index) {
 }
 
 export function normalizeMediaLinks(body = {}) {
-  const raw =
-    body.midias ??
-    body.medias ??
-    body.media ??
-    body.arquivos ??
-    body.linksMidia ??
-    body.mediaUrls ??
-    body.fotos ??
-    body.imagens ??
-    body.images ??
-    (body.produto && typeof body.produto === 'object'
-      ? body.produto.midias ?? body.produto.fotos ?? body.produto.imagens ?? body.produto.images
-      : null) ??
-    null;
-  const items = parseMediaInput(raw);
+  const product = parseObjectInput(body.produto ?? body.product);
+  const keys = [
+    'midias',
+    'medias',
+    'media',
+    'arquivos',
+    'anexos',
+    'galeria',
+    'linksMidia',
+    'mediaUrls',
+    'fotos',
+    'foto',
+    'imagens',
+    'imagem',
+    'images',
+    'videos',
+    'video',
+  ];
+  const items = [body, product]
+    .filter(Boolean)
+    .flatMap((source) => keys.flatMap((key) => parseMediaInput(source[key])));
   const maxItems = optionalPositiveInt(process.env.RAG_MAX_MEDIA_ITEMS, DEFAULT_MAX_MEDIA_ITEMS);
 
   if (items.length > maxItems) {

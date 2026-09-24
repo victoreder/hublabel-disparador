@@ -8,6 +8,7 @@ import {
 } from './httpRequest.js';
 import { executeNotificarHumano } from './notifyHuman.js';
 import { selectAgentProductDocuments } from './knowledgeContext.js';
+import { rankKnowledgeDocuments } from './knowledgeRanking.js';
 
 export function buildToolDefinitions(job, agente) {
   const tools = [];
@@ -108,16 +109,20 @@ export function buildToolDefinitions(job, agente) {
 export async function executeTool(name, args, { job, agente, agentConfig, searchKnowledge }) {
   if (name === 'consultar_conhecimento') {
     const retrievedDocs = await searchKnowledge(agentConfig, agente.id, args.pergunta);
-    const docs = retrievedDocs.length
-      ? retrievedDocs
-      : selectAgentProductDocuments(agente?.produtos, args.pergunta);
+    const savedProducts = selectAgentProductDocuments(agente?.produtos, args.pergunta);
+    const docs = rankKnowledgeDocuments({
+      vectorDocuments: retrievedDocs,
+      linkedDocuments: savedProducts,
+      query: args.pergunta,
+      limit: 5,
+    });
     return JSON.stringify({
       encontrado: docs.length > 0,
       quantidade: docs.length,
       documentos: docs,
       instrucao_para_agente:
         docs.length > 0
-          ? 'Responda diretamente com os dados exatos do primeiro documento, inclusive nome, descrição e preço. Não escreva informações gerais que não estejam nos documentos. Para enviar uma mídia encontrada, use [nome (image)](URL) ou [nome (video)](URL), com dois enters antes e depois.'
+          ? 'Responda diretamente com os dados exatos dos documentos mais relevantes, inclusive nome, descrição e preço. Não escreva informações gerais que não estejam nos documentos. Inclua as mídias associadas ao produto solicitado: use [nome (image)](URL) ou [nome (video)](URL), com dois enters antes e depois.'
           : 'Nenhum conhecimento vinculado foi encontrado. Informe que essa informação não está cadastrada e não invente uma resposta geral.',
     });
   }
