@@ -102,6 +102,7 @@ function handleIngest(req, res) {
         idUnico: result.idUnico,
         chunks: result.chunks,
         midias: result.midias,
+        midiasEnviadasAoStorage: result.midiasEnviadasAoStorage,
         deleted: result.deleted,
       });
       res.status(200).json(result);

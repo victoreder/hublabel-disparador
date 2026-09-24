@@ -1,10 +1,22 @@
 import { supabase, fetchAgente, fetchOpenAIApiKey } from '../../supabase.js';
 import { getAgentConfig } from '../agent/config.js';
+import { getInboundConfig } from '../config.js';
 import { HttpError } from '../meta/httpError.js';
+import {
+  buildPublicS3Url,
+  createS3Client,
+  sanitizeS3FileName,
+  uploadBuffer,
+} from '../storage/s3.js';
 import { chunkText } from './chunk.js';
 import { createEmbeddings } from './embeddings.js';
 import { extractTextFromFile } from './extractText.js';
 import { appendMediaLinksToText, normalizeMediaLinks } from './mediaLinks.js';
+import {
+  materializeProductMedia,
+  mergeAgentProductIntoBody,
+  replaceAgentProduct,
+} from './productMediaUpload.js';
 import { resolveProductContent } from './productText.js';
 
 const INSERT_BATCH_SIZE = 50;
@@ -17,19 +29,22 @@ function optionalInt(name, fallback) {
   return parsed;
 }
 
-function normalizePayload(body = {}, file) {
+function normalizeIdentity(body = {}) {
   const userId = String(body.userId ?? body.contaId ?? body.conta_id ?? '').trim();
   const idAgenteRaw = body.idAgente ?? body.id_agente ?? body.agenteId;
   const idUnico = String(body.idUnico ?? body.id_unico ?? '').trim();
-  const text = resolveTextContent(body);
-  const midias = normalizeMediaLinks(body);
-
   if (!userId) throw new HttpError('userId é obrigatório', 400);
   if (idAgenteRaw == null || idAgenteRaw === '') throw new HttpError('idAgente é obrigatório', 400);
   if (!idUnico) throw new HttpError('idUnico é obrigatório', 400);
-
   const idAgente = Number(idAgenteRaw);
   if (!Number.isFinite(idAgente)) throw new HttpError('idAgente inválido', 400);
+  return { userId, idAgente, idUnico };
+}
+
+function normalizePayload(body = {}, file) {
+  const { userId, idAgente, idUnico } = normalizeIdentity(body);
+  const text = resolveTextContent(body);
+  const midias = normalizeMediaLinks(body);
 
   const fileFromBase64 = buildFileFromBase64(body);
 
@@ -107,7 +122,47 @@ async function insertKnowledgeRows(rows) {
   }
 }
 
+async function materializeMedia({ body, agente, userId, idAgente, idUnico }) {
+  let s3Client;
+  let s3Config;
+  const bodyWithSavedProduct = mergeAgentProductIntoBody(body, agente?.produtos, idUnico);
+  const result = await materializeProductMedia(bodyWithSavedProduct, {
+    maxBytes: optionalInt('RAG_MAX_MEDIA_BYTES', 20 * 1024 * 1024),
+    upload: async ({ buffer, mimeType, extension, hash }) => {
+      if (!s3Config) {
+        s3Config = getInboundConfig().s3;
+        s3Client = createS3Client(s3Config);
+      }
+      const safeUser = sanitizeS3FileName(userId, 'conta');
+      const safeAgent = sanitizeS3FileName(String(idAgente), 'agente');
+      const safeProduct = sanitizeS3FileName(idUnico, 'produto');
+      const key = `rag/produtos/${safeUser}/${safeAgent}/${safeProduct}/${hash}.${extension}`;
+      await uploadBuffer({
+        client: s3Client,
+        bucket: s3Config.bucket,
+        key,
+        body: buffer,
+        contentType: mimeType,
+      });
+      return { url: buildPublicS3Url(s3Config.publicBaseUrl, key) };
+    },
+  });
+
+  if (result.uploadedMedia.length && result.product) {
+    const produtos = replaceAgentProduct(agente?.produtos, result.product, idUnico);
+    if (produtos != null) {
+      const { error } = await supabase.from('SAAS_AgentesIA').update({ produtos }).eq('id', idAgente);
+      if (error) throw new Error(`Erro ao substituir base64 do produto por URL: ${error.message}`);
+    }
+  }
+
+  return result;
+}
+
 export async function ingestKnowledgeDocument({ body, file }) {
+  const identity = normalizeIdentity(body);
+  const agente = await assertAgentOwnership(identity);
+  const prepared = await materializeMedia({ body, agente, ...identity });
   const {
     userId,
     idAgente,
@@ -115,9 +170,7 @@ export async function ingestKnowledgeDocument({ body, file }) {
     text,
     file: normalizedFile,
     midias,
-  } = normalizePayload(body, file);
-
-  await assertAgentOwnership({ userId, idAgente });
+  } = normalizePayload(prepared.body, file);
 
   const agentConfig = await getAgentConfig();
   const openaiApiKey = agentConfig.openaiApiKey || (await fetchOpenAIApiKey());
@@ -165,6 +218,7 @@ export async function ingestKnowledgeDocument({ body, file }) {
     userId,
     chunks: rows.length,
     midias: midias.length,
+    midiasEnviadasAoStorage: prepared.uploadedMedia.length,
     deleted,
     embeddingModel: agentConfig.embeddingModel,
   };

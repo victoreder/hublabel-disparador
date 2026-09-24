@@ -7,6 +7,11 @@ import {
 import { rankKnowledgeDocuments } from '../src/inbound/agent/knowledgeRanking.js';
 import { appendMediaLinksToText, normalizeMediaLinks } from '../src/inbound/rag/mediaLinks.js';
 import { resolveProductContent } from '../src/inbound/rag/productText.js';
+import {
+  materializeProductMedia,
+  mergeAgentProductIntoBody,
+  replaceAgentProduct,
+} from '../src/inbound/rag/productMediaUpload.js';
 
 test('normaliza várias imagens e vídeos enviados como array', () => {
   const media = normalizeMediaLinks({
@@ -227,6 +232,99 @@ test('remove base64 e limita campos gigantes do produto antes de enviar ao model
   assert.match(documents[0].content, /https:\/\/cdn\.exemplo\.com\/felino\.jpg/);
   assert.doesNotMatch(documents[0].content, /arquivoBase64|A{100}|B{100}/);
   assert.ok(documents[0].content.length < 10_000);
+});
+
+test('faz upload de foto base64 e substitui por URL pública antes do RAG', async () => {
+  const uploads = [];
+  const base64 = Buffer.concat([
+    Buffer.from('89504e470d0a1a0a', 'hex'),
+    Buffer.from('imagem-de-teste'),
+  ]).toString('base64');
+  const result = await materializeProductMedia(
+    {
+      produto: JSON.stringify({
+        id: 'produto-1',
+        nome: 'Perfume Árabe',
+        fotos: [
+          {
+            base64,
+            mimeType: 'image/png',
+            descricao: 'Foto frontal',
+          },
+        ],
+      }),
+    },
+    {
+      upload: async (file) => {
+        uploads.push(file);
+        return { url: 'https://cdn.exemplo.com/rag/produtos/produto-1/foto.png' };
+      },
+    },
+  );
+
+  const product = JSON.parse(result.body.produto);
+  assert.equal(uploads.length, 1);
+  assert.equal(result.uploadedMedia.length, 1);
+  assert.equal(product.fotos[0].url, 'https://cdn.exemplo.com/rag/produtos/produto-1/foto.png');
+  assert.equal(product.fotos[0].tipo, 'imagem');
+  assert.equal(product.fotos[0].descricao, 'Foto frontal');
+  assert.equal('base64' in product.fotos[0], false);
+  assert.deepEqual(
+    normalizeMediaLinks(result.body).map((item) => item.url),
+    ['https://cdn.exemplo.com/rag/produtos/produto-1/foto.png'],
+  );
+});
+
+test('substitui base64 na coluna produtos preservando os demais campos', () => {
+  const updated = replaceAgentProduct(
+    [
+      {
+        id: 'produto-1',
+        nome: 'Perfume Árabe',
+        preco: 1500,
+        campoLegado: 'preservar',
+        fotos: [{ base64: 'muito-grande' }],
+      },
+    ],
+    {
+      id: 'produto-1',
+      nome: 'Perfume Árabe',
+      fotos: [{ url: 'https://cdn.exemplo.com/perfume.jpg', tipo: 'imagem' }],
+    },
+    'produto-1',
+  );
+
+  assert.equal(updated[0].campoLegado, 'preservar');
+  assert.equal(updated[0].preco, 1500);
+  assert.equal(updated[0].fotos[0].url, 'https://cdn.exemplo.com/perfume.jpg');
+  assert.equal('base64' in updated[0].fotos[0], false);
+});
+
+test('recupera mídia do produto salvo quando a requisição envia apenas os campos básicos', () => {
+  const body = mergeAgentProductIntoBody(
+    {
+      idUnico: 'produto-1',
+      produto: {
+        nome: 'Perfume Árabe',
+        descricao: 'Descrição atualizada',
+        preco: 1500,
+      },
+    },
+    [
+      {
+        id: 'produto-1',
+        nome: 'Perfume Árabe',
+        descricao: 'Descrição antiga',
+        preco: 1400,
+        fotos: [{ base64: 'imagem-em-base64', mimeType: 'image/jpeg' }],
+      },
+    ],
+    'produto-1',
+  );
+
+  assert.equal(body.produto.descricao, 'Descrição atualizada');
+  assert.equal(body.produto.preco, 1500);
+  assert.equal(body.produto.fotos[0].base64, 'imagem-em-base64');
 });
 
 test('prioriza o produto exato sobre conhecimento genérico de perfumes', () => {
