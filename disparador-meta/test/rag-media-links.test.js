@@ -4,6 +4,7 @@ import {
   buildKnowledgeContext,
   selectAgentProductDocuments,
 } from '../src/inbound/agent/knowledgeContext.js';
+import { rankKnowledgeDocuments } from '../src/inbound/agent/knowledgeRanking.js';
 import { appendMediaLinksToText, normalizeMediaLinks } from '../src/inbound/rag/mediaLinks.js';
 import { resolveProductContent } from '../src/inbound/rag/productText.js';
 
@@ -159,4 +160,35 @@ test('usa produtos salvos no agente como fallback enquanto o RAG não foi reinde
   assert.match(documents[0].content, /1500/);
   assert.match(documents[0].content, /perfume-frente\.jpg/);
   assert.doesNotMatch(documents[0].content, /Camiseta básica/);
+});
+
+test('prioriza o produto exato sobre conhecimento genérico de perfumes', () => {
+  const documents = rankKnowledgeDocuments({
+    query: 'quero saber mais sobre o perfume chines',
+    limit: 2,
+    vectorDocuments: [
+      {
+        content: 'Perfumes chineses podem ter fragrâncias florais, cítricas e amadeiradas.',
+        metadata: { idUnico: 'geral' },
+        similarity: 0.91,
+        source: 'vector',
+      },
+    ],
+    linkedDocuments: [
+      {
+        content: JSON.stringify({
+          nome: 'Perfume Chines',
+          descricao: 'perfume otimo para ocasioes especiais',
+          preco: 100,
+        }),
+        metadata: { idUnico: 'produto' },
+        similarity: null,
+        source: 'linked',
+      },
+    ],
+  });
+
+  assert.equal(documents[0].metadata.idUnico, 'produto');
+  assert.match(documents[0].content, /"preco":100/);
+  assert.ok(documents[0].lexicalScore > documents[1].lexicalScore);
 });

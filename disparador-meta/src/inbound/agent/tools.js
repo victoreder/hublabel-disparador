@@ -133,9 +133,13 @@ export async function executeTool(name, args, { job, agente, agentConfig, search
   if (name === 'consultar_conhecimento') {
     const docs = await searchKnowledge(agentConfig, agente.id, args.pergunta);
     return JSON.stringify({
+      encontrado: docs.length > 0,
+      quantidade: docs.length,
       documentos: docs,
       instrucao_para_agente:
-        'Use os dados exatos encontrados, inclusive preço. Para enviar uma mídia encontrada, use [nome (image)](URL) ou [nome (video)](URL), com dois enters antes e depois. Não invente detalhes ausentes.',
+        docs.length > 0
+          ? 'Responda diretamente com os dados exatos do primeiro documento, inclusive nome, descrição e preço. Não escreva informações gerais que não estejam nos documentos. Para enviar uma mídia encontrada, use [nome (image)](URL) ou [nome (video)](URL), com dois enters antes e depois.'
+          : 'Nenhum conhecimento vinculado foi encontrado. Informe que essa informação não está cadastrada e não invente uma resposta geral.',
     });
   }
 

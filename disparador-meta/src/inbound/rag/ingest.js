@@ -144,6 +144,9 @@ export async function ingestKnowledgeDocument({ body, file }) {
     idAgente: String(idAgente),
     idUnico: String(idUnico),
     midias,
+    embeddingModel: agentConfig.embeddingModel,
+    embeddingDimensions: embeddings[0]?.length ?? null,
+    indexedAt: new Date().toISOString(),
   };
 
   const rows = chunks.map((content, index) => ({
