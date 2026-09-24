@@ -3,6 +3,7 @@ import { normalizeTipo } from './actions.js';
 import { supportsCustomTemperature } from './config.js';
 import { extractActionsFromText } from './parseActions.js';
 import { executeTool, buildToolDefinitions } from './tools.js';
+import { shouldForceKnowledgeTool } from './knowledgeIntent.js';
 import { searchKnowledge } from './rag.js';
 
 const HTTP_RESULT_MAX_CHARS = 12_000;
@@ -59,6 +60,7 @@ export async function runAgentChat({
 
   const model = agente.modelo || 'gpt-4o-mini';
   const toolsExecuted = [];
+  const forceKnowledgeOnFirstRound = shouldForceKnowledgeTool(userMessage);
   let totalTokens = 0;
 
   let rounds = 0;
@@ -80,6 +82,16 @@ export async function runAgentChat({
     }
 
     if (tools.length) body.tools = tools;
+    if (
+      rounds === 1 &&
+      forceKnowledgeOnFirstRound &&
+      tools.some((tool) => tool.function?.name === 'consultar_conhecimento')
+    ) {
+      body.tool_choice = {
+        type: 'function',
+        function: { name: 'consultar_conhecimento' },
+      };
+    }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
