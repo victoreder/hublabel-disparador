@@ -13,6 +13,7 @@ import {
   mapEvolutionMediaTypeToUazapi,
 } from '../../uazapi/client.js';
 import { stripActionMarkers } from './parseActions.js';
+import { waitForMediaSettlement } from './mediaDeliveryBarrier.js';
 import {
   classifyChunk,
   extractMediaUrl,
@@ -134,6 +135,7 @@ export async function sendTextReply(job, text, agentConfig) {
 }
 
 export async function sendAgentChunk(job, chunk, agentConfig) {
+  const sendStartedAt = Date.now();
   const kind = chunk.kind || classifyChunk(chunk.text);
   const text = stripActionMarkers(chunk.text);
   if (!text) return null;
@@ -203,6 +205,18 @@ export async function sendAgentChunk(job, chunk, agentConfig) {
       : { messageEvolutionId: messageId }),
   });
 
+  const mediaSettleMs = await waitForMediaSettlement(kind, agentConfig);
+
+  logger.info('Agente: item enviado em ordem', {
+    conversaId: job?.conversaId,
+    kind,
+    messageId,
+    provedor: apiOficial ? 'meta' : provedorApi || 'evolution',
+    confirmadoPeloProvedor: true,
+    mediaSettleMs,
+    durationMs: Date.now() - sendStartedAt,
+  });
+
   // Não bloqueia o próximo chunk — update de conversa pode ir em background.
   Promise.resolve()
     .then(() =>
@@ -219,7 +233,7 @@ export async function sendAgentChunk(job, chunk, agentConfig) {
       });
     });
 
-  return { messageId, mensagem: mensagemSalvar, tipoMensagem, arquivoUrl };
+  return { messageId, mensagem: mensagemSalvar, tipoMensagem, arquivoUrl, mediaSettleMs };
 }
 
 async function sendEvolutionOnce(job, kind, text, number, agentConfig) {

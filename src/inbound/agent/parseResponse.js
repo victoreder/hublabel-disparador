@@ -35,6 +35,58 @@ export function splitAgentOutput(output, separarMensagens = true) {
     .map((chunk) => ({ kind: classifyChunk(chunk), text: chunk }));
 }
 
+function normalizeAssociationText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\((?:image|video|audio|file|pdf)\)/gi, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function mediaLabel(text) {
+  const label = String(text || '').match(/\[([^\]]+)\]\(\s*<?https?:\/\//i)?.[1];
+  return normalizeAssociationText(label);
+}
+
+/**
+ * Modelos podem listar todos os textos antes das mídias. Quando a mídia traz o
+ * nome do produto no label, reposiciona-a logo após o texto correspondente.
+ */
+export function groupLabeledMediaWithText(chunks) {
+  const list = Array.isArray(chunks) ? chunks : [];
+  const assignments = new Map();
+  const assignedMedia = new Set();
+
+  list.forEach((chunk, mediaIndex) => {
+    if ((chunk?.kind || classifyChunk(chunk?.text || '')) === 'text') return;
+    const label = mediaLabel(chunk?.text);
+    if (!label) return;
+
+    const textIndex = list.findIndex((candidate) => {
+      if ((candidate?.kind || classifyChunk(candidate?.text || '')) !== 'text') return false;
+      return normalizeAssociationText(candidate?.text).includes(label);
+    });
+    if (textIndex < 0) return;
+
+    const grouped = assignments.get(textIndex) || [];
+    grouped.push(chunk);
+    assignments.set(textIndex, grouped);
+    assignedMedia.add(mediaIndex);
+  });
+
+  if (!assignedMedia.size) return list;
+
+  const ordered = [];
+  list.forEach((chunk, index) => {
+    if (assignedMedia.has(index)) return;
+    ordered.push(chunk);
+    if (assignments.has(index)) ordered.push(...assignments.get(index));
+  });
+  return ordered;
+}
+
 export function classifyChunk(text) {
   const lower = text.toLowerCase();
   if (lower.includes('(image)')) return 'image';

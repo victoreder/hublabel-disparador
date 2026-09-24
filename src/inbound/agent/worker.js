@@ -16,6 +16,7 @@ import {
   extractMediaUrl,
   normalizeMediaUrl,
   splitAgentOutput,
+  groupLabeledMediaWithText,
 } from './parseResponse.js';
 import { buildSystemPrompt } from './prompt.js';
 import { preprocessInput } from './preprocess.js';
@@ -422,7 +423,9 @@ async function runAgentGeneration(job, agente, agentConfig, inputText, { signal,
     const textoLimpo = scrubActionNarration(stripActionMarkers(segment.content));
     if (!textoLimpo) continue;
 
-    const chunks = splitAgentOutput(textoLimpo, agente.separarMensagens !== false);
+    const chunks = groupLabeledMediaWithText(
+      splitAgentOutput(textoLimpo, agente.separarMensagens !== false),
+    );
     for (const chunk of chunks) {
       if (signal?.aborted) {
         const err = new Error('Geração abortada durante envio de chunk');

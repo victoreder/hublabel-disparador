@@ -6,7 +6,10 @@ import {
   selectAgentProductDocuments,
 } from '../src/inbound/agent/knowledgeContext.js';
 import { rankKnowledgeDocuments } from '../src/inbound/agent/knowledgeRanking.js';
-import { splitAgentOutput } from '../src/inbound/agent/parseResponse.js';
+import {
+  groupLabeledMediaWithText,
+  splitAgentOutput,
+} from '../src/inbound/agent/parseResponse.js';
 import { isRagAction, isRagDeleteAction } from '../src/inbound/rag/action.js';
 import { appendMediaLinksToText, normalizeMediaLinks } from '../src/inbound/rag/mediaLinks.js';
 import { resolveProductContent } from '../src/inbound/rag/productText.js';
@@ -226,6 +229,27 @@ test('preserva a ordem texto e mídia de cada produto', () => {
   assert.deepEqual(
     chunks.map((chunk) => chunk.kind),
     ['text', 'image', 'text', 'image'],
+  );
+});
+
+test('reagrupa mídias pelo nome quando o modelo coloca todas as fotos no final', () => {
+  const chunks = splitAgentOutput(
+    [
+      'O Cavalo persa é puro e gigante. Custa R$ 5.000.000.',
+      'O Cavalo belga também está disponível por R$ 5.000.000.',
+      '[Cavalo persa (image)](https://cdn.exemplo.com/persa.jpg)',
+      '[Cavalo belga (image)](https://cdn.exemplo.com/belga.jpg)',
+    ].join('\n\n'),
+  );
+
+  assert.deepEqual(
+    groupLabeledMediaWithText(chunks).map((chunk) => chunk.text),
+    [
+      'O Cavalo persa é puro e gigante. Custa R$ 5.000.000.',
+      '[Cavalo persa (image)](https://cdn.exemplo.com/persa.jpg)',
+      'O Cavalo belga também está disponível por R$ 5.000.000.',
+      '[Cavalo belga (image)](https://cdn.exemplo.com/belga.jpg)',
+    ],
   );
 });
 
