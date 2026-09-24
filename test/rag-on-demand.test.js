@@ -38,6 +38,27 @@ test('obriga a consulta quando o usuário pede explicitamente pelo conhecimento'
   assert.equal(shouldForceKnowledgeTool('pesquise no conhecimento sobre a CG 160'), true);
 });
 
+test('consulta RAG ao pedir detalhes de um produto sem dizer conhecimento', () => {
+  assert.equal(shouldForceKnowledgeTool('quero saber mais sobre a Fumiara?'), true);
+  assert.equal(
+    shouldForceKnowledgeTool('A Fumiara é boa?', {
+      products: [{ nome: 'Fumiara', descricao: 'Produto cadastrado' }],
+    }),
+    true,
+  );
+  assert.equal(shouldForceKnowledgeTool('qual o preço?'), true);
+  assert.equal(shouldForceKnowledgeTool('tem fotos desse produto?'), true);
+});
+
+test('reconhece produto salvo como JSON string', () => {
+  assert.equal(
+    shouldForceKnowledgeTool('Me fale da Fumiara', {
+      products: JSON.stringify([{ nome: 'Fumiara' }]),
+    }),
+    true,
+  );
+});
+
 test('não obriga RAG em mensagens comuns ou quando o usuário recusa a consulta', () => {
   assert.equal(shouldForceKnowledgeTool('teste-ura'), false);
   assert.equal(shouldForceKnowledgeTool('bom dia, tudo bem?'), false);

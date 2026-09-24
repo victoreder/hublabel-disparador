@@ -21,7 +21,7 @@ export function buildToolDefinitions(job, agente) {
       function: {
         name: 'consultar_conhecimento',
         description:
-          'Consulte os conhecimentos e produtos cadastrados do agente somente quando a mensagem pedir uma informação factual específica que não esteja nas instruções nem no histórico. Se o usuário mandar consultar, buscar ou pesquisar no conhecimento, chame esta ferramenta imediatamente com a própria pergunta, sem pedir esclarecimentos antes. Use para perguntas sobre produtos, preços, características, disponibilidade, links, fotos ou vídeos. Não use em saudações, mensagens de ativação ou teste, confirmações, conversa casual, coleta de dados nem quando a resposta já estiver no prompt ou no histórico. Responda somente com os dados encontrados.',
+          'Consulte os conhecimentos e produtos cadastrados do agente quando a mensagem pedir informação factual específica sobre um produto, serviço, nome específico, preço, características, disponibilidade, links, fotos ou vídeos. Se o usuário pedir para saber mais sobre algo nomeado, ou mandar consultar, buscar ou pesquisar no conhecimento, chame esta ferramenta imediatamente com a própria pergunta, sem pedir esclarecimentos antes. Nunca improvise uma resposta geral ou da internet sobre um produto ou nome que possa estar cadastrado. Não use em saudações, mensagens de ativação ou teste, confirmações, conversa casual, coleta de dados nem quando a resposta exata já estiver no prompt ou no histórico. Responda somente com os dados encontrados.',
         parameters: {
           type: 'object',
           properties: {

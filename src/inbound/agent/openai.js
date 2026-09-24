@@ -60,7 +60,9 @@ export async function runAgentChat({
 
   const model = agente.modelo || 'gpt-4o-mini';
   const toolsExecuted = [];
-  const forceKnowledgeOnFirstRound = shouldForceKnowledgeTool(userMessage);
+  const forceKnowledgeOnFirstRound = shouldForceKnowledgeTool(userMessage, {
+    products: agente?.produtos,
+  });
   let totalTokens = 0;
 
   let rounds = 0;
