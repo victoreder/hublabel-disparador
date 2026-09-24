@@ -11,13 +11,15 @@ import { executeNotificarHumano } from './notifyHuman.js';
 export function buildToolDefinitions(job, agente) {
   const tools = [];
 
-  if (agente?.conhecimento) {
+  // A existência do RAG não pode depender apenas do JSON `conhecimento` do agente:
+  // produtos também são vetorizados e agentes antigos podem ter esse campo nulo.
+  if (agente?.id) {
     tools.push({
       type: 'function',
       function: {
         name: 'consultar_conhecimento',
         description:
-          'Quando precisar de alguma informação que não saiba, ou for solicitada para consultar no conhecimento, utilize essa ferramenta',
+          'Consulte os conhecimentos e produtos cadastrados do agente. Use obrigatoriamente para perguntas sobre produtos, preços, características, disponibilidade, links, fotos ou vídeos. Responda somente com os dados encontrados.',
         parameters: {
           type: 'object',
           properties: {
@@ -105,7 +107,15 @@ export function buildToolDefinitions(job, agente) {
 export async function executeTool(name, args, { job, agente, agentConfig, searchKnowledge }) {
   if (name === 'consultar_conhecimento') {
     const docs = await searchKnowledge(agentConfig, agente.id, args.pergunta);
-    return JSON.stringify({ documentos: docs });
+    return JSON.stringify({
+      encontrado: docs.length > 0,
+      quantidade: docs.length,
+      documentos: docs,
+      instrucao_para_agente:
+        docs.length > 0
+          ? 'Responda diretamente com os dados exatos do primeiro documento, inclusive nome, descrição e preço. Não escreva informações gerais que não estejam nos documentos. Para enviar uma mídia encontrada, use [nome (image)](URL) ou [nome (video)](URL), com dois enters antes e depois.'
+          : 'Nenhum conhecimento vinculado foi encontrado. Informe que essa informação não está cadastrada e não invente uma resposta geral.',
+    });
   }
 
   if (name === 'ABRIR_ATENDIMENTO') {
