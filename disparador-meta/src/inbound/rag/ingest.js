@@ -3,7 +3,9 @@ import { getAgentConfig } from '../agent/config.js';
 import { HttpError } from '../meta/httpError.js';
 import { chunkText } from './chunk.js';
 import { createEmbeddings } from './embeddings.js';
-import { extractTextFromFile, extractTextFromPlain } from './extractText.js';
+import { extractTextFromFile } from './extractText.js';
+import { appendMediaLinksToText, normalizeMediaLinks } from './mediaLinks.js';
+import { resolveProductContent } from './productText.js';
 
 const INSERT_BATCH_SIZE = 50;
 
@@ -20,6 +22,7 @@ function normalizePayload(body = {}, file) {
   const idAgenteRaw = body.idAgente ?? body.id_agente ?? body.agenteId;
   const idUnico = String(body.idUnico ?? body.id_unico ?? '').trim();
   const text = resolveTextContent(body);
+  const midias = normalizeMediaLinks(body);
 
   if (!userId) throw new HttpError('userId é obrigatório', 400);
   if (idAgenteRaw == null || idAgenteRaw === '') throw new HttpError('idAgente é obrigatório', 400);
@@ -30,20 +33,26 @@ function normalizePayload(body = {}, file) {
 
   const fileFromBase64 = buildFileFromBase64(body);
 
-  if (!file && !text && !fileFromBase64) {
-    throw new HttpError('Envie um arquivo (data/file/documento), text/conteudo/descricao ou documentoBase64', 400);
+  if (!file && !text && !fileFromBase64 && !midias.length) {
+    throw new HttpError(
+      'Envie text/conteudo/descricao/produto, um arquivo ou uma lista midias com links',
+      400,
+    );
   }
 
-  return { userId, idAgente, idUnico, text, file: file ?? fileFromBase64 };
+  return { userId, idAgente, idUnico, text, file: file ?? fileFromBase64, midias };
 }
 
 function resolveTextContent(body = {}) {
+  const productText = resolveProductContent(body);
+  if (productText) return productText;
+
   const raw =
     body.text ??
     body.conteudo ??
-    body.descricao ??
     body.documentoTexto ??
     body.conhecimento ??
+    body.descricao ??
     body.produto ??
     null;
 
@@ -99,14 +108,24 @@ async function insertKnowledgeRows(rows) {
 }
 
 export async function ingestKnowledgeDocument({ body, file }) {
-  const { userId, idAgente, idUnico, text } = normalizePayload(body, file);
+  const {
+    userId,
+    idAgente,
+    idUnico,
+    text,
+    file: normalizedFile,
+    midias,
+  } = normalizePayload(body, file);
 
   await assertAgentOwnership({ userId, idAgente });
 
   const agentConfig = await getAgentConfig();
   const openaiApiKey = agentConfig.openaiApiKey || (await fetchOpenAIApiKey());
 
-  const rawText = file ? await extractTextFromFile(file) : await extractTextFromPlain(text);
+  const sourceText = normalizedFile
+    ? await extractTextFromFile(normalizedFile)
+    : String(text ?? '').trim();
+  const rawText = appendMediaLinksToText(sourceText, midias);
   const chunks = chunkText(rawText, {
     chunkSize: optionalInt('RAG_CHUNK_SIZE', 1000),
     overlap: optionalInt('RAG_CHUNK_OVERLAP', 200),
@@ -124,6 +143,7 @@ export async function ingestKnowledgeDocument({ body, file }) {
     userId: String(userId),
     idAgente: String(idAgente),
     idUnico: String(idUnico),
+    midias,
   };
 
   const rows = chunks.map((content, index) => ({
@@ -141,6 +161,7 @@ export async function ingestKnowledgeDocument({ body, file }) {
     idAgente,
     userId,
     chunks: rows.length,
+    midias: midias.length,
     deleted,
     embeddingModel: agentConfig.embeddingModel,
   };

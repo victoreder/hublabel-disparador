@@ -36,5 +36,13 @@ export async function searchKnowledge(agentConfig, agenteId, query, matchCount =
     throw new Error(`Erro em match_documents: ${error.message}`);
   }
 
-  return (data ?? []).map((d) => d.content).filter(Boolean);
+  return (data ?? [])
+    .filter((document) => document?.content)
+    .map((document) => ({
+      content: document.content,
+      metadata: document.metadata ?? {},
+      similarity: Number.isFinite(Number(document.similarity))
+        ? Number(document.similarity)
+        : null,
+    }));
 }
