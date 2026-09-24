@@ -3,7 +3,6 @@ import { normalizeTipo } from './actions.js';
 import { supportsCustomTemperature } from './config.js';
 import { extractActionsFromText } from './parseActions.js';
 import { executeTool, buildToolDefinitions } from './tools.js';
-import { buildKnowledgeContext, selectAgentProductDocuments } from './knowledgeContext.js';
 import { searchKnowledge } from './rag.js';
 
 const HTTP_RESULT_MAX_CHARS = 12_000;
@@ -41,24 +40,22 @@ export async function runAgentChat({
   }
 
   const tools = buildToolDefinitions(job, agente);
-  let retrievedKnowledge = [];
-  try {
-    retrievedKnowledge = await searchKnowledge(agentConfig, agente.id, userMessage);
-  } catch (error) {
-    logger.warn('Falha na consulta automática ao conhecimento do agente', {
-      agenteId: agente?.id,
-      conversaId: job?.conversaId,
-      message: error.message,
-    });
-  }
-  const savedProducts = selectAgentProductDocuments(agente?.produtos, userMessage);
-  const knowledgeContext = buildKnowledgeContext([...retrievedKnowledge, ...savedProducts]);
   const messages = [
     { role: 'system', content: systemPrompt },
-    ...(knowledgeContext ? [{ role: 'system', content: knowledgeContext }] : []),
     ...history,
     { role: 'user', content: userMessage },
   ];
+
+  // Cache restrito a este turno: o RAG só é executado quando o modelo chama a
+  // ferramenta e consultas idênticas não geram embeddings/buscas duplicadas.
+  const knowledgeSearchCache = new Map();
+  const searchKnowledgeOnDemand = (config, agenteId, question) => {
+    const key = `${agenteId}:${String(question || '').trim().toLowerCase()}`;
+    if (!knowledgeSearchCache.has(key)) {
+      knowledgeSearchCache.set(key, searchKnowledge(config, agenteId, question));
+    }
+    return knowledgeSearchCache.get(key);
+  };
 
   const model = agente.modelo || 'gpt-4o-mini';
   const toolsExecuted = [];
@@ -127,7 +124,7 @@ export async function runAgentChat({
               job,
               agente,
               agentConfig,
-              searchKnowledge,
+              searchKnowledge: searchKnowledgeOnDemand,
             });
           } catch (error) {
             logger.warn('Falha em tool do agente', {
@@ -173,7 +170,7 @@ export async function runAgentChat({
               job,
               agente,
               agentConfig,
-              searchKnowledge,
+              searchKnowledge: searchKnowledgeOnDemand,
             });
             try {
               return JSON.parse(raw);

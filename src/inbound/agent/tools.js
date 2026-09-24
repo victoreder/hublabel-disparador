@@ -7,6 +7,7 @@ import {
   resolveHttpRequestConfig,
 } from './httpRequest.js';
 import { executeNotificarHumano } from './notifyHuman.js';
+import { selectAgentProductDocuments } from './knowledgeContext.js';
 
 export function buildToolDefinitions(job, agente) {
   const tools = [];
@@ -19,7 +20,7 @@ export function buildToolDefinitions(job, agente) {
       function: {
         name: 'consultar_conhecimento',
         description:
-          'Consulte os conhecimentos e produtos cadastrados do agente. Use obrigatoriamente para perguntas sobre produtos, preços, características, disponibilidade, links, fotos ou vídeos. Responda somente com os dados encontrados.',
+          'Consulte os conhecimentos e produtos cadastrados do agente somente quando a mensagem pedir uma informação factual específica que não esteja nas instruções nem no histórico. Use para perguntas sobre produtos, preços, características, disponibilidade, links, fotos ou vídeos. Não use em saudações, mensagens de ativação ou teste, confirmações, conversa casual, coleta de dados nem quando a resposta já estiver no prompt ou no histórico. Responda somente com os dados encontrados.',
         parameters: {
           type: 'object',
           properties: {
@@ -106,7 +107,10 @@ export function buildToolDefinitions(job, agente) {
 
 export async function executeTool(name, args, { job, agente, agentConfig, searchKnowledge }) {
   if (name === 'consultar_conhecimento') {
-    const docs = await searchKnowledge(agentConfig, agente.id, args.pergunta);
+    const retrievedDocs = await searchKnowledge(agentConfig, agente.id, args.pergunta);
+    const docs = retrievedDocs.length
+      ? retrievedDocs
+      : selectAgentProductDocuments(agente?.produtos, args.pergunta);
     return JSON.stringify({
       encontrado: docs.length > 0,
       quantidade: docs.length,
