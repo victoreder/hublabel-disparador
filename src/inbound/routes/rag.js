@@ -1,7 +1,8 @@
 import multer from 'multer';
 import { logger } from '../../logger.js';
 import { HttpError } from '../meta/httpError.js';
-import { ingestKnowledgeDocument } from '../rag/ingest.js';
+import { isRagAction, isRagDeleteAction } from '../rag/action.js';
+import { deleteKnowledgeDocument, ingestKnowledgeDocument } from '../rag/ingest.js';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -38,17 +39,6 @@ function pickUploadedFile(req) {
     req.files?.documento?.[0] ??
     null
   );
-}
-
-function normalizeRagAction(value) {
-  return String(value ?? '')
-    .toLowerCase()
-    .replace(/[\s_-]+/g, '');
-}
-
-function isRagAction(value) {
-  const acao = normalizeRagAction(value);
-  return acao === 'inserirdocumento' || acao === 'inserirconhecimento';
 }
 
 function isKnowledgeUploadPayload(body = {}) {
@@ -132,6 +122,45 @@ function handleIngest(req, res) {
     });
 }
 
+function handleDelete(req, res) {
+  const startedAt = Date.now();
+  const body = { ...(req.query ?? {}), ...(req.body ?? {}) };
+  const safeBody = sanitizeBody(body);
+
+  logger.info('[rag-excluir-conhecimento] hit', {
+    method: req.method,
+    path: req.path,
+    originalUrl: req.originalUrl,
+    body: safeBody,
+  });
+
+  deleteKnowledgeDocument({ body })
+    .then((result) => {
+      logger.info('[rag-excluir-conhecimento] ok', {
+        durationMs: Date.now() - startedAt,
+        idUnico: result.idUnico,
+        idAgente: result.idAgente,
+        deleted: result.deleted,
+      });
+      res.status(200).json(result);
+    })
+    .catch((error) => {
+      const status = error instanceof HttpError ? error.statusCode : 500;
+      const logPayload = {
+        durationMs: Date.now() - startedAt,
+        status,
+        message: error instanceof Error ? error.message : String(error),
+        body: safeBody,
+      };
+      if (status >= 500) logger.error('[rag-excluir-conhecimento] erro', logPayload);
+      else logger.warn('[rag-excluir-conhecimento] rejeitado', logPayload);
+      res.status(status).json({
+        ok: false,
+        error: error instanceof Error ? error.message : 'Erro desconhecido',
+      });
+    });
+}
+
 function runWithMulter(req, res, onReady = () => handleIngest(req, res)) {
   uploadFields(req, res, (err) => {
     if (err instanceof multer.MulterError) {
@@ -158,6 +187,8 @@ export function parseRagMultipart(req, res, next) {
 }
 
 export function handleRagIngestRequest(req, res) {
+  const action = req.body?.acao ?? req.body?.action ?? req.query?.acao ?? req.query?.action;
+  if (req.method === 'DELETE' || isRagDeleteAction(action)) return handleDelete(req, res);
   const contentType = String(req.headers['content-type'] || '').toLowerCase();
   if (contentType.includes('multipart/form-data') && !req._ragMultipartParsed) {
     return runWithMulter(req, res);
@@ -168,4 +199,5 @@ export function handleRagIngestRequest(req, res) {
 export function registerRagRoutes(app, { path, parentPath }) {
   logger.info('[rag] registrando sub-rota', { path, parentPath });
   app.post(path, handleRagIngestRequest);
+  app.delete(path, handleRagIngestRequest);
 }

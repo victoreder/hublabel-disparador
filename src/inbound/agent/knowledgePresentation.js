@@ -6,7 +6,10 @@ const FOUND_INSTRUCTION = [
   'Transforme nome, descrição e preço em frases naturais, mencionando apenas o que ajuda a responder à pergunta.',
   'Não acrescente informações gerais ou da internet que não estejam nas fontes.',
   'Se houver cadastros realmente diferentes ou dados conflitantes para o mesmo nome, apresente-os naturalmente como opções e faça uma pergunta curta para identificar qual deles o cliente deseja; não misture os dados.',
-  'Quando houver mídia útil, envie-a depois do texto usando [nome (image)](URL) ou [nome (video)](URL), com dois enters antes e depois.',
+  'Quando houver um único produto, envie suas informações e logo depois suas mídias.',
+  'Quando houver vários produtos, siga obrigatoriamente esta sequência: informações do produto 1, mídias do produto 1, informações do produto 2, mídias do produto 2, e assim por diante.',
+  'Nunca reúna primeiro os textos de todos os produtos para só depois enviar todas as fotos.',
+  'Identifique cada mídia com o nome do produto e use [nome do produto (image)](URL) ou [nome do produto (video)](URL), com dois enters entre cada bloco.',
 ].join(' ');
 
 const KNOWLEDGE_SOURCE_MAX_CHARS = 8_000;
@@ -23,6 +26,7 @@ export const KNOWLEDGE_REWRITE_PROMPT = [
   'Use os mesmos fatos, mas fale como um atendente humano em uma única mensagem curta e conversacional.',
   'Não diga que encontrou registros ou resultados, não mostre JSON, não numere documentos e não use uma ficha com rótulos como Nome:, Descrição: ou Preço:.',
   'Se houver opções conflitantes, descreva-as naturalmente sem misturar os dados e pergunte qual delas interessa.',
+  'Para vários produtos, mantenha cada descrição imediatamente junto de suas próprias mídias; nunca coloque todas as fotos no final.',
   'Retorne somente a nova resposta final.',
 ].join(' ');
 

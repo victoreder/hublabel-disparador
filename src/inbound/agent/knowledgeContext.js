@@ -1,3 +1,5 @@
+import { extractPublicProductMedia } from '../rag/productMediaUpload.js';
+
 const KNOWLEDGE_CONTEXT_MAX_CHARS = 16_000;
 const PRODUCT_DOCUMENT_MAX_CHARS = 8_000;
 const PRODUCT_STRING_MAX_CHARS = 2_000;
@@ -25,6 +27,40 @@ function parseProducts(raw) {
   } catch {
     return [];
   }
+}
+
+function productName(product) {
+  return normalizeForSearch(product?.nome ?? product?.name ?? product?.titulo ?? product?.title);
+}
+
+function documentProductName(document) {
+  const content = String(document?.content || '');
+  const labeled = content.match(/(?:Nome do produto|Produto)\s*:\s*([^\n]+)/i)?.[1];
+  if (labeled) return normalizeForSearch(labeled);
+  const jsonName = content.match(/["'](?:nome|name|titulo|title)["']\s*:\s*["']([^"']+)/i)?.[1];
+  return normalizeForSearch(jsonName);
+}
+
+/** Impede que vetores órfãos de produtos removidos sejam usados em respostas. */
+export function filterCurrentAgentProductDocuments(documents, rawProducts) {
+  if (rawProducts == null) return Array.isArray(documents) ? documents : [];
+  const products = parseProducts(rawProducts);
+  const activeIds = new Set(
+    products
+      .map((product) => String(product?.id ?? product?.idUnico ?? product?.id_unico ?? '').trim())
+      .filter(Boolean),
+  );
+  const activeNames = new Set(products.map(productName).filter(Boolean));
+
+  return (Array.isArray(documents) ? documents : []).filter((document) => {
+    const idUnico = String(
+      document?.metadata?.idUnico ?? document?.metadata?.id_unico ?? '',
+    ).trim();
+    if (!idUnico.startsWith('prod_') && !idUnico.startsWith('produto-')) return true;
+    if (activeIds.has(idUnico)) return true;
+    const name = documentProductName(document);
+    return Boolean(name && activeNames.has(name));
+  });
 }
 
 function sanitizeProductValue(value, key = '', depth = 0) {
@@ -85,9 +121,12 @@ export function selectAgentProductDocuments(rawProducts, query, limit = 5) {
     })
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .slice(0, Math.max(1, limit))
-    .map(({ serialized }) => ({
+    .map(({ product, serialized }) => ({
       content: `Tipo de conhecimento: produto cadastrado\nDados exatos do produto:\n${serialized}`,
-      metadata: { source: 'agente.produtos' },
+      metadata: {
+        source: 'agente.produtos',
+        midias: extractPublicProductMedia(product),
+      },
       similarity: null,
     }));
 }

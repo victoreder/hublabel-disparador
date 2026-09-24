@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildKnowledgeContext,
+  filterCurrentAgentProductDocuments,
   selectAgentProductDocuments,
 } from '../src/inbound/agent/knowledgeContext.js';
 import { rankKnowledgeDocuments } from '../src/inbound/agent/knowledgeRanking.js';
+import { splitAgentOutput } from '../src/inbound/agent/parseResponse.js';
+import { isRagAction, isRagDeleteAction } from '../src/inbound/rag/action.js';
 import { appendMediaLinksToText, normalizeMediaLinks } from '../src/inbound/rag/mediaLinks.js';
 import { resolveProductContent } from '../src/inbound/rag/productText.js';
 import {
@@ -206,6 +209,69 @@ test('usa produtos salvos no agente como fallback enquanto o RAG não foi reinde
   assert.match(documents[0].content, /1500/);
   assert.match(documents[0].content, /perfume-frente\.jpg/);
   assert.doesNotMatch(documents[0].content, /Camiseta básica/);
+  assert.equal(documents[0].metadata.midias.length, 1);
+  assert.equal(documents[0].metadata.midias[0].url, 'https://cdn.exemplo.com/perfume-frente.jpg');
+});
+
+test('preserva a ordem texto e mídia de cada produto', () => {
+  const chunks = splitAgentOutput(
+    [
+      'O Felino destruidor de lares é imponente e custa R$ 2.500.000.',
+      '[Felino destruidor de lares (image)](https://cdn.exemplo.com/felino.jpg)',
+      'O Cavalo persa é grande e custa R$ 5.000.000.',
+      '[Cavalo persa (image)](https://cdn.exemplo.com/cavalo.jpg)',
+    ].join('\n\n'),
+  );
+
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.kind),
+    ['text', 'image', 'text', 'image'],
+  );
+});
+
+test('reconhece ações de exclusão do conhecimento', () => {
+  assert.equal(isRagDeleteAction('excluirDocumento'), true);
+  assert.equal(isRagDeleteAction('excluir-conhecimento'), true);
+  assert.equal(isRagDeleteAction('remover_documento'), true);
+  assert.equal(isRagAction('excluirDocumento'), true);
+  assert.equal(isRagDeleteAction('inserirDocumento'), false);
+});
+
+test('ignora vetores órfãos de produtos removidos do agente', () => {
+  const documents = [
+    {
+      content: 'Tipo: produto\nProduto: Cavalo persa\nValor: R$ 5.000.000',
+      metadata: { idUnico: 'prod_cavalo' },
+    },
+    {
+      content: 'Tipo: produto\nProduto: Felino destruidor de lares',
+      metadata: { idUnico: 'prod_felino_removido' },
+    },
+    {
+      content: 'Horário de atendimento: 08:00 às 18:00',
+      metadata: { idUnico: 'conhecimento_horario' },
+    },
+  ];
+  const filtered = filterCurrentAgentProductDocuments(documents, [
+    { id: 'prod_cavalo', nome: 'Cavalo persa' },
+  ]);
+
+  assert.deepEqual(
+    filtered.map((document) => document.metadata.idUnico),
+    ['prod_cavalo', 'conhecimento_horario'],
+  );
+});
+
+test('catálogo vazio remove produtos vetorizados mas mantém conhecimentos gerais', () => {
+  const filtered = filterCurrentAgentProductDocuments(
+    [
+      { content: 'Produto: Cavalo persa', metadata: { idUnico: 'prod_cavalo' } },
+      { content: 'Política de troca', metadata: { idUnico: 'politica_troca' } },
+    ],
+    [],
+  );
+
+  assert.deepEqual(filtered.map((document) => document.metadata.idUnico), ['politica_troca']);
 });
 
 test('remove base64 e limita campos gigantes do produto antes de enviar ao modelo', () => {

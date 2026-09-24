@@ -7,7 +7,10 @@ import {
   resolveHttpRequestConfig,
 } from './httpRequest.js';
 import { executeNotificarHumano } from './notifyHuman.js';
-import { selectAgentProductDocuments } from './knowledgeContext.js';
+import {
+  filterCurrentAgentProductDocuments,
+  selectAgentProductDocuments,
+} from './knowledgeContext.js';
 import { rankKnowledgeDocuments } from './knowledgeRanking.js';
 import { buildKnowledgeToolPayload } from './knowledgePresentation.js';
 
@@ -109,7 +112,10 @@ export function buildToolDefinitions(job, agente) {
 
 export async function executeTool(name, args, { job, agente, agentConfig, searchKnowledge }) {
   if (name === 'consultar_conhecimento') {
-    const retrievedDocs = await searchKnowledge(agentConfig, agente.id, args.pergunta);
+    const retrievedDocs = filterCurrentAgentProductDocuments(
+      await searchKnowledge(agentConfig, agente.id, args.pergunta),
+      agente?.produtos,
+    );
     const savedProducts = selectAgentProductDocuments(agente?.produtos, args.pergunta);
     const docs = rankKnowledgeDocuments({
       vectorDocuments: retrievedDocs,

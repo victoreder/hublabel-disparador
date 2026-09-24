@@ -15,6 +15,10 @@ const toolsSource = await readFile(
   new URL('../src/inbound/agent/tools.js', import.meta.url),
   'utf8',
 );
+const ingestSource = await readFile(
+  new URL('../src/inbound/rag/ingest.js', import.meta.url),
+  'utf8',
+);
 
 test('não consulta o RAG automaticamente antes da decisão do agente', () => {
   assert.doesNotMatch(openaiSource, /await\s+searchKnowledge\s*\(/);
@@ -93,6 +97,8 @@ test('retorno do RAG exige resposta conversacional e oculta detalhes técnicos',
   assert.match(payload.instrucao_obrigatoria, /Nunca diga que encontrou registros/i);
   assert.match(payload.instrucao_obrigatoria, /Nunca mostre JSON/i);
   assert.match(payload.instrucao_obrigatoria, /frases naturais/i);
+  assert.match(payload.instrucao_obrigatoria, /informações do produto 1, mídias do produto 1/i);
+  assert.match(payload.instrucao_obrigatoria, /Nunca reúna primeiro os textos/i);
   assert.equal('quantidade' in payload, false);
   assert.equal('documentos' in payload, false);
   assert.equal(payload.fontes_internas_nao_exibir_literalmente[0].midias.length, 1);
@@ -148,4 +154,10 @@ test('reescreve resposta bruta no máximo uma vez sem consultar novamente', () =
   assert.match(openaiSource, /looksLikeRawKnowledgeDump\(content\)/);
   assert.match(openaiSource, /knowledgeRewriteRequested = true/);
   assert.match(openaiSource, /body\.tool_choice = 'none'/);
+});
+
+test('exclusão do RAG é limitada ao idUnico e ao agente validado', () => {
+  assert.match(ingestSource, /assertAgentOwnership\(\{ userId, idAgente \}\)/);
+  assert.match(ingestSource, /\.eq\('metadata->>idAgente', String\(idAgente\)\)/);
+  assert.match(ingestSource, /\.eq\('metadata->>idUnico', String\(idUnico\)\)/);
 });

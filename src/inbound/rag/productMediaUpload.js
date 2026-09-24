@@ -178,7 +178,11 @@ function decodeMedia(value, declaredMimeType, maxBytes) {
 function standardMediaItem(item, url, mimeType, size, order) {
   const sources = sourcesFor(item);
   const explicitType = String(firstValue(sources, ['tipo', 'type', 'mediaType']) || '').toLowerCase();
-  const tipo = explicitType.includes('video') || mimeType.startsWith('video/') ? 'video' : 'imagem';
+  const videoByUrl = /\.(?:avi|m4v|mkv|mov|mp4|mpeg|mpg|webm)(?:[?#]|$)/i.test(url);
+  const tipo =
+    explicitType.includes('video') || mimeType.startsWith('video/') || videoByUrl
+      ? 'video'
+      : 'imagem';
   return {
     id: String(firstValue(sources, ['id']) || `midia-${order}`),
     tipo,
@@ -190,6 +194,30 @@ function standardMediaItem(item, url, mimeType, size, order) {
       String(firstValue(sources, ['descricao', 'description', 'altText', 'legenda']) || '').trim() ||
       null,
   };
+}
+
+export function extractPublicProductMedia(rawProduct) {
+  const product = parseObject(rawProduct);
+  if (!product) return [];
+  const seen = new Set();
+  const media = [];
+  for (const key of MEDIA_KEYS) {
+    for (const item of parseItems(product[key])) {
+      const url = existingPublicUrl(item);
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      media.push(
+        standardMediaItem(
+          item,
+          url,
+          String(declaredMimeType(item) || ''),
+          null,
+          media.length + 1,
+        ),
+      );
+    }
+  }
+  return media;
 }
 
 function declaredMimeType(item) {

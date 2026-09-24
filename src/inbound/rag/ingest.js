@@ -100,16 +100,18 @@ async function assertAgentOwnership({ userId, idAgente }) {
   return agente;
 }
 
-async function deleteKnowledgeByIdUnico(idUnico) {
-  const { data, error } = await supabase.rpc('f_excluir_conhecimento_por_idunico', {
-    p_idunico: idUnico,
-  });
+async function deleteKnowledgeByIdUnico({ idUnico, idAgente }) {
+  const { count, error } = await supabase
+    .from('SAAS_Conhecimentos')
+    .delete({ count: 'exact' })
+    .eq('metadata->>idAgente', String(idAgente))
+    .eq('metadata->>idUnico', String(idUnico));
 
   if (error) {
     throw new Error(`Erro ao excluir conhecimento anterior: ${error.message}`);
   }
 
-  return Number(data ?? 0);
+  return Number(count ?? 0);
 }
 
 async function insertKnowledgeRows(rows) {
@@ -188,7 +190,7 @@ export async function ingestKnowledgeDocument({ body, file }) {
     throw new HttpError('Documento sem conteúdo utilizável após processamento', 400);
   }
 
-  const deleted = await deleteKnowledgeByIdUnico(idUnico);
+  const deleted = await deleteKnowledgeByIdUnico({ idUnico, idAgente });
 
   const embeddings = await createEmbeddings(openaiApiKey, agentConfig.embeddingModel, chunks);
 
@@ -221,5 +223,19 @@ export async function ingestKnowledgeDocument({ body, file }) {
     midiasEnviadasAoStorage: prepared.uploadedMedia.length,
     deleted,
     embeddingModel: agentConfig.embeddingModel,
+  };
+}
+
+export async function deleteKnowledgeDocument({ body }) {
+  const { userId, idAgente, idUnico } = normalizeIdentity(body);
+  await assertAgentOwnership({ userId, idAgente });
+  const deleted = await deleteKnowledgeByIdUnico({ idUnico, idAgente });
+  return {
+    ok: true,
+    acao: 'excluirDocumento',
+    idUnico,
+    idAgente,
+    userId,
+    deleted,
   };
 }
