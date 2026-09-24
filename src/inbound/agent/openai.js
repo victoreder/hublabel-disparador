@@ -4,6 +4,10 @@ import { supportsCustomTemperature } from './config.js';
 import { extractActionsFromText } from './parseActions.js';
 import { executeTool, buildToolDefinitions } from './tools.js';
 import { shouldForceKnowledgeTool } from './knowledgeIntent.js';
+import {
+  KNOWLEDGE_REWRITE_PROMPT,
+  looksLikeRawKnowledgeDump,
+} from './knowledgePresentation.js';
 import { searchKnowledge } from './rag.js';
 
 const HTTP_RESULT_MAX_CHARS = 12_000;
@@ -64,6 +68,7 @@ export async function runAgentChat({
     products: agente?.produtos,
   });
   let totalTokens = 0;
+  let knowledgeRewriteRequested = false;
 
   let rounds = 0;
   while (rounds < agentConfig.maxToolRounds) {
@@ -84,7 +89,9 @@ export async function runAgentChat({
     }
 
     if (tools.length) body.tools = tools;
-    if (
+    if (knowledgeRewriteRequested && tools.length) {
+      body.tool_choice = 'none';
+    } else if (
       rounds === 1 &&
       forceKnowledgeOnFirstRound &&
       tools.some((tool) => tool.function?.name === 'consultar_conhecimento')
@@ -209,6 +216,21 @@ export async function runAgentChat({
       logger.info('HTTP via [[acao:]] — resultado devolvido ao agente', {
         conversaId: job?.conversaId,
         qtd: results.length,
+      });
+      continue;
+    }
+
+    if (
+      toolsExecuted.includes('consultar_conhecimento') &&
+      !knowledgeRewriteRequested &&
+      looksLikeRawKnowledgeDump(content) &&
+      rounds < agentConfig.maxToolRounds
+    ) {
+      messages.push({ role: 'assistant', content: message.content || content });
+      messages.push({ role: 'system', content: KNOWLEDGE_REWRITE_PROMPT });
+      knowledgeRewriteRequested = true;
+      logger.info('Agente: resposta bruta do conhecimento enviada para reescrita', {
+        conversaId: job?.conversaId,
       });
       continue;
     }

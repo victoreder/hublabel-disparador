@@ -1,0 +1,58 @@
+const FOUND_INSTRUCTION = [
+  'Use as fontes internas somente para compor a resposta ao cliente.',
+  'Responda como um atendente humano, em linguagem natural, acolhedora e objetiva, normalmente em uma única mensagem curta.',
+  'Nunca diga que encontrou registros, documentos, resultados, banco de dados, RAG ou conhecimento interno.',
+  'Nunca mostre JSON, metadata, numeração de resultados nem rótulos crus como Nome:, Descrição: ou Preço:.',
+  'Transforme nome, descrição e preço em frases naturais, mencionando apenas o que ajuda a responder à pergunta.',
+  'Não acrescente informações gerais ou da internet que não estejam nas fontes.',
+  'Se houver cadastros realmente diferentes ou dados conflitantes para o mesmo nome, apresente-os naturalmente como opções e faça uma pergunta curta para identificar qual deles o cliente deseja; não misture os dados.',
+  'Quando houver mídia útil, envie-a depois do texto usando [nome (image)](URL) ou [nome (video)](URL), com dois enters antes e depois.',
+].join(' ');
+
+const NOT_FOUND_INSTRUCTION = [
+  'Responda ao cliente de forma natural e breve que você não possui essa informação cadastrada.',
+  'Não mencione registros, documentos, banco de dados, RAG ou ferramenta e não invente uma resposta geral.',
+].join(' ');
+
+export const KNOWLEDGE_REWRITE_PROMPT = [
+  'Reescreva a sua última resposta antes de enviá-la ao cliente.',
+  'Use os mesmos fatos, mas fale como um atendente humano em uma única mensagem curta e conversacional.',
+  'Não diga que encontrou registros ou resultados, não mostre JSON, não numere documentos e não use uma ficha com rótulos como Nome:, Descrição: ou Preço:.',
+  'Se houver opções conflitantes, descreva-as naturalmente sem misturar os dados e pergunte qual delas interessa.',
+  'Retorne somente a nova resposta final.',
+].join(' ');
+
+function mediaFromMetadata(metadata) {
+  return Array.isArray(metadata?.midias) ? metadata.midias : [];
+}
+
+export function buildKnowledgeToolPayload(documents) {
+  const docs = Array.isArray(documents) ? documents : [];
+  const sources = docs
+    .map((document) => ({
+      informacao: String(document?.content || '').trim(),
+      midias: mediaFromMetadata(document?.metadata),
+    }))
+    .filter((source) => source.informacao);
+
+  return {
+    instrucao_obrigatoria: sources.length ? FOUND_INSTRUCTION : NOT_FOUND_INSTRUCTION,
+    encontrado: sources.length > 0,
+    fontes_internas_nao_exibir_literalmente: sources,
+  };
+}
+
+export function looksLikeRawKnowledgeDump(content) {
+  const text = String(content || '').trim();
+  if (!text) return false;
+  if (/\bencontrei\s+(?:estes?\s+)?(?:registros?|resultados?|documentos?)\b/i.test(text)) {
+    return true;
+  }
+
+  const rawLabels =
+    text.match(/^\s*(?:[-*]|\d+[.)])?\s*(?:tipo|produto|nome|descri[cç][aã]o|pre[cç]o|valor)\s*:/gim) ?? [];
+  if (rawLabels.length >= 2) return true;
+
+  const jsonFields = text.match(/["'](?:nome|descricao|descrição|preco|preço)["']\s*:/gi) ?? [];
+  return jsonFields.length >= 2;
+}
