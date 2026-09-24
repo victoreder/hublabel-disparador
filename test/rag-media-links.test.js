@@ -203,6 +203,32 @@ test('usa produtos salvos no agente como fallback enquanto o RAG não foi reinde
   assert.doesNotMatch(documents[0].content, /Camiseta básica/);
 });
 
+test('remove base64 e limita campos gigantes do produto antes de enviar ao modelo', () => {
+  const documents = selectAgentProductDocuments(
+    [
+      {
+        nome: 'Felino destruidor de lares',
+        descricao: 'Um felino muito imponente',
+        preco: 250000000,
+        fotos: [
+          {
+            url: 'https://cdn.exemplo.com/felino.jpg',
+            base64: 'A'.repeat(1_000_000),
+          },
+        ],
+        arquivoBase64: 'B'.repeat(1_000_000),
+      },
+    ],
+    'quais animais disponíveis?',
+  );
+
+  assert.equal(documents.length, 1);
+  assert.match(documents[0].content, /Felino destruidor de lares/);
+  assert.match(documents[0].content, /https:\/\/cdn\.exemplo\.com\/felino\.jpg/);
+  assert.doesNotMatch(documents[0].content, /arquivoBase64|A{100}|B{100}/);
+  assert.ok(documents[0].content.length < 10_000);
+});
+
 test('prioriza o produto exato sobre conhecimento genérico de perfumes', () => {
   const documents = rankKnowledgeDocuments({
     query: 'quero saber mais sobre o perfume chines',

@@ -9,6 +9,10 @@ const FOUND_INSTRUCTION = [
   'Quando houver mídia útil, envie-a depois do texto usando [nome (image)](URL) ou [nome (video)](URL), com dois enters antes e depois.',
 ].join(' ');
 
+const KNOWLEDGE_SOURCE_MAX_CHARS = 8_000;
+const KNOWLEDGE_PAYLOAD_MAX_CHARS = 24_000;
+const KNOWLEDGE_MEDIA_MAX_ITEMS = 20;
+
 const NOT_FOUND_INSTRUCTION = [
   'Responda ao cliente de forma natural e breve que você não possui essa informação cadastrada.',
   'Não mencione registros, documentos, banco de dados, RAG ou ferramenta e não invente uma resposta geral.',
@@ -23,17 +27,40 @@ export const KNOWLEDGE_REWRITE_PROMPT = [
 ].join(' ');
 
 function mediaFromMetadata(metadata) {
-  return Array.isArray(metadata?.midias) ? metadata.midias : [];
+  if (!Array.isArray(metadata?.midias)) return [];
+  return metadata.midias
+    .slice(0, KNOWLEDGE_MEDIA_MAX_ITEMS)
+    .map((item) => {
+      const url = String(item?.url || '').trim();
+      if (!/^https:\/\//i.test(url)) return null;
+      return {
+        tipo: String(item?.tipo || '').slice(0, 20),
+        url: url.slice(0, 4_096),
+        descricao: String(item?.descricao || '').slice(0, 500) || null,
+      };
+    })
+    .filter(Boolean);
 }
 
 export function buildKnowledgeToolPayload(documents) {
   const docs = Array.isArray(documents) ? documents : [];
-  const sources = docs
-    .map((document) => ({
-      informacao: String(document?.content || '').trim(),
+  const sources = [];
+  let remainingChars = KNOWLEDGE_PAYLOAD_MAX_CHARS;
+  for (const document of docs) {
+    if (remainingChars < 256) break;
+    const rawContent = String(document?.content || '').trim();
+    if (!rawContent) continue;
+    const maxChars = Math.min(KNOWLEDGE_SOURCE_MAX_CHARS, remainingChars);
+    const informacao =
+      rawContent.length > maxChars
+        ? `${rawContent.slice(0, Math.max(0, maxChars - 24))}\n[conteúdo omitido]`
+        : rawContent;
+    sources.push({
+      informacao,
       midias: mediaFromMetadata(document?.metadata),
-    }))
-    .filter((source) => source.informacao);
+    });
+    remainingChars -= informacao.length;
+  }
 
   return {
     instrucao_obrigatoria: sources.length ? FOUND_INSTRUCTION : NOT_FOUND_INSTRUCTION,

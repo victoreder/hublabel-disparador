@@ -98,6 +98,25 @@ test('retorno do RAG exige resposta conversacional e oculta detalhes técnicos',
   assert.equal(payload.fontes_internas_nao_exibir_literalmente[0].midias.length, 1);
 });
 
+test('limita o tamanho total do retorno da ferramenta de conhecimento', () => {
+  const payload = buildKnowledgeToolPayload(
+    Array.from({ length: 10 }, (_, index) => ({
+      content: `Produto ${index}: ${'descrição longa '.repeat(20_000)}`,
+      metadata: {
+        midias: [
+          { tipo: 'imagem', url: `https://cdn.exemplo.com/produto-${index}.jpg` },
+          { tipo: 'imagem', url: `data:image/png;base64,${'A'.repeat(100_000)}` },
+        ],
+      },
+    })),
+  );
+  const serialized = JSON.stringify(payload);
+
+  assert.ok(serialized.length < 30_000);
+  assert.doesNotMatch(serialized, /data:image|A{100}/);
+  assert.ok(payload.fontes_internas_nao_exibir_literalmente.length <= 3);
+});
+
 test('ausência de conhecimento também gera resposta natural sem inventar', () => {
   const payload = buildKnowledgeToolPayload([]);
 

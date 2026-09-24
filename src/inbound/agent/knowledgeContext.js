@@ -1,4 +1,10 @@
 const KNOWLEDGE_CONTEXT_MAX_CHARS = 16_000;
+const PRODUCT_DOCUMENT_MAX_CHARS = 8_000;
+const PRODUCT_STRING_MAX_CHARS = 2_000;
+const PRODUCT_ARRAY_MAX_ITEMS = 20;
+const PRODUCT_MAX_DEPTH = 5;
+const BINARY_FIELD_PATTERN =
+  /(?:base64|buffer|bytes|binary|blob|dataurl|data_url|filedata|arquivo(?:base64|conteudo)|conteudoarquivo|previewbase64)/i;
 
 function normalizeForSearch(value) {
   return String(value || '')
@@ -21,6 +27,47 @@ function parseProducts(raw) {
   }
 }
 
+function sanitizeProductValue(value, key = '', depth = 0) {
+  if (value == null || depth > PRODUCT_MAX_DEPTH || BINARY_FIELD_PATTERN.test(key)) return undefined;
+  if (typeof value === 'boolean' || typeof value === 'number') return value;
+
+  if (typeof value === 'string') {
+    const text = value.trim();
+    if (!text || /^(?:data|blob):/i.test(text)) return undefined;
+    if (text.length > 4_096 && /^[a-z0-9+/=\s]+$/i.test(text)) return undefined;
+    const maxChars = /^https:\/\//i.test(text) ? 4_096 : PRODUCT_STRING_MAX_CHARS;
+    return text.length > maxChars ? `${text.slice(0, maxChars)}…` : text;
+  }
+
+  if (Array.isArray(value)) {
+    const items = value
+      .slice(0, PRODUCT_ARRAY_MAX_ITEMS)
+      .map((item) => sanitizeProductValue(item, key, depth + 1))
+      .filter((item) => item !== undefined);
+    return items.length ? items : undefined;
+  }
+
+  if (typeof value === 'object') {
+    if (value.type === 'Buffer' && Array.isArray(value.data)) return undefined;
+    const entries = Object.entries(value)
+      .map(([childKey, childValue]) => [
+        childKey,
+        sanitizeProductValue(childValue, childKey, depth + 1),
+      ])
+      .filter(([, childValue]) => childValue !== undefined);
+    return entries.length ? Object.fromEntries(entries) : undefined;
+  }
+
+  return undefined;
+}
+
+function serializeProduct(product) {
+  const sanitized = sanitizeProductValue(product) ?? {};
+  const serialized = JSON.stringify(sanitized, null, 2);
+  if (serialized.length <= PRODUCT_DOCUMENT_MAX_CHARS) return serialized;
+  return `${serialized.slice(0, PRODUCT_DOCUMENT_MAX_CHARS)}\n[conteúdo adicional omitido]`;
+}
+
 /** Fallback para produtos antigos que estão no JSON do agente, mas ainda não no vetor. */
 export function selectAgentProductDocuments(rawProducts, query, limit = 5) {
   const products = parseProducts(rawProducts);
@@ -31,7 +78,7 @@ export function selectAgentProductDocuments(rawProducts, query, limit = 5) {
     .filter((term) => term.length >= 3);
   return products
     .map((product, index) => {
-      const serialized = JSON.stringify(product, null, 2);
+      const serialized = serializeProduct(product);
       const searchable = normalizeForSearch(serialized);
       const score = terms.reduce((total, term) => total + (searchable.includes(term) ? 1 : 0), 0);
       return { product, serialized, score, index };
