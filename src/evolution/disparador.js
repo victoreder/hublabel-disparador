@@ -217,7 +217,10 @@ export function createDisparadorEvolution(config) {
    * Connection Closed / 500 com instância ainda conectada = falha de envio.
    */
   async function shouldSwapForDisconnect(detalhe, kind) {
-    if (kind !== 'disconnected' && kind !== 'connectionClosed') return false;
+    // "disconnected" só é produzido por mensagens inequívocas da sessão.
+    if (kind === 'disconnected') return true;
+    // "Connection Closed" pode ser transitório; confirma o estado antes de retirar a conexão.
+    if (kind !== 'connectionClosed') return false;
 
     const instanceName = detalhe.InstanceName;
     if (!instanceName) return true;
@@ -317,9 +320,13 @@ export function createDisparadorEvolution(config) {
     throw ultimoErro;
   }
 
-  async function markInvalidContact(detalhe) {
+  async function markInvalidContact(detalhe, err = null) {
+    const { statusHttp, respostaHttp } = getEvolutionErrorDetails(err);
+    await evolutionDb.markContactUnvalidated(detalhe.idContato);
     await evolutionDb.markFailed(detalhe.id, {
       userMessage: MSG_INEXISTENTE,
+      statusHttp,
+      respostaHttp,
     });
     logger.info('Disparo marcado como falho — contato inválido', {
       detailId: detalhe.id,
@@ -332,8 +339,18 @@ export function createDisparadorEvolution(config) {
     const kind = classifySendError(err);
     const { statusHttp, respostaHttp, errorMessage } = getEvolutionErrorDetails(err);
 
+    if (kind === 'invalidRecipient') {
+      await markInvalidContact(detalhe, err);
+      return { invalidRecipient: true };
+    }
+
     if (await shouldSwapForDisconnect(detalhe, kind)) {
       await evolutionDb.swapConnection(detalhe.idDisparo, detalhe.idConexao);
+      await evolutionDb.markFailed(detalhe.id, {
+        userMessage: 'Instância desconectada',
+        statusHttp,
+        respostaHttp,
+      });
       logger.warn('Conexão trocada após desconexão confirmada', {
         disparoId: detalhe.idDisparo,
         detailId: detalhe.id,
@@ -342,7 +359,7 @@ export function createDisparadorEvolution(config) {
         statusHttp,
         respostaHttp,
       });
-      return;
+      return { connectionRemoved: true, idConexao: detalhe.idConexao };
     }
 
     let userMessage = errorMessage;
@@ -366,6 +383,7 @@ export function createDisparadorEvolution(config) {
     }
 
     await evolutionDb.markFailed(detalhe.id, { userMessage, statusHttp, respostaHttp });
+    return { failed: true };
   }
 
   async function processDetalhe(detalhe) {
@@ -393,16 +411,19 @@ export function createDisparadorEvolution(config) {
 
         if (validation.reason === REASON_INSTANCE_NOT_OPEN) {
           await evolutionDb.swapConnection(detalhe.idDisparo, detalhe.idConexao);
+          await evolutionDb.markFailed(detalhe.id, {
+            userMessage: 'Instância desconectada',
+          });
           logger.warn('Conexão trocada — instância não open na validação do contato', {
             detailId: detalhe.id,
             disparoId: detalhe.idDisparo,
             idConexao: detalhe.idConexao,
           });
-          return;
+          return { connectionRemoved: true, idConexao: detalhe.idConexao };
         }
 
         if (validation.reason === REASON_API_ERROR && validation.error) {
-          await handleFailure(detalhe, validation.error);
+          const outcome = await handleFailure(detalhe, validation.error);
           const { statusHttp, respostaHttp } = getEvolutionErrorDetails(validation.error);
           logger.error('Falha ao validar contato nao oficial', {
             detailId: detalhe.id,
@@ -415,7 +436,7 @@ export function createDisparadorEvolution(config) {
             statusHttp,
             respostaHttp,
           });
-          return;
+          return outcome;
         }
 
         // ambiguous_result / desconhecido: transitório — nunca "Contato inexistente".
@@ -480,7 +501,7 @@ export function createDisparadorEvolution(config) {
         enderecamento: isLidJid(destinoUsado) ? 'lid' : 'telefone',
       });
     } catch (err) {
-      await handleFailure(detalhe, err);
+      const outcome = await handleFailure(detalhe, err);
       const { statusHttp, respostaHttp } = getEvolutionErrorDetails(err);
       logger.error('Falha ao enviar nao oficial', {
         detailId: detalhe.id,
@@ -491,6 +512,7 @@ export function createDisparadorEvolution(config) {
         statusHttp,
         respostaHttp,
       });
+      return outcome;
     }
   }
 
@@ -499,7 +521,30 @@ export function createDisparadorEvolution(config) {
     if (pendentes.length === 0) {
       return { total: 0, processados: 0 };
     }
-    await Promise.allSettled(pendentes.map((detalhe) => processDetalhe(detalhe)));
+    const porConexao = new Map();
+    for (const detalhe of pendentes) {
+      const key = detalhe.idConexao ?? `sem-conexao:${detalhe.id}`;
+      const grupo = porConexao.get(key) ?? [];
+      grupo.push(detalhe);
+      porConexao.set(key, grupo);
+    }
+
+    for (const grupo of porConexao.values()) {
+      grupo.sort((a, b) => {
+        const byDate = new Date(a.dataEnvio).getTime() - new Date(b.dataEnvio).getTime();
+        return byDate || Number(a.id) - Number(b.id);
+      });
+    }
+
+    await Promise.allSettled(
+      [...porConexao.values()].map(async (detalhes) => {
+        for (const detalhe of detalhes) {
+          const outcome = await processDetalhe(detalhe);
+          // O RPC redistribui os demais pendentes. Não usa os dados antigos deste tick.
+          if (outcome?.connectionRemoved) break;
+        }
+      }),
+    );
     return { total: pendentes.length, processados: pendentes.length };
   }
 

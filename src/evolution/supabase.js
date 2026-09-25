@@ -64,6 +64,17 @@ export async function markFailed(id, { userMessage, statusHttp, respostaHttp }) 
   throwIfError(error, `Erro ao marcar detalhe ${id} como failed`);
 }
 
+export async function markContactUnvalidated(idContato) {
+  if (!idContato) return;
+
+  const { error } = await supabase
+    .from('SAAS_Contatos')
+    .update({ validado: false })
+    .eq('id', idContato);
+
+  throwIfError(error, `Erro ao invalidar contato ${idContato}`);
+}
+
 export async function swapConnection(idDisparo, idConexao) {
   const { error } = await supabase.rpc('swap_connection', {
     p_disparo_id: idDisparo,

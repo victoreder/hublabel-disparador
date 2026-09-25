@@ -33,7 +33,7 @@ function isBrazilMobileLocalWithoutNine(local) {
  * Escolhe UM formato correto antes do envio (evita duplicar com/sem 9).
  * - Fixo (2-5): mantém 12 dígitos, sem 9
  * - Celular antigo (6-9): insere 9
- * - 13 dígitos com 9 errado em fixo: remove o 9
+ * - Celular com 13 dígitos: mantém o 9, independentemente do dígito seguinte
  */
 export function resolveBrazilPhoneForMeta(digits) {
   if (!digits?.startsWith('55')) {
@@ -52,10 +52,6 @@ export function resolveBrazilPhoneForMeta(digits) {
   }
 
   if (digits.length === 13 && digits[4] === '9') {
-    const localWithoutNine = digits.slice(5);
-    if (isBrazilLandlineLocal(localWithoutNine)) {
-      return { phone: removeBrazilMobileNine(digits), action: 'remove-nine-fixo' };
-    }
     return { phone: digits, action: 'celular-13' };
   }
 
@@ -89,6 +85,19 @@ export function getPhoneCandidatesForMeta(raw) {
   }
 
   return { candidates: [...new Set(candidates)], resolution };
+}
+
+/**
+ * Contato já validado é fonte de verdade: apenas remove formatação de transporte
+ * e nunca acrescenta/remove dígitos nem cria variante com/sem 9.
+ */
+export function getPhoneCandidatesForValidatedContact(raw) {
+  const phone = normalizePhone(raw);
+  if (!phone) return { candidates: [], resolution: null };
+  return {
+    candidates: [phone],
+    resolution: { phone, action: 'validated-unchanged', original: phone },
+  };
 }
 
 export function formatPhoneForLog(digits) {

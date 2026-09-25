@@ -5,13 +5,10 @@ import {
   resolveBrazilPhoneForMeta,
 } from '../phone.js';
 
-function isLandlineResolution(action) {
-  return action === 'fixo-12' || action === 'remove-nine-fixo';
-}
-
 /**
  * Variantes BR para whatsappNumbers.
- * Celular: com e sem 9 (mesmo número em formatos antigo/novo).
+ * Celular com 13 dígitos: preserva o 9; ele não identifica um fixo.
+ * Celular antigo com 12 dígitos e início 6-9: consulta também a forma com 9.
  * Fixo (local 2-5): só o 12 dígitos — 3333-4444 e 93333-4444 são números diferentes.
  */
 export function getValidationNumberCandidates(raw) {
@@ -24,7 +21,7 @@ export function getValidationNumberCandidates(raw) {
 
   const { phone, action } = resolveBrazilPhoneForMeta(original);
 
-  if (isLandlineResolution(action)) {
+  if (action === 'fixo-12' || action === 'celular-13') {
     return [phone];
   }
 
@@ -42,10 +39,24 @@ export function phonesMatch(a, b) {
   if (da === db) return true;
 
   if (da.startsWith('55') && db.startsWith('55')) {
-    const altA = removeBrazilMobileNine(da) || addBrazilMobileNine(da);
-    const altB = removeBrazilMobileNine(db) || addBrazilMobileNine(db);
-    return da === altB || db === altA || altA === altB;
+    const altA = legacyBrazilMobileVariant(da);
+    const altB = legacyBrazilMobileVariant(db);
+    return Boolean(
+      (altB && da === altB) ||
+        (altA && db === altA) ||
+        (altA && altB && altA === altB),
+    );
   }
 
   return false;
+}
+
+function legacyBrazilMobileVariant(digits) {
+  if (digits.length === 12 && /^[6-9]/.test(digits.slice(4, 5))) {
+    return addBrazilMobileNine(digits);
+  }
+  if (digits.length === 13 && digits[4] === '9' && /^[6-9]/.test(digits.slice(5, 6))) {
+    return removeBrazilMobileNine(digits);
+  }
+  return null;
 }

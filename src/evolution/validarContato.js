@@ -1,5 +1,5 @@
 import { logger } from '../logger.js';
-import { normalizePhone, resolveBrazilPhoneForMeta } from '../phone.js';
+import { normalizePhone } from '../phone.js';
 import { isInstanceConnectionOpen } from './client.js';
 import { extractLidFromWhatsAppNumbersRow, isLidJid, normalizeLidJid } from './lid.js';
 import { getValidationNumberCandidates, phonesMatch } from './phoneVariants.js';
@@ -27,22 +27,6 @@ function finalizeValidMatch(match, candidateHint) {
     if (!digits) return null;
     jid = isLidJid(match?.number) ? normalizeLidJid(match.number) : toPhoneJid(digits);
     match = { ...match, jid };
-  }
-
-  const candidate = candidateHint || normalizePhone(match.number) || normalizePhone(jid);
-  if (!candidate) return match;
-
-  const { phone: resolved, action } = resolveBrazilPhoneForMeta(candidate);
-  if (action === 'fixo-12' || action === 'remove-nine-fixo') {
-    const jidDigits = normalizePhone(match.jid);
-    if (jidDigits !== resolved) {
-      logger.warn('whatsappNumbers reescreveu fixo com 9 — usando o número original', {
-        candidate,
-        jidRecebido: match.jid,
-        jidUsado: toPhoneJid(resolved),
-      });
-      return { ...match, jid: toPhoneJid(resolved) };
-    }
   }
 
   return match;
@@ -140,42 +124,12 @@ export async function ensureContactValidatedForDispatch(detalhe, evolutionClient
   }
 
   if (contato.validado === true && contato.telefone) {
-    let jid = contato.telefone;
-    let idContato = contato.id;
-    const digits = normalizePhone(jid);
-    if (digits && !isLidJid(jid)) {
-      const { phone, action } = resolveBrazilPhoneForMeta(digits);
-      if (action === 'remove-nine-fixo' && phone) {
-        const jidCorrigido = toPhoneJid(phone);
-        if (jidCorrigido !== contato.telefone) {
-          logger.warn('Contato validado com 9 em número fixo — corrigindo destino', {
-            contatoId: contato.id,
-            telefoneSalvo: contato.telefone,
-            jidCorrigido,
-          });
-          const contaId = detalhe.UserId || contato.contaId;
-          try {
-            const persisted = await persistValidatedContactPhone({
-              contatoId: contato.id,
-              contaId,
-              jid: jidCorrigido,
-            });
-            jid = persisted.jid;
-            idContato = persisted.idContato;
-          } catch (err) {
-            logger.error('Erro ao persistir correção de fixo com 9', {
-              contatoId: contato.id,
-              message: err instanceof Error ? err.message : String(err),
-            });
-            jid = jidCorrigido;
-          }
-        }
-      }
-    }
+    // Invariante: contato validado usa exatamente o telefone salvo. Não normaliza
+    // o nono dígito, não tenta variante e não persiste qualquer alteração.
     return {
       ok: true,
-      jid,
-      idContato,
+      jid: contato.telefone,
+      idContato: contato.id,
       lid: normalizeLidJid(contato.lid),
     };
   }

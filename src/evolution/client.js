@@ -59,6 +59,16 @@ function isConnectionClosedError(text) {
   return t.includes('connection closed') || t.includes('connection is closed');
 }
 
+function isInvalidWhatsAppRecipientError(text) {
+  const t = String(text || '').toLowerCase();
+  return (
+    t.includes('not on whatsapp') ||
+    t.includes('not registered on whatsapp') ||
+    t.includes('does not exist on whatsapp') ||
+    t.includes('is not a whatsapp user')
+  );
+}
+
 /** Sinais claros de sessão/instância fora — não usar para erros genéricos 500. */
 function isClearDisconnectError(text) {
   const t = String(text || '').toLowerCase().trim();
@@ -67,7 +77,9 @@ function isClearDisconnectError(text) {
   return (
     t.includes('instance is not connected') ||
     t.includes('instance not connected') ||
-    t.includes('instance disconnected')
+    t.includes('instance disconnected') ||
+    t.includes('whatsapp disconnected') ||
+    t.includes('not reconnectable')
   );
 }
 
@@ -169,6 +181,8 @@ export function classifyEvolutionError(err) {
   const status = err.status;
   const message = extractEvolutionErrorText(err).toLowerCase();
 
+  // Alguns provedores encapsulam "não está no WhatsApp" em HTTP 500.
+  if (isInvalidWhatsAppRecipientError(message)) return 'invalidRecipient';
   if (status === 504) return 'timeout';
   if (status === 502) return 'offline';
 

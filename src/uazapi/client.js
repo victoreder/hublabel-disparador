@@ -30,7 +30,8 @@ export function extractUazapiErrorText(err) {
   }
   const body = err.body;
   return String(
-    flattenMessage(body?.message) ||
+    flattenMessage(body?.response?.message) ||
+      flattenMessage(body?.message) ||
       flattenMessage(body?.error) ||
       err.messageText ||
       err.message ||
@@ -47,7 +48,9 @@ function isClearDisconnectError(text) {
     t.includes('instance is not connected') ||
     t.includes('instance not connected') ||
     t.includes('instance disconnected') ||
-    t.includes('not connected')
+    t.includes('not connected') ||
+    t.includes('whatsapp disconnected') ||
+    t.includes('not reconnectable')
   );
 }
 
@@ -58,12 +61,25 @@ function isConnectionClosedError(text) {
   return t.includes('connection closed') || t.includes('connection close');
 }
 
+function isInvalidWhatsAppRecipientError(text) {
+  const t = String(text || '').toLowerCase();
+  return (
+    t.includes('not on whatsapp') ||
+    t.includes('not registered on whatsapp') ||
+    t.includes('does not exist on whatsapp') ||
+    t.includes('is not a whatsapp user')
+  );
+}
+
 /** Classifica erro UazAPI no mesmo vocabulário do disparador Evolution. */
 export function classifyUazapiError(err) {
   if (!(err instanceof UazapiError)) return 'unexpected';
   const status = err.status;
   const message = extractUazapiErrorText(err).toLowerCase();
 
+  // A UazAPI pode devolver destinatário inexistente como HTTP 500.
+  // O texto precisa ganhar do status para evitar retry e falso erro temporário.
+  if (isInvalidWhatsAppRecipientError(message)) return 'invalidRecipient';
   if (status === 504) return 'timeout';
   if (status === 502) return 'offline';
   if (status === 429) return 'retryable';
