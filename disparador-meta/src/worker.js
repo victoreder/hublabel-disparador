@@ -2,7 +2,12 @@ import { config } from './config.js';
 import { logger } from './logger.js';
 import { buildTemplateChatPreview } from './chatMessage.js';
 import { MetaApiError, isRecipientPhoneError, sendTemplateMessage, sendWithRetries } from './meta.js';
-import { formatPhoneForLog, getPhoneCandidatesForMeta, normalizePhone } from './phone.js';
+import {
+  formatPhoneForLog,
+  getPhoneCandidatesForMeta,
+  getPhoneCandidatesForValidatedContact,
+  normalizePhone,
+} from './phone.js';
 import { buildMetaTemplateMessage, buildTemplateComponents } from './template.js';
 import { resolveTemplatePayload, parseTemplateComponentes, extractVariableIndexes } from './resolvePayload.js';
 import {
@@ -210,6 +215,7 @@ async function sendDetail(detail) {
   const { candidates: phoneCandidates, resolution: phoneResolution } = getPhoneCandidatesForDetail(
     contato.telefone,
     detail.respostaHttp,
+    contato.validado === true,
   );
   if (!phoneCandidates.length) {
     throw new Error(`Telefone inválido para contato ${detail.idContato}`);
@@ -316,7 +322,12 @@ async function sendDetail(detail) {
   throw lastError ?? new Error('Falha ao enviar: nenhuma variante de telefone funcionou');
 }
 
-function getPhoneCandidatesForDetail(rawPhone, respostaHttp) {
+function getPhoneCandidatesForDetail(rawPhone, respostaHttp, contatoValidado = false) {
+  // Contato validado é imutável, inclusive em reenvio originado por webhook.
+  if (contatoValidado) {
+    return getPhoneCandidatesForValidatedContact(rawPhone);
+  }
+
   const override = normalizePhone(respostaHttp?._phoneOverride);
   if (override) {
     return {

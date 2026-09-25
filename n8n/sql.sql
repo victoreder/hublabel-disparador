@@ -2539,10 +2539,9 @@
     v_conn_ids := array_remove(hdr."idConexoes", p_blocked_conn_id);
     IF v_conn_ids IS NULL OR COALESCE(array_length(v_conn_ids,1),0)=0 THEN
       UPDATE public."SAAS_Disparos"
-        SET "StatusDisparo"='Cancelado', "idConexoes"=NULL
+        -- Mantém a referência da última conexão para permitir reconectar e despausar.
+        SET "StatusDisparo"='Pausado'
         WHERE id=p_disparo_id;
-      UPDATE public."SAAS_Detalhes_Disparos" SET "mensagemErro"='Whatsapp desconectado ou bloqueado'
-        WHERE "idDisparo"=p_disparo_id AND "Status" IN ('pending','processing');
       RETURN;
     END IF;
     v_new_conn_id := v_conn_ids[1];

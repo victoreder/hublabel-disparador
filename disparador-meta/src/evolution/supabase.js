@@ -21,14 +21,19 @@ export async function fetchDisparosEvolutionJanela(now = new Date()) {
 
   return (data ?? []).filter((row) => {
     const statusDisparo = String(row.StatusDisparo || '');
-    return statusDisparo !== 'Pausado' && statusDisparo !== 'Cancelado';
+    if (statusDisparo === 'Pausado' || statusDisparo === 'Cancelado') return false;
+    const provedor = String(row.provedorApi || row.ProvedorApi || 'evolution')
+      .toLowerCase()
+      .trim();
+    // Oficial usa worker Meta; aqui só Evolution/UazAPI.
+    return provedor === 'evolution' || provedor === 'uazapi' || !provedor;
   });
 }
 
 export async function fetchContato(idContato) {
   const { data, error } = await supabase
     .from('SAAS_Contatos')
-    .select('id, telefone, nome, email, variaveis, contaId, validado, tipo, created_at')
+    .select('id, telefone, lid, nome, email, variaveis, contaId, validado, tipo, created_at')
     .eq('id', idContato)
     .maybeSingle();
 
@@ -59,6 +64,17 @@ export async function markFailed(id, { userMessage, statusHttp, respostaHttp }) 
   throwIfError(error, `Erro ao marcar detalhe ${id} como failed`);
 }
 
+export async function markContactUnvalidated(idContato) {
+  if (!idContato) return;
+
+  const { error } = await supabase
+    .from('SAAS_Contatos')
+    .update({ validado: false })
+    .eq('id', idContato);
+
+  throwIfError(error, `Erro ao invalidar contato ${idContato}`);
+}
+
 export async function swapConnection(idDisparo, idConexao) {
   const { error } = await supabase.rpc('swap_connection', {
     p_disparo_id: idDisparo,
@@ -66,6 +82,17 @@ export async function swapConnection(idDisparo, idConexao) {
   });
 
   throwIfError(error, `Erro ao trocar conexão do disparo ${idDisparo}`);
+}
+
+export async function fetchMostrarMensagemDisparo(idDisparo) {
+  const { data, error } = await supabase
+    .from('SAAS_Disparos')
+    .select('mostrarMensagem')
+    .eq('id', idDisparo)
+    .maybeSingle();
+
+  throwIfError(error, `Erro ao buscar mostrarMensagem do disparo ${idDisparo}`);
+  return data?.mostrarMensagem !== false;
 }
 
 export async function salvarMensagemNoChat({

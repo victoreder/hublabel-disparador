@@ -4,12 +4,28 @@ import {
   createEvolutionClient,
   classifyEvolutionError,
   EvolutionError,
+  isInstanceConnectionOpen,
+  isRetryableEvolutionKind,
   mapMessageType,
 } from './client.js';
-import { ensureContactValidatedForDispatch } from './validarContato.js';
+import {
+  ensureContactValidatedForDispatch,
+  MSG_INEXISTENTE,
+  REASON_AMBIGUOUS,
+  REASON_API_ERROR,
+  REASON_INSTANCE_NOT_OPEN,
+} from './validarContato.js';
+import { isEnderecamentoFallbackError, isLidJid, resolveLidDoTelefone } from './lid.js';
+import {
+  createUazapiClient,
+  classifyUazapiError,
+  extractUazapiMessageId,
+  isRetryableUazapiKind,
+  isUazapiConnected,
+  mapEvolutionMediaTypeToUazapi,
+  UazapiError,
+} from '../uazapi/client.js';
 import * as evolutionDb from './supabase.js';
-
-const MSG_INEXISTENTE = 'Contato inexistente';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -37,7 +53,7 @@ function hasMedia(detalhe) {
 }
 
 function getEvolutionErrorDetails(err) {
-  if (err instanceof EvolutionError) {
+  if (err instanceof EvolutionError || err instanceof UazapiError) {
     return {
       statusHttp: err.status,
       respostaHttp: err.body ?? null,
@@ -52,10 +68,49 @@ function getEvolutionErrorDetails(err) {
   };
 }
 
+function provedorDoDetalhe(detalhe) {
+  return String(detalhe.provedorApi || detalhe.ProvedorApi || 'evolution')
+    .toLowerCase()
+    .trim();
+}
+
+function classifySendError(err) {
+  if (err instanceof UazapiError) return classifyUazapiError(err);
+  return classifyEvolutionError(err);
+}
+
+function isRetryableSendKind(kind) {
+  return isRetryableEvolutionKind(kind) || isRetryableUazapiKind(kind);
+}
+
+function uazapiClientFromDetalhe(detalhe) {
+  const baseUrl = String(detalhe.urlApi || detalhe.UrlApi || '').replace(/\/+$/, '');
+  const token = String(detalhe.ApikeyConexao || detalhe.Apikey || '').trim();
+  if (!baseUrl || !token) {
+    throw new Error('Conexao UazAPI incompleta no detalhe (urlApi/Apikey)');
+  }
+  return createUazapiClient({ baseUrl, instanceToken: token });
+}
+
+/** Destino UazAPI: telefone em dígitos; mantém @g.us / @lid intactos. */
+function destinoUazapi(number) {
+  const raw = String(number || '').trim();
+  if (!raw) return '';
+  if (raw.includes('@g.us') || raw.includes('@lid')) return raw;
+  return telefoneDigits(raw) || raw;
+}
+
+function telefoneDigits(value) {
+  return String(value || '')
+    .replace(/@.+$/, '')
+    .replace(/\D/g, '');
+}
+
 export function createDisparadorEvolution(config) {
   const evolution = createEvolutionClient(config);
 
   async function sendPayload(detalhe, telefoneDestino) {
+    const provedor = provedorDoDetalhe(detalhe);
     const instanceName = detalhe.InstanceName;
     const number = getDestino(detalhe, telefoneDestino);
     const mensagem = detalhe.Mensagem || '';
@@ -67,6 +122,38 @@ export function createDisparadorEvolution(config) {
       throw new Error(
         grupo ? 'WhatsAppIdGrupo ausente no detalhe' : 'TelefoneContato ausente no detalhe',
       );
+    }
+
+    if (provedor === 'uazapi') {
+      const uazapi = uazapiClientFromDetalhe(detalhe);
+      const destino = destinoUazapi(number);
+
+      if (!hasMedia(detalhe)) {
+        const res = await uazapi.sendText(destino, mensagem);
+        return mapMessageType('conversation', { key: { id: extractUazapiMessageId(res) } });
+      }
+
+      const media = await probeMedia(detalhe.KeyRedis);
+      const type =
+        media.mediaType === 'audio'
+          ? 'ptt'
+          : mapEvolutionMediaTypeToUazapi(`${media.mediaType}Message`);
+
+      const mediaRes = await uazapi.sendMedia({
+        number: destino,
+        type,
+        file: detalhe.KeyRedis,
+        text: mensagem || undefined,
+        ...(media.mediaType === 'document' ? { docName: media.fileName } : {}),
+      });
+
+      if (media.mediaType === 'audio' && mensagem) {
+        await uazapi.sendText(destino, mensagem);
+      }
+
+      return mapMessageType(media.mediaType, {
+        key: { id: extractUazapiMessageId(mediaRes) },
+      });
     }
 
     if (!hasMedia(detalhe)) {
@@ -97,14 +184,26 @@ export function createDisparadorEvolution(config) {
 
   async function sendWithRetry(detalhe, telefoneDestino) {
     let lastError;
+    const provedor = provedorDoDetalhe(detalhe);
     for (let attempt = 0; attempt <= config.maxRetries; attempt += 1) {
       try {
         return await sendPayload(detalhe, telefoneDestino);
       } catch (err) {
         lastError = err;
-        const kind = classifyEvolutionError(err);
-        if ((kind === 'timeout' || kind === 'offline') && attempt < config.maxRetries) {
-          await sleep(config.retryDelayMs);
+        const kind = classifySendError(err);
+        if (isRetryableSendKind(kind) && attempt < config.maxRetries) {
+          const delayMs = config.retryDelayMs * (attempt + 1);
+          logger.warn('Retry de envio nao oficial', {
+            detailId: detalhe.id,
+            disparoId: detalhe.idDisparo,
+            provedor,
+            attempt: attempt + 1,
+            maxRetries: config.maxRetries,
+            kind,
+            delayMs,
+            message: err instanceof Error ? err.message : String(err),
+          });
+          await sleep(delayMs);
           continue;
         }
         throw err;
@@ -113,9 +212,121 @@ export function createDisparadorEvolution(config) {
     throw lastError;
   }
 
-  async function markInvalidContact(detalhe) {
+  /**
+   * Só bloqueia/troca conexão se o estado real da instância não estiver open.
+   * Connection Closed / 500 com instância ainda conectada = falha de envio.
+   */
+  async function shouldSwapForDisconnect(detalhe, kind) {
+    // "disconnected" só é produzido por mensagens inequívocas da sessão.
+    if (kind === 'disconnected') return true;
+    // "Connection Closed" pode ser transitório; confirma o estado antes de retirar a conexão.
+    if (kind !== 'connectionClosed') return false;
+
+    const instanceName = detalhe.InstanceName;
+    if (!instanceName) return true;
+
+    try {
+      if (provedorDoDetalhe(detalhe) === 'uazapi') {
+        const uazapi = uazapiClientFromDetalhe(detalhe);
+        const statePayload = await uazapi.getStatus();
+        const open = isUazapiConnected(statePayload);
+        logger.info('Estado da instância UazAPI após falha de envio', {
+          detailId: detalhe.id,
+          disparoId: detalhe.idDisparo,
+          instanceName,
+          kind,
+          open,
+        });
+        return !open;
+      }
+
+      const statePayload = await evolution.getConnectionState(instanceName);
+      const open = isInstanceConnectionOpen(statePayload);
+      logger.info('Estado da instância Evolution após falha de envio', {
+        detailId: detalhe.id,
+        disparoId: detalhe.idDisparo,
+        instanceName,
+        kind,
+        open,
+        statePayload,
+      });
+      return !open;
+    } catch (stateErr) {
+      logger.warn('Não foi possível verificar connectionState — não bloqueando conexão', {
+        detailId: detalhe.id,
+        disparoId: detalhe.idDisparo,
+        instanceName,
+        kind,
+        message: stateErr instanceof Error ? stateErr.message : String(stateErr),
+      });
+      // Sem confirmação de desconexão: trata como erro de envio, não swap.
+      return false;
+    }
+  }
+
+  /**
+   * Contatos com conta migrada para o endereçamento @lid não recebem mensagem pelo telefone
+   * (Nack 463). Quando o @lid é conhecido ele vira o destino principal; caso contrário, o
+   * telefone é tentado primeiro e o @lid entra como fallback (resolvido on-demand).
+   */
+  async function sendComFallbackEnderecamento(detalhe, { telefoneDestino, lidDestino, lidAlternativo }) {
+    // UazAPI: envio só por telefone (sem fallback @lid).
+    if (provedorDoDetalhe(detalhe) === 'uazapi') {
+      const messageType = await sendWithRetry(detalhe, telefoneDestino);
+      return { messageType, destinoUsado: getDestino(detalhe, telefoneDestino) };
+    }
+
+    if (isGrupo(detalhe) || !telefoneDestino) {
+      const messageType = await sendWithRetry(detalhe, telefoneDestino);
+      return { messageType, destinoUsado: getDestino(detalhe, telefoneDestino) };
+    }
+
+    const destinos = lidDestino ? [lidDestino, telefoneDestino] : [telefoneDestino];
+    const tentados = new Set();
+    let ultimoErro;
+
+    while (destinos.length) {
+      const destino = destinos.shift();
+      if (!destino || tentados.has(destino)) continue;
+      tentados.add(destino);
+
+      try {
+        const messageType = await sendWithRetry(detalhe, destino);
+        return { messageType, destinoUsado: destino };
+      } catch (err) {
+        if (!isEnderecamentoFallbackError(err)) throw err;
+        ultimoErro = err;
+
+        logger.warn('Falha de envio Evolution — tentando outro endereçamento', {
+          detailId: detalhe.id,
+          disparoId: detalhe.idDisparo,
+          destino,
+          message: err instanceof Error ? err.message : String(err),
+        });
+
+        if (!destinos.length && !isLidJid(destino)) {
+          const lidResolvido =
+            lidAlternativo ||
+            (await resolveLidDoTelefone({
+              evolutionClient: evolution,
+              instanceName: detalhe.InstanceName,
+              telefone: destino,
+            }));
+          if (lidResolvido) destinos.push(lidResolvido);
+        }
+      }
+    }
+
+    throw ultimoErro;
+  }
+
+  async function markInvalidContact(detalhe, err = null) {
+    const { statusHttp, respostaHttp } = getEvolutionErrorDetails(err);
+    await evolutionDb.markContactUnvalidated(detalhe.idContato);
     await evolutionDb.markFailed(detalhe.id, {
       userMessage: MSG_INEXISTENTE,
+      statusHttp,
+      respostaHttp,
     });
     logger.info('Disparo marcado como falho — contato inválido', {
       detailId: detalhe.id,
@@ -124,26 +335,55 @@ export function createDisparadorEvolution(config) {
   }
 
   async function handleFailure(detalhe, err) {
-    const kind = classifyEvolutionError(err);
+    const provedor = provedorDoDetalhe(detalhe);
+    const kind = classifySendError(err);
     const { statusHttp, respostaHttp, errorMessage } = getEvolutionErrorDetails(err);
 
-    if (kind === 'disconnected') {
+    if (kind === 'invalidRecipient') {
+      await markInvalidContact(detalhe, err);
+      return { invalidRecipient: true };
+    }
+
+    if (await shouldSwapForDisconnect(detalhe, kind)) {
       await evolutionDb.swapConnection(detalhe.idDisparo, detalhe.idConexao);
-      logger.warn('Conexão trocada após desconexão Evolution', {
-        disparoId: detalhe.idDisparo,
-        detailId: detalhe.id,
+      await evolutionDb.markFailed(detalhe.id, {
+        userMessage: 'Instância desconectada',
         statusHttp,
         respostaHttp,
       });
-      return;
+      logger.warn('Conexão trocada após desconexão confirmada', {
+        disparoId: detalhe.idDisparo,
+        detailId: detalhe.id,
+        provedor,
+        kind,
+        statusHttp,
+        respostaHttp,
+      });
+      return { connectionRemoved: true, idConexao: detalhe.idConexao };
     }
 
     let userMessage = errorMessage;
     if (kind === 'apiError') userMessage = 'Erro na API';
     else if (kind === 'timeout') userMessage = 'Timeout ao enviar mensagem';
-    else if (kind === 'offline') userMessage = 'Servidor Evolution indisponivel';
+    else if (kind === 'offline') {
+      userMessage =
+        provedor === 'uazapi'
+          ? 'Servidor UazAPI indisponivel'
+          : 'Servidor Evolution indisponivel';
+    } else if (kind === 'connectionClosed') {
+      userMessage = 'Falha transitória de envio (Connection Closed)';
+    } else if (kind === 'retryable') {
+      userMessage =
+        provedor === 'uazapi'
+          ? 'Erro temporário na UazAPI'
+          : 'Erro temporário na Evolution';
+    } else if (kind === 'disconnected') {
+      // Estado ainda open (ou não verificável): não bloquear a conexão.
+      userMessage = 'Falha de envio com sinal de desconexão não confirmada';
+    }
 
     await evolutionDb.markFailed(detalhe.id, { userMessage, statusHttp, respostaHttp });
+    return { failed: true };
   }
 
   async function processDetalhe(detalhe) {
@@ -154,55 +394,125 @@ export function createDisparadorEvolution(config) {
 
     let telefoneDestino = null;
     let idContato = detalhe.idContato;
+    let lidDestino = null;
+    let lidAlternativo = null;
 
     if (tipo === 'Individual') {
-      const validation = await ensureContactValidatedForDispatch(detalhe, evolution);
+      const validatorClient =
+        provedorDoDetalhe(detalhe) === 'uazapi'
+          ? uazapiClientFromDetalhe(detalhe)
+          : evolution;
+      const validation = await ensureContactValidatedForDispatch(detalhe, validatorClient);
       if (!validation.ok) {
-        await markInvalidContact(detalhe);
+        if (validation.reason === MSG_INEXISTENTE) {
+          await markInvalidContact(detalhe);
+          return;
+        }
+
+        if (validation.reason === REASON_INSTANCE_NOT_OPEN) {
+          await evolutionDb.swapConnection(detalhe.idDisparo, detalhe.idConexao);
+          await evolutionDb.markFailed(detalhe.id, {
+            userMessage: 'Instância desconectada',
+          });
+          logger.warn('Conexão trocada — instância não open na validação do contato', {
+            detailId: detalhe.id,
+            disparoId: detalhe.idDisparo,
+            idConexao: detalhe.idConexao,
+          });
+          return { connectionRemoved: true, idConexao: detalhe.idConexao };
+        }
+
+        if (validation.reason === REASON_API_ERROR && validation.error) {
+          const outcome = await handleFailure(detalhe, validation.error);
+          const { statusHttp, respostaHttp } = getEvolutionErrorDetails(validation.error);
+          logger.error('Falha ao validar contato nao oficial', {
+            detailId: detalhe.id,
+            disparoId: detalhe.idDisparo,
+            provedor: provedorDoDetalhe(detalhe),
+            message:
+              validation.error instanceof Error
+                ? validation.error.message
+                : String(validation.error),
+            statusHttp,
+            respostaHttp,
+          });
+          return outcome;
+        }
+
+        // ambiguous_result / desconhecido: transitório — nunca "Contato inexistente".
+        await evolutionDb.markFailed(detalhe.id, {
+          userMessage:
+            validation.reason === REASON_AMBIGUOUS
+              ? 'Falha transitória na validação do contato'
+              : String(validation.reason || 'Falha transitória na validação do contato'),
+        });
+        logger.warn('Validação de contato falhou sem veredito de inexistente', {
+          detailId: detalhe.id,
+          disparoId: detalhe.idDisparo,
+          reason: validation.reason,
+        });
         return;
       }
       telefoneDestino = validation.jid;
       idContato = validation.idContato;
+      lidDestino = validation.lid ?? null;
+      lidAlternativo = validation.lidAlternativo ?? null;
     }
 
     try {
-      const messageType = await sendWithRetry(detalhe, telefoneDestino);
+      const { messageType, destinoUsado } = await sendComFallbackEnderecamento(detalhe, {
+        telefoneDestino,
+        lidDestino,
+        lidAlternativo,
+      });
       await evolutionDb.markSent(detalhe.id);
 
       if (tipo === 'Individual') {
-        try {
-          await evolutionDb.salvarMensagemNoChat({
-            idContato,
-            idConexao: detalhe.idConexao,
-            userId: detalhe.UserId,
-            mensagem: detalhe.Mensagem,
-            urlArquivo: detalhe.KeyRedis || null,
-            tipoMensagem: messageType,
-          });
-        } catch (chatErr) {
-          logger.warn('Disparo enviado, mas falhou ao salvar no chat', {
+        const mostrarMensagem = await evolutionDb.fetchMostrarMensagemDisparo(detalhe.idDisparo);
+        if (mostrarMensagem) {
+          try {
+            await evolutionDb.salvarMensagemNoChat({
+              idContato,
+              idConexao: detalhe.idConexao,
+              userId: detalhe.UserId,
+              mensagem: detalhe.Mensagem,
+              urlArquivo: detalhe.KeyRedis || null,
+              tipoMensagem: messageType,
+            });
+          } catch (chatErr) {
+            logger.warn('Disparo enviado, mas falhou ao salvar no chat', {
+              detailId: detalhe.id,
+              message: chatErr instanceof Error ? chatErr.message : String(chatErr),
+            });
+          }
+        } else {
+          logger.info('Mensagem do disparo não salva no chat (mostrarMensagem=false)', {
             detailId: detalhe.id,
-            message: chatErr instanceof Error ? chatErr.message : String(chatErr),
+            disparoId: detalhe.idDisparo,
           });
         }
       }
 
-      logger.info('Mensagem Evolution enviada', {
+      logger.info('Mensagem nao oficial enviada', {
         detailId: detalhe.id,
         disparoId: detalhe.idDisparo,
+        provedor: provedorDoDetalhe(detalhe),
         tipo,
+        enderecamento: isLidJid(destinoUsado) ? 'lid' : 'telefone',
       });
     } catch (err) {
-      await handleFailure(detalhe, err);
+      const outcome = await handleFailure(detalhe, err);
       const { statusHttp, respostaHttp } = getEvolutionErrorDetails(err);
-      logger.error('Falha ao enviar Evolution', {
+      logger.error('Falha ao enviar nao oficial', {
         detailId: detalhe.id,
         disparoId: detalhe.idDisparo,
+        provedor: provedorDoDetalhe(detalhe),
         tipo,
         message: err instanceof Error ? err.message : String(err),
         statusHttp,
         respostaHttp,
       });
+      return outcome;
     }
   }
 
@@ -211,7 +521,30 @@ export function createDisparadorEvolution(config) {
     if (pendentes.length === 0) {
       return { total: 0, processados: 0 };
     }
-    await Promise.allSettled(pendentes.map((detalhe) => processDetalhe(detalhe)));
+    const porConexao = new Map();
+    for (const detalhe of pendentes) {
+      const key = detalhe.idConexao ?? `sem-conexao:${detalhe.id}`;
+      const grupo = porConexao.get(key) ?? [];
+      grupo.push(detalhe);
+      porConexao.set(key, grupo);
+    }
+
+    for (const grupo of porConexao.values()) {
+      grupo.sort((a, b) => {
+        const byDate = new Date(a.dataEnvio).getTime() - new Date(b.dataEnvio).getTime();
+        return byDate || Number(a.id) - Number(b.id);
+      });
+    }
+
+    await Promise.allSettled(
+      [...porConexao.values()].map(async (detalhes) => {
+        for (const detalhe of detalhes) {
+          const outcome = await processDetalhe(detalhe);
+          // O RPC redistribui os demais pendentes. Não usa os dados antigos deste tick.
+          if (outcome?.connectionRemoved) break;
+        }
+      }),
+    );
     return { total: pendentes.length, processados: pendentes.length };
   }
 
