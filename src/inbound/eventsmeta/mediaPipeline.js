@@ -1,6 +1,7 @@
 import { logger } from '../../logger.js';
 import { fetchConexaoForMedia, saveMetaMediaJob } from '../../supabase.js';
 import {
+  buildFlatS3Key,
   buildPublicS3Url,
   createS3Client,
   sanitizeS3FileName,
@@ -25,7 +26,7 @@ export async function processMediaJob(job, { s3Config, metaGraphApiVersion }) {
     sanitizeS3FileName(job.filename_meta, `${job.safe_message_id}.${job.file_ext}`),
     job.file_ext,
   );
-  const s3Key = `meta/${conexao.id}/${job.safe_message_id}/${originalName}`;
+  const s3Key = buildFlatS3Key(job.safe_message_id, originalName);
   const publicLink = buildPublicS3Url(s3Config.publicBaseUrl, s3Key);
 
   const client = createS3Client(s3Config);

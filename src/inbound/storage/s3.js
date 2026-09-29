@@ -46,3 +46,15 @@ export function buildPublicS3Url(publicBaseUrl, key) {
 
   return `${String(publicBaseUrl || '').replace(/\/+$/, '')}/${encodedKey}`;
 }
+
+/**
+ * Chave na raiz do bucket (sem pastas). O id da mensagem garante unicidade;
+ * o nome original é mantido quando existe.
+ */
+export function buildFlatS3Key(safeId, originalName) {
+  const id = String(safeId || '').trim();
+  const name = String(originalName || '').trim();
+  if (!id) return name;
+  if (!name || name.startsWith(`${id}.`) || name === id) return name || id;
+  return `${id}-${name}`;
+}

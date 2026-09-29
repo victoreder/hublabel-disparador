@@ -9,6 +9,7 @@ import { buildAgentJobFromIngestao } from '../agent/job.js';
 import { enqueueAgentJob } from '../agent/queue.js';
 import { scheduleContatoFotoPerfilSync } from '../contato/fotoPerfil.js';
 import {
+  buildFlatS3Key,
   buildPublicS3Url,
   createS3Client,
   sanitizeS3FileName,
@@ -291,7 +292,7 @@ async function uploadUazapiMedia({ organized, inboundConfig, buffer, mime, json 
     sanitizeS3FileName(organized.arquivoNomeOriginal, `${safeMessageId}.${ext}`),
     ext,
   );
-  const s3Key = `uazapi/${organized.instance || 'inst'}/${safeMessageId}/${originalName}`;
+  const s3Key = buildFlatS3Key(safeMessageId, originalName);
 
   const s3 = createS3Client(inboundConfig.s3);
   await uploadBuffer({
