@@ -6,6 +6,7 @@ import { buildAgentJobFromIngestao } from '../agent/job.js';
 import { enqueueAgentJob } from '../agent/queue.js';
 import { scheduleContatoFotoPerfilSync } from '../contato/fotoPerfil.js';
 import {
+  buildFlatS3Key,
   buildPublicS3Url,
   createS3Client,
   sanitizeS3FileName,
@@ -161,7 +162,7 @@ async function processEvolutionMedia(body, organized, inboundConfig) {
     sanitizeS3FileName(originalFileName, `${safeMessageId}.${ext}`),
     ext,
   );
-  const s3Key = `evo/${organized.instance}/${safeMessageId}/${originalName}`;
+  const s3Key = buildFlatS3Key(safeMessageId, originalName);
 
   const client = createS3Client(inboundConfig.s3);
   await uploadBuffer({
