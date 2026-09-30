@@ -1,20 +1,31 @@
-const IMAGE_BLOCK_RE = /<imagem_do_contato>[\s\S]*?<\/imagem_do_contato>/g;
+const DESCRICAO_TTL_MS = 15 * 60 * 1000;
 
-/**
- * Deixa claro para o agente que o texto é a imagem enviada pelo contato (e não algo
- * que ele digitou), mantendo a legenda quando houver.
- */
-export function formatImageInput(descricao, legenda) {
-  const bloco = [
-    '<imagem_do_contato>',
-    'O contato enviou uma imagem. Você não recebe o arquivo, mas esta é a descrição fiel do que aparece nela; responda como quem viu a imagem, sem dizer que não consegue ver:',
-    descricao,
-    '</imagem_do_contato>',
-  ].join('\n');
-  return legenda ? `${bloco}\nLegenda enviada com a imagem: ${legenda}` : bloco;
+/** conversaId → descrições de imagem recentes (texto gerado por IA, não escrito pelo contato). */
+const descricoesPorConversa = new Map();
+
+function limparExpiradas(agora = Date.now()) {
+  for (const [conversaId, itens] of descricoesPorConversa) {
+    const validos = itens.filter((item) => item.expiraEm > agora);
+    if (validos.length) descricoesPorConversa.set(conversaId, validos);
+    else descricoesPorConversa.delete(conversaId);
+  }
 }
 
-/** Remove descrições de imagem (texto gerado por IA, não escrito pelo contato). */
-export function stripImageDescriptions(text) {
-  return String(text || '').replace(IMAGE_BLOCK_RE, ' ').trim();
+export function lembrarDescricaoImagem(conversaId, descricao) {
+  const texto = String(descricao || '').trim();
+  if (!conversaId || !texto) return;
+  limparExpiradas();
+  const itens = descricoesPorConversa.get(conversaId) ?? [];
+  itens.push({ texto, expiraEm: Date.now() + DESCRICAO_TTL_MS });
+  descricoesPorConversa.set(conversaId, itens);
+}
+
+/** Remove do texto as descrições de imagem da conversa, sobrando só o que o contato escreveu. */
+export function removerDescricoesImagem(conversaId, text) {
+  let resultado = String(text || '');
+  limparExpiradas();
+  for (const { texto } of descricoesPorConversa.get(conversaId) ?? []) {
+    resultado = resultado.split(texto).join(' ');
+  }
+  return resultado.trim();
 }

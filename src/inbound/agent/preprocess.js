@@ -1,6 +1,6 @@
 import { logger } from '../../logger.js';
 import { fetchMensagemArquivoUrl } from '../../supabase.js';
-import { formatImageInput } from './imageInput.js';
+import { lembrarDescricaoImagem } from './imageInput.js';
 import { sendTextReply } from './sendReply.js';
 
 const MEDIA_MESSAGE_TYPES = new Set(['imageMessage', 'audioMessage', 'videoMessage', 'documentMessage', 'stickerMessage']);
@@ -125,7 +125,9 @@ export async function preprocessInput(job, agente, agentConfig) {
     try {
       const buffer = await fetchBufferFromUrl(job.arquivoUrl);
       const descricao = await analyzeImage(agentConfig, buffer);
-      return descricao ? formatImageInput(descricao, texto) : texto || '(imagem)';
+      if (!descricao) return texto || '(imagem)';
+      lembrarDescricaoImagem(job.conversaId, descricao);
+      return texto ? `${descricao}\n\n${texto}` : descricao;
     } catch (error) {
       logger.warn('Falha ao analisar imagem', { message: error.message });
       return texto || '(falha ao analisar imagem)';
