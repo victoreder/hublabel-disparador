@@ -9,6 +9,7 @@ import {
   looksLikeRawKnowledgeDump,
 } from './knowledgePresentation.js';
 import { searchKnowledge } from './rag.js';
+import { removerDescricoesImagem } from './imageInput.js';
 
 const HTTP_RESULT_MAX_CHARS = 12_000;
 
@@ -64,9 +65,12 @@ export async function runAgentChat({
 
   const model = agente.modelo || 'gpt-4o-mini';
   const toolsExecuted = [];
-  const forceKnowledgeOnFirstRound = shouldForceKnowledgeTool(userMessage, {
-    products: agente?.produtos,
-  });
+  // A descrição da imagem sempre cita "imagem", "cor", etc. — não pode forçar a busca no
+  // conhecimento como se o contato tivesse perguntado sobre produto.
+  const forceKnowledgeOnFirstRound = shouldForceKnowledgeTool(
+    removerDescricoesImagem(job?.conversaId, userMessage),
+    { products: agente?.produtos },
+  );
   let totalTokens = 0;
   let knowledgeRewriteRequested = false;
 

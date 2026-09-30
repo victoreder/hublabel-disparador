@@ -1,5 +1,6 @@
 import { logger } from '../../logger.js';
 import { fetchMensagemArquivoUrl } from '../../supabase.js';
+import { lembrarDescricaoImagem } from './imageInput.js';
 import { sendTextReply } from './sendReply.js';
 
 const MEDIA_MESSAGE_TYPES = new Set(['imageMessage', 'audioMessage', 'videoMessage', 'documentMessage', 'stickerMessage']);
@@ -60,7 +61,7 @@ async function analyzeImage(agentConfig, buffer, mimeType = 'image/jpeg') {
           content: [
             {
               type: 'text',
-              text: 'analise os elementos da imagem e detalhe o que está vendo.\nAntes da sua descrição de imagem informe, o usuário enviou uma imagem com esse descritivo, conitnua a conversa, como quem viu a imagem',
+              text: 'Descreva de forma objetiva e detalhada o que aparece nesta imagem: objetos, pessoas, produtos, cores, textos visíveis e contexto. Responda apenas com a descrição.',
             },
             {
               type: 'image_url',
@@ -123,7 +124,10 @@ export async function preprocessInput(job, agente, agentConfig) {
     if (!job.arquivoUrl) return texto || '(imagem sem URL)';
     try {
       const buffer = await fetchBufferFromUrl(job.arquivoUrl);
-      return (await analyzeImage(agentConfig, buffer)) || texto || '(imagem)';
+      const descricao = await analyzeImage(agentConfig, buffer);
+      if (!descricao) return texto || '(imagem)';
+      lembrarDescricaoImagem(job.conversaId, descricao);
+      return texto ? `${descricao}\n\n${texto}` : descricao;
     } catch (error) {
       logger.warn('Falha ao analisar imagem', { message: error.message });
       return texto || '(falha ao analisar imagem)';
