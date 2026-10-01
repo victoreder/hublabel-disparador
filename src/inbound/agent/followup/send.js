@@ -1,5 +1,9 @@
 import { logger } from '../../../logger.js';
-import { saveMensagemIA, updateConversaUltimaMensagem } from '../../../supabase.js';
+import {
+  assertContaAtiva,
+  saveMensagemIA,
+  updateConversaUltimaMensagem,
+} from '../../../supabase.js';
 import { extractUazapiMessageId } from '../../../uazapi/client.js';
 import { normalizeMediaType } from '../mediaType.js';
 import { classifyChunk } from '../parseResponse.js';
@@ -198,6 +202,8 @@ async function enviarMenuMeta(job, corpo, menu, agentConfig) {
 }
 
 export async function enviarMenuFollowup(job, texto, menu, agentConfig) {
+  await assertContaAtiva(job?.contaId);
+
   const corpo = String(texto || '').trim() || 'Escolha uma opção:';
   const apiOficial = Boolean(job.envio?.apiOficial);
   const provedor = String(job.envio?.provedorApi || '').toLowerCase();
@@ -226,6 +232,8 @@ export async function enviarMenuFollowup(job, texto, menu, agentConfig) {
 }
 
 export async function dispararFakeCallFollowup(job, segundos) {
+  await assertContaAtiva(job?.contaId);
+
   const secs = Math.min(120, Math.max(1, Math.floor(Number(segundos) || 15)));
   const { serverUrl, instance, apikey } = job.envio ?? {};
   if (!serverUrl || !apikey || !job.telefone) {

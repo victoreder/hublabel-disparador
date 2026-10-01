@@ -1,6 +1,7 @@
 import { logger } from '../../logger.js';
 import {
   adicionarEtiquetaContato,
+  assertContaAtiva,
   atualizarCampoPersonalizado,
   buscarAtendenteAleatorio,
   buscarAtendenteAleatorioSetor,
@@ -529,6 +530,8 @@ export function isActionAuthorizedByInstrucoes(acao, agente) {
 }
 
 export async function executeAgentAction(acao, ctx) {
+  await assertContaAtiva(ctx.job?.contaId);
+
   const tipo = normalizeTipo(acao?.tipo);
   const executor = EXECUTORES[tipo];
 

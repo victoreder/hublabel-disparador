@@ -5,6 +5,7 @@ import {
   fetchAgente,
   fetchConexaoById,
   fetchContato,
+  isContaAtiva,
   supabase,
 } from '../../../supabase.js';
 import { getAgentConfig } from '../config.js';
@@ -1023,6 +1024,13 @@ export async function processarFollowupsPendentes(limite = 25) {
   let processados = 0;
   for (const row of pendentes || []) {
     try {
+      if (!(await isContaAtiva(row.idConta))) {
+        logger.info('Follow-up mantido pendente — conta bloqueada', {
+          followupId: row.id,
+          contaId: row.idConta || null,
+        });
+        continue;
+      }
       if (String(row.tipo || 'cadencia') === 'dinamico') {
         await processarDinamico(row, agentConfig);
       } else {

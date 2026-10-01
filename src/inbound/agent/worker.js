@@ -1,5 +1,5 @@
 import { logger } from '../../logger.js';
-import { fetchAgente } from '../../supabase.js';
+import { fetchAgente, isContaAtiva } from '../../supabase.js';
 import { executeAgentAction, normalizeTipo } from './actions.js';
 import { attachPendingBotoes } from './botoes.js';
 import { getAgentConfig } from './config.js';
@@ -578,6 +578,16 @@ export async function processAgentJob(job) {
     job.agente ? Promise.resolve(job.agente) : job.agenteId ? fetchAgente(job.agenteId) : Promise.resolve(null),
   ]);
   const agente = job.agente ?? agenteLoaded;
+
+  const contaId = job.contaId || agente?.contaId || null;
+  if (!(await isContaAtiva(contaId))) {
+    logger.info('Agente IA ignorado — conta bloqueada', {
+      contaId,
+      conversaId: job.conversaId || null,
+      agenteId: job.agenteId || agente?.id || null,
+    });
+    return;
+  }
 
   if (!agente) {
     logger.warn('Agente IA não encontrado', { agenteId: job.agenteId });

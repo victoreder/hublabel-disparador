@@ -1,6 +1,6 @@
 import { logger } from '../../logger.js';
 import { resolveProvedorApi } from '../../provedorApi.js';
-import { fetchConexaoById, ingestaoMensagem } from '../../supabase.js';
+import { fetchConexaoById, ingestaoMensagem, isContaAtiva } from '../../supabase.js';
 import { aposInboundCliente } from '../agent/followup/index.js';
 import { buildAgentJobFromIngestao } from '../agent/job.js';
 import { enqueueAgentJob } from '../agent/queue.js';
@@ -34,6 +34,14 @@ export async function handleEvolutionWebhook(req, inboundConfig) {
   const conexao = await fetchConexaoById(idConexao);
   if (!conexao) {
     return { status: 404, body: { ok: false, error: 'conexao nao encontrada' } };
+  }
+
+  if (!(await isContaAtiva(conexao.contaId))) {
+    logger.info('Webhook Evolution ignorado — conta bloqueada', {
+      conexaoId: idConexao,
+      contaId: conexao.contaId || null,
+    });
+    return { status: 200, body: { ok: true, ignored: 'conta_bloqueada' } };
   }
 
   const provedorQuery = String(req.query?.provedor || '').toLowerCase();

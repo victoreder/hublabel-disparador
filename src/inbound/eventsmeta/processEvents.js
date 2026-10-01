@@ -1,5 +1,10 @@
 import { logger } from '../../logger.js';
-import { fetchConexaoById, processMetaEvent } from '../../supabase.js';
+import {
+  fetchConexaoById,
+  fetchConexaoForMedia,
+  isContaAtiva,
+  processMetaEvent,
+} from '../../supabase.js';
 import { aposInboundCliente } from '../agent/followup/index.js';
 import { buildAgentJobFromMetaResult } from '../agent/job.js';
 import { enqueueAgentJob } from '../agent/queue.js';
@@ -40,12 +45,50 @@ async function loadConexaoForFotoPerfil(result) {
 export async function processEventsAsync(events, inboundConfig) {
   if (!events.length) return;
 
-  const mediaJobs = extractMediaJobs(events);
+  const activeEvents = await filterEventsForActiveAccounts(events);
+  if (!activeEvents.length) return;
+
+  const mediaJobs = extractMediaJobs(activeEvents);
 
   await Promise.all([
-    processAllEvents(events, inboundConfig),
+    processAllEvents(activeEvents, inboundConfig),
     processAllMediaJobs(mediaJobs, inboundConfig),
   ]);
+}
+
+async function filterEventsForActiveAccounts(events) {
+  const connectionCache = new Map();
+  const accountCache = new Map();
+  const active = [];
+
+  for (const event of events) {
+    const phoneNumberId = event?.value?.metadata?.phone_number_id || null;
+    const key = `${phoneNumberId || ''}:${event?.waba_id || ''}`;
+    let conexao = connectionCache.get(key);
+    if (conexao === undefined) {
+      conexao = await fetchConexaoForMedia(phoneNumberId, event?.waba_id);
+      connectionCache.set(key, conexao || null);
+    }
+
+    if (!conexao?.contaId) continue;
+    let contaAtiva = accountCache.get(conexao.contaId);
+    if (contaAtiva === undefined) {
+      contaAtiva = await isContaAtiva(conexao.contaId);
+      accountCache.set(conexao.contaId, contaAtiva);
+    }
+
+    if (contaAtiva) {
+      active.push(event);
+    } else {
+      logger.info('Evento Meta ignorado — conta bloqueada', {
+        contaId: conexao.contaId,
+        conexaoId: conexao.id,
+        field: event?.field || null,
+      });
+    }
+  }
+
+  return active;
 }
 
 /** Resultado veio de mensagem inbound (não de status sent/delivered/read). */

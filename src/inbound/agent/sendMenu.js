@@ -1,5 +1,5 @@
 import { logger } from '../../logger.js';
-import { saveMensagemIA, updateConversaUltimaMensagem } from '../../supabase.js';
+import { assertContaAtiva, saveMensagemIA, updateConversaUltimaMensagem } from '../../supabase.js';
 import { extractUazapiMessageId } from '../../uazapi/client.js';
 import { formatMenuAsTexto, labelsDoMenu } from './botoes.js';
 import { sendTextReply } from './sendReply.js';
@@ -131,6 +131,8 @@ async function enviarMenuMeta(job, corpo, menu, agentConfig) {
  * - Evolution → texto com "— opção" (sem botão nativo)
  */
 export async function sendAgentMenu(job, texto, menu, agentConfig) {
+  await assertContaAtiva(job?.contaId);
+
   const corpo = String(texto || '').trim() || 'Escolha uma opção:';
   const apiOficial = Boolean(job.envio?.apiOficial);
   const provedor = String(job.envio?.provedorApi || '').toLowerCase();

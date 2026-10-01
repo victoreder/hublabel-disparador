@@ -1,4 +1,4 @@
-import { supabase } from '../supabase.js';
+import { fetchContasAtivas, supabase } from '../supabase.js';
 
 function throwIfError(error, context) {
   if (error) {
@@ -19,7 +19,9 @@ export async function fetchDisparosEvolutionJanela(now = new Date()) {
 
   throwIfError(error, 'Erro ao buscar disparos Evolution');
 
+  const contasAtivas = await fetchContasAtivas((data ?? []).map((row) => row.UserId));
   return (data ?? []).filter((row) => {
+    if (!contasAtivas.has(row.UserId)) return false;
     const statusDisparo = String(row.StatusDisparo || '');
     if (statusDisparo === 'Pausado' || statusDisparo === 'Cancelado') return false;
     const provedor = String(row.provedorApi || row.ProvedorApi || 'evolution')

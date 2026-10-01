@@ -80,6 +80,47 @@ function mapSupabaseError(error, context) {
   return new Error(`${context}: ${error.message}`);
 }
 
+export class ContaBloqueadaError extends Error {
+  constructor(contaId) {
+    super(`Conta ${contaId || 'desconhecida'} bloqueada`);
+    this.name = 'ContaBloqueadaError';
+    this.code = 'CONTA_BLOQUEADA';
+    this.contaId = contaId || null;
+  }
+}
+
+/** status=true e a unica condicao que libera processamento operacional. */
+export async function isContaAtiva(contaId) {
+  if (!contaId) return false;
+
+  const { data, error } = await supabase
+    .from('SAAS_Contas')
+    .select('status')
+    .eq('id', contaId)
+    .maybeSingle();
+
+  if (error) throw mapSupabaseError(error, `Erro ao verificar status da conta ${contaId}`);
+  return data?.status === true;
+}
+
+export async function assertContaAtiva(contaId) {
+  if (!(await isContaAtiva(contaId))) throw new ContaBloqueadaError(contaId);
+}
+
+export async function fetchContasAtivas(contaIds) {
+  const ids = [...new Set((contaIds || []).filter(Boolean))];
+  if (!ids.length) return new Set();
+
+  const { data, error } = await supabase
+    .from('SAAS_Contas')
+    .select('id')
+    .in('id', ids)
+    .eq('status', true);
+
+  if (error) throw mapSupabaseError(error, 'Erro ao buscar contas ativas');
+  return new Set((data || []).map((row) => row.id));
+}
+
 const INACTIVE_DISPARO = new Set(['pausado', 'cancelado', 'finalizado']);
 /** Após o horário agendado, ainda processa por até 7 dias (antes: 1 dia — campanhas atrasadas ficavam pending para sempre). */
 const AGENDAMENTO_TOLERANCIA_MS = 7 * 24 * 60 * 60 * 1000;
@@ -133,7 +174,7 @@ export function isDisparoEmailEligible(disparo) {
 export async function fetchActiveDisparoIds() {
   const { data, error } = await supabase
     .from('SAAS_Disparos')
-    .select('id, StatusDisparo, TipoDisparo, DataAgendamento')
+    .select('id, contaId, StatusDisparo, TipoDisparo, DataAgendamento')
     .ilike('TipoDisparo', 'apioficial')
     .in('StatusDisparo', ['Aguardando', 'Em andamento'])
     .order('id', { ascending: false })
@@ -141,13 +182,16 @@ export async function fetchActiveDisparoIds() {
 
   if (error) throw mapSupabaseError(error, 'Erro ao buscar disparos ativos');
 
-  return (data ?? []).filter(isDisparoEligible).map((disparo) => disparo.id);
+  const contasAtivas = await fetchContasAtivas((data ?? []).map((disparo) => disparo.contaId));
+  return (data ?? [])
+    .filter((disparo) => contasAtivas.has(disparo.contaId) && isDisparoEligible(disparo))
+    .map((disparo) => disparo.id);
 }
 
 export async function fetchActiveEmailDisparoIds() {
   const { data, error } = await supabase
     .from('SAAS_Disparos')
-    .select('id, StatusDisparo, TipoDisparo, DataAgendamento')
+    .select('id, contaId, StatusDisparo, TipoDisparo, DataAgendamento')
     .ilike('TipoDisparo', 'email')
     .in('StatusDisparo', ['Aguardando', 'Em andamento'])
     .order('id', { ascending: false })
@@ -155,7 +199,10 @@ export async function fetchActiveEmailDisparoIds() {
 
   if (error) throw mapSupabaseError(error, 'Erro ao buscar disparos de e-mail ativos');
 
-  return (data ?? []).filter(isDisparoEmailEligible).map((disparo) => disparo.id);
+  const contasAtivas = await fetchContasAtivas((data ?? []).map((disparo) => disparo.contaId));
+  return (data ?? [])
+    .filter((disparo) => contasAtivas.has(disparo.contaId) && isDisparoEmailEligible(disparo))
+    .map((disparo) => disparo.id);
 }
 
 export async function fetchPendingDetails(disparoIds, limit = 1) {
@@ -179,7 +226,7 @@ export async function fetchPendingDetails(disparoIds, limit = 1) {
 export async function fetchDisparo(idDisparo) {
   const { data, error } = await supabase
     .from('SAAS_Disparos')
-    .select('id, StatusDisparo, TipoDisparo, DataAgendamento, mostrarMensagem')
+    .select('id, contaId, StatusDisparo, TipoDisparo, DataAgendamento, mostrarMensagem')
     .eq('id', idDisparo)
     .maybeSingle();
 

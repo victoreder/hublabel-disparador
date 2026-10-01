@@ -1,4 +1,5 @@
 import { logger } from '../logger.js';
+import { assertContaAtiva, ContaBloqueadaError, isContaAtiva } from '../supabase.js';
 import { probeMedia } from './mediaType.js';
 import {
   createEvolutionClient,
@@ -387,7 +388,18 @@ export function createDisparadorEvolution(config) {
   }
 
   async function processDetalhe(detalhe) {
+    if (!(await isContaAtiva(detalhe.UserId))) {
+      logger.info('Disparo nao oficial ignorado — conta bloqueada', {
+        detailId: detalhe.id,
+        disparoId: detalhe.idDisparo,
+        contaId: detalhe.UserId || null,
+      });
+      return { accountBlocked: true };
+    }
+
     await waitUntil(detalhe.dataEnvio);
+
+    if (!(await isContaAtiva(detalhe.UserId))) return { accountBlocked: true };
 
     const tipo = String(detalhe.TipoDisparo || '');
     if (tipo !== 'Individual' && tipo !== 'Grupos') return;
@@ -460,6 +472,7 @@ export function createDisparadorEvolution(config) {
     }
 
     try {
+      await assertContaAtiva(detalhe.UserId);
       const { messageType, destinoUsado } = await sendComFallbackEnderecamento(detalhe, {
         telefoneDestino,
         lidDestino,
@@ -501,6 +514,14 @@ export function createDisparadorEvolution(config) {
         enderecamento: isLidJid(destinoUsado) ? 'lid' : 'telefone',
       });
     } catch (err) {
+      if (err instanceof ContaBloqueadaError) {
+        logger.info('Disparo nao oficial interrompido — conta bloqueada', {
+          detailId: detalhe.id,
+          disparoId: detalhe.idDisparo,
+          contaId: detalhe.UserId || null,
+        });
+        return { accountBlocked: true };
+      }
       const outcome = await handleFailure(detalhe, err);
       const { statusHttp, respostaHttp } = getEvolutionErrorDetails(err);
       logger.error('Falha ao enviar nao oficial', {

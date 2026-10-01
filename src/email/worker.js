@@ -1,7 +1,9 @@
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import {
+  assertContaAtiva,
   claimDetail,
+  ContaBloqueadaError,
   fetchActiveEmailDisparoIds,
   fetchDisparo,
   fetchPendingDetails,
@@ -135,7 +137,8 @@ export function createEmailWorker() {
         return;
       }
 
-      const result = await sendEmailDetail(detail);
+      await assertContaAtiva(disparo.contaId);
+      const result = await sendEmailDetail(detail, disparo.contaId);
 
       await markDetailSent(detail.id, {
         statusHttp: 250,
@@ -157,6 +160,17 @@ export function createEmailWorker() {
         messageId: result.messageId,
       });
     } catch (error) {
+      if (error instanceof ContaBloqueadaError) {
+        await releaseDetail(detail.id);
+        stats.skipped += 1;
+        logger.info('Detalhe de e-mail liberado — conta bloqueada', {
+          detailId: detail.id,
+          disparoId: detail.idDisparo,
+          contaId: error.contaId,
+        });
+        return;
+      }
+
       stats.failed += 1;
       stats.lastError = error.message;
 
@@ -186,7 +200,7 @@ export function createEmailWorker() {
   return { start, stop, getStats };
 }
 
-async function sendEmailDetail(detail) {
+async function sendEmailDetail(detail, contaId) {
   const payload = parseEmailPayload(detail.Payload);
   const email = String(payload.email || '').trim();
   const assunto = String(payload.assunto || '').trim();
@@ -207,6 +221,7 @@ async function sendEmailDetail(detail) {
   }
 
   const remetente = await fetchRemetenteEmail(remetenteId);
+  await assertContaAtiva(contaId);
   const result = await sendDispatchEmail({ remetente, to: email, subject: assunto, html });
   return { ...result, email, remetenteId };
 }

@@ -1,5 +1,5 @@
 import { logger } from '../../logger.js';
-import { fetchConexaoById, ingestaoMensagem } from '../../supabase.js';
+import { fetchConexaoById, ingestaoMensagem, isContaAtiva } from '../../supabase.js';
 import {
   createUazapiClient,
   mapUazapiMessageTypeToEvolution,
@@ -43,6 +43,14 @@ export async function handleUazapiWebhook(req, inboundConfig, conexaoPreloaded) 
   const conexao = conexaoPreloaded || (await fetchConexaoById(idConexao));
   if (!conexao) {
     return { status: 404, body: { ok: false, error: 'conexao nao encontrada' } };
+  }
+
+  if (!(await isContaAtiva(conexao.contaId))) {
+    logger.info('Webhook UazAPI ignorado — conta bloqueada', {
+      conexaoId: idConexao,
+      contaId: conexao.contaId || null,
+    });
+    return { status: 200, body: { ok: true, ignored: 'conta_bloqueada' } };
   }
 
   const organized = organizeUazapiWebhook(body, conexao);

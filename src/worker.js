@@ -17,7 +17,9 @@ import {
   assertTemplateTextParameters,
 } from './resolvePayload.js';
 import {
+  assertContaAtiva,
   claimDetail,
+  ContaBloqueadaError,
   fetchCamposPersonalizados,
   fetchConexao,
   fetchContato,
@@ -190,6 +192,8 @@ export function createWorker() {
         return;
       }
 
+      await assertContaAtiva(disparo.contaId);
+
       const result = await sendDetail(detail);
 
       const metaMessageId = result.body?.messages?.[0]?.id ?? null;
@@ -250,6 +254,17 @@ export function createWorker() {
         telefone: formatPhoneForLog(result.phoneUsed),
       });
     } catch (error) {
+      if (error instanceof ContaBloqueadaError) {
+        await releaseDetail(detail.id);
+        stats.skipped += 1;
+        logger.info('Detalhe liberado — conta bloqueada', {
+          detailId: detail.id,
+          disparoId: detail.idDisparo,
+          contaId: error.contaId,
+        });
+        return;
+      }
+
       stats.failed += 1;
       stats.lastError = error.message;
 
@@ -399,6 +414,7 @@ async function sendDetail(detail) {
   if (!contaId) {
     throw new Error(`Conta não encontrada para conexão ${detail.idConexao} / contato ${detail.idContato}`);
   }
+  await assertContaAtiva(contaId);
 
   let lastError;
   for (let i = 0; i < phoneCandidates.length; i += 1) {

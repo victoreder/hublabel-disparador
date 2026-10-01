@@ -5,7 +5,7 @@ import {
   normalizeLidJid,
   resolveLidDoTelefone,
 } from '../../evolution/lid.js';
-import { saveMensagemIA, updateConversaUltimaMensagem } from '../../supabase.js';
+import { assertContaAtiva, saveMensagemIA, updateConversaUltimaMensagem } from '../../supabase.js';
 import { logger } from '../../logger.js';
 import {
   createUazapiClient,
@@ -135,6 +135,8 @@ export async function sendTextReply(job, text, agentConfig) {
 }
 
 export async function sendAgentChunk(job, chunk, agentConfig) {
+  await assertContaAtiva(job?.contaId);
+
   const sendStartedAt = Date.now();
   const kind = chunk.kind || classifyChunk(chunk.text);
   const text = stripActionMarkers(chunk.text);

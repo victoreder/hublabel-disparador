@@ -12,6 +12,7 @@ import { resolveProvedorApi } from '../../provedorApi.js';
 import {
   fetchConexaoById,
   fetchContextoEnvioChat,
+  isContaAtiva,
   marcarMensagemChatEnviada,
 } from '../../supabase.js';
 import { invalidateChatHistory } from '../agent/memory.js';
@@ -95,6 +96,9 @@ async function carregarContexto(body) {
   ]);
 
   if (!conexao) throw new HttpError('Conexao nao encontrada.', 404);
+  if (!(await isContaAtiva(conexao.contaId))) {
+    throw new HttpError('Conta bloqueada. Envio desativado.', 403);
+  }
   if (!contexto || contexto.mensagem.contaId !== conexao.contaId) {
     throw new HttpError('Mensagem nao pertence a conexao informada.', 403);
   }
