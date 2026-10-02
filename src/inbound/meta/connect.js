@@ -14,26 +14,30 @@ const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 15;
 const REGISTER_RETRY_DELAY_MS = 3000;
 const REGISTER_MAX_ATTEMPTS = 3;
+// Quando a Meta devolve o evento de coexistencia, espera um pouco o is_on_biz_app propagar
+// antes de concluir que o numero nao esta no app Business (e registrar).
+const COEX_WAIT_ATTEMPTS = 5;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function normalizeFlowType(body) {
+// embeddedSignupEvent e o `event` que a Meta devolve no postMessage WA_EMBEDDED_SIGNUP
+// (FINISH = numero novo, FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING = coexistencia) e e repassado
+// como veio. flowType e so uma dica do front: no Embedded Signup v4 o cliente escolhe numero novo
+// ou numero do app Business dentro do proprio fluxo, entao o front nao sabe de antemao.
+export function normalizeFlowType(body) {
   const embeddedSignupEvent =
     body?.embeddedSignupEvent ||
     body?.embedded_signup_event ||
     body?.session?.embeddedSignupEvent ||
+    body?.session?.event ||
     null;
 
   const flowTypeRaw = body?.flowType || body?.flow_type || null;
 
-  if (
-    flowTypeRaw === 'coexistence' ||
-    flowTypeRaw === 'whatsapp_business_app_onboarding' ||
-    embeddedSignupEvent === EMBEDDED_SIGNUP_EVENT_COEXISTENCE
-  ) {
-    return { flowType: 'coexistence', embeddedSignupEvent: embeddedSignupEvent || EMBEDDED_SIGNUP_EVENT_COEXISTENCE };
+  if (flowTypeRaw === 'coexistence' || flowTypeRaw === 'whatsapp_business_app_onboarding') {
+    return { flowType: 'coexistence', embeddedSignupEvent };
   }
 
   if (flowTypeRaw === 'standard' || flowTypeRaw === 'new_number') {
@@ -86,14 +90,28 @@ function isCoexistencePhone(phoneRes) {
   return phoneRes?.is_on_biz_app === true;
 }
 
-function isExplicitCoexistenceFlow({ flowType, embeddedSignupEvent }) {
-  return flowType === 'coexistence' || embeddedSignupEvent === EMBEDDED_SIGNUP_EVENT_COEXISTENCE;
+function isMetaCoexistenceEvent({ embeddedSignupEvent }) {
+  return embeddedSignupEvent === EMBEDDED_SIGNUP_EVENT_COEXISTENCE;
 }
 
-function isPhoneReadyForRegister(phoneRes, { coexistence }) {
-  if (coexistence) return true;
-  if (phoneRes?.status === 'CONNECTED') return true;
-  return phoneRes?.code_verification_status === 'VERIFIED';
+function isFrontCoexistenceHint({ flowType, embeddedSignupEvent }) {
+  return flowType === 'coexistence' || isMetaCoexistenceEvent({ embeddedSignupEvent });
+}
+
+/**
+ * Decide, a cada leitura do numero na Meta, o que fazer:
+ * - 'coexistence': numero esta no app WhatsApp Business (is_on_biz_app) -> nao registrar.
+ * - 'ready': numero novo verificado/conectado -> seguir para o /register (ou pular se CONNECTED).
+ * - 'wait': ainda propagando.
+ * A coexistencia vem do estado real do numero, nunca so do que o front diz; o evento de
+ * coexistencia da Meta apenas segura o register por alguns ciclos esperando o is_on_biz_app.
+ */
+export function decidePhoneAction(phone, { metaCoexistenceEvent = false, attempt = 1 } = {}) {
+  if (isCoexistencePhone(phone)) return 'coexistence';
+  if (metaCoexistenceEvent && attempt <= COEX_WAIT_ATTEMPTS) return 'wait';
+  if (phone?.status === 'CONNECTED') return 'ready';
+  if (phone?.code_verification_status === 'VERIFIED') return 'ready';
+  return 'wait';
 }
 
 async function fetchPhoneState(version, phoneNumberId, accessToken) {
@@ -153,7 +171,15 @@ async function subscribeWaba(version, wabaId, accessToken) {
   return res;
 }
 
-async function waitForPhoneReady(version, phoneNumberId, accessToken, { coexistence, initialPhone = null }) {
+// A coexistencia e decidida pelo estado real do numero na Meta (is_on_biz_app), nao pelo
+// flowType enviado pelo front: o front sinalizava coexistencia para numeros novos, o /register
+// era pulado e o numero ficava PENDING na Meta.
+async function waitForPhoneReady(
+  version,
+  phoneNumberId,
+  accessToken,
+  { initialPhone = null, metaCoexistenceEvent = false },
+) {
   let phone = initialPhone;
 
   for (let attempt = 1; attempt <= POLL_MAX_ATTEMPTS; attempt++) {
@@ -161,10 +187,10 @@ async function waitForPhoneReady(version, phoneNumberId, accessToken, { coexiste
       phone = await fetchPhoneState(version, phoneNumberId, accessToken);
     }
 
-    const coexistenceDetectada = coexistence || isCoexistencePhone(phone);
+    const acao = decidePhoneAction(phone, { metaCoexistenceEvent, attempt });
 
-    if (isPhoneReadyForRegister(phone, { coexistence: coexistenceDetectada })) {
-      return { phone, coexistence: coexistenceDetectada, attempts: attempt };
+    if (acao !== 'wait') {
+      return { phone, coexistence: acao === 'coexistence', attempts: attempt };
     }
 
     if (attempt < POLL_MAX_ATTEMPTS) {
@@ -182,23 +208,35 @@ async function waitForPhoneReady(version, phoneNumberId, accessToken, { coexiste
 
   return {
     phone,
-    coexistence: coexistence || isCoexistencePhone(phone),
+    coexistence: isCoexistencePhone(phone),
     attempts: POLL_MAX_ATTEMPTS,
     timedOut: true,
   };
 }
 
 async function registerPhoneIfNeeded(version, phoneNumberId, accessToken, options = {}) {
-  const explicitCoexistence = isExplicitCoexistenceFlow(options);
+  const frontCoexistenceHint = isFrontCoexistenceHint(options);
   const { phone, coexistence, attempts, timedOut } = await waitForPhoneReady(
     version,
     phoneNumberId,
     accessToken,
     {
-      coexistence: explicitCoexistence,
       initialPhone: options.initialPhone || null,
+      metaCoexistenceEvent: isMetaCoexistenceEvent(options),
     },
   );
+
+  if (frontCoexistenceHint && !coexistence) {
+    logger.warn('[meta-token] front sinalizou coexistencia mas o numero nao esta no app Business; tratando como numero novo', {
+      phone_number_id: phoneNumberId,
+      embeddedSignupEvent: options.embeddedSignupEvent || null,
+      flowType: options.flowType || null,
+      status: phone.status || null,
+      code_verification_status: phone.code_verification_status || null,
+      is_on_biz_app: phone.is_on_biz_app ?? null,
+      platform_type: phone.platform_type || null,
+    });
+  }
 
   const statusAntes = phone.status || null;
   let pin = null;
