@@ -117,9 +117,9 @@ async function evolutionPost(path, { baseUrl, apikey }, body = {}) {
 
 function mapGrupoListItem(row) {
   return {
-    id: row.id || row.jid || row.groupJid || row.groupjid || null,
+    id: row.id || row.JID || row.jid || row.groupJid || row.groupjid || null,
     subject: row.subject || row.Name || row.name || row.subjectOwner || null,
-    owner: row.owner || row.Owner || null,
+    owner: row.owner || row.Owner || row.OwnerJID || null,
     announce: row.announce ?? row.IsAnnounce ?? row.isAnnounce ?? null,
     isCommunity: row.isCommunity ?? row.IsCommunity ?? null,
   };

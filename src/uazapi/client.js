@@ -129,6 +129,14 @@ function normalizeChatCheckResults(data, fallbackNumbers = []) {
   });
 }
 
+function extractGroupList(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.groups)) return payload.groups;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.groups)) return payload.data.groups;
+  return [];
+}
+
 export function isUazapiConnected(statusPayload) {
   const status = String(
     statusPayload?.instance?.status ||
@@ -275,8 +283,53 @@ export function createUazapiClient(config) {
       listContacts() {
         return request('GET', '/contacts', { token });
       },
-      listGroups() {
-        return request('GET', '/group/list', { token });
+      /**
+       * POST /group/list — body { limit, offset, force, noParticipants }.
+       * Pagina até esgotar; cai para GET /group/list em servidores antigos.
+       */
+      async listGroups({ pageSize = 500, maxPages = 50 } = {}) {
+        let first;
+        try {
+          first = await request('POST', '/group/list', {
+            token,
+            body: { limit: pageSize, offset: 0, force: false, noParticipants: true },
+          });
+        } catch (err) {
+          if (err instanceof UazapiError && (err.status === 404 || err.status === 405)) {
+            return request('GET', '/group/list?noparticipants=true', { token });
+          }
+          throw err;
+        }
+
+        const groups = [];
+        const vistos = new Set();
+        const addPage = (payload) => {
+          const page = extractGroupList(payload);
+          let novos = 0;
+          for (const g of page) {
+            const jid = String(g?.JID || g?.jid || g?.id || '').toLowerCase();
+            if (jid && vistos.has(jid)) continue;
+            if (jid) vistos.add(jid);
+            groups.push(g);
+            novos += 1;
+          }
+          return { total: page.length, novos };
+        };
+
+        let { total, novos } = addPage(first);
+        for (let pagina = 1; pagina < maxPages && total >= pageSize && novos > 0; pagina += 1) {
+          const payload = await request('POST', '/group/list', {
+            token,
+            body: {
+              limit: pageSize,
+              offset: pagina * pageSize,
+              force: false,
+              noParticipants: true,
+            },
+          });
+          ({ total, novos } = addPage(payload));
+        }
+        return { groups };
       },
       getGroupInfo(groupJid) {
         return request('POST', '/group/info', {
