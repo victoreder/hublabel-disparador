@@ -153,7 +153,11 @@ async function subscribeWaba(version, wabaId, accessToken) {
   return res;
 }
 
-async function waitForPhoneReady(version, phoneNumberId, accessToken, { coexistence, initialPhone = null }) {
+// A coexistencia e decidida pelo estado real do numero na Meta (is_on_biz_app), nao pelo
+// flowType/evento enviado pelo front: em configs de Embedded Signup sem o passo de escolha
+// (numero novo x app WhatsApp Business) o front pode sinalizar coexistencia para um numero
+// novo, e pular o /register deixava o numero PENDING na Meta.
+async function waitForPhoneReady(version, phoneNumberId, accessToken, { initialPhone = null }) {
   let phone = initialPhone;
 
   for (let attempt = 1; attempt <= POLL_MAX_ATTEMPTS; attempt++) {
@@ -161,7 +165,7 @@ async function waitForPhoneReady(version, phoneNumberId, accessToken, { coexiste
       phone = await fetchPhoneState(version, phoneNumberId, accessToken);
     }
 
-    const coexistenceDetectada = coexistence || isCoexistencePhone(phone);
+    const coexistenceDetectada = isCoexistencePhone(phone);
 
     if (isPhoneReadyForRegister(phone, { coexistence: coexistenceDetectada })) {
       return { phone, coexistence: coexistenceDetectada, attempts: attempt };
@@ -182,7 +186,7 @@ async function waitForPhoneReady(version, phoneNumberId, accessToken, { coexiste
 
   return {
     phone,
-    coexistence: coexistence || isCoexistencePhone(phone),
+    coexistence: isCoexistencePhone(phone),
     attempts: POLL_MAX_ATTEMPTS,
     timedOut: true,
   };
@@ -194,11 +198,20 @@ async function registerPhoneIfNeeded(version, phoneNumberId, accessToken, option
     version,
     phoneNumberId,
     accessToken,
-    {
-      coexistence: explicitCoexistence,
-      initialPhone: options.initialPhone || null,
-    },
+    { initialPhone: options.initialPhone || null },
   );
+
+  if (explicitCoexistence && !coexistence) {
+    logger.warn('[meta-token] front sinalizou coexistencia mas o numero nao esta no app Business; registrando', {
+      phone_number_id: phoneNumberId,
+      embeddedSignupEvent: options.embeddedSignupEvent || null,
+      flowType: options.flowType || null,
+      status: phone.status || null,
+      code_verification_status: phone.code_verification_status || null,
+      is_on_biz_app: phone.is_on_biz_app ?? null,
+      platform_type: phone.platform_type || null,
+    });
+  }
 
   const statusAntes = phone.status || null;
   let pin = null;

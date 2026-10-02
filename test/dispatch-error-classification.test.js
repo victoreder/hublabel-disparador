@@ -89,3 +89,30 @@ test('Evolution reconhece sessão WhatsApp não reconectável como desconectada'
   assert.equal(kind, 'disconnected');
   assert.equal(isRetryableEvolutionKind(kind), false);
 });
+
+// src/meta.js importa src/config.js, que exige estas variaveis; valores ficticios bastam aqui.
+async function importMeta() {
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??= 'test';
+  process.env.SUPABASE_URL ??= 'http://localhost';
+  return import('../src/meta.js');
+}
+
+test('Meta 133010 (numero remetente nao registrado) nao vira contato inexistente', async () => {
+  const { MetaApiError, isRecipientPhoneError, isSenderNotRegisteredError } = await importMeta();
+  const error = new MetaApiError('Account not registered', {
+    status: 400,
+    body: { error: { code: 133010, message: 'Account not registered' } },
+  });
+  assert.equal(isSenderNotRegisteredError(error), true);
+  assert.equal(isRecipientPhoneError(error), false);
+});
+
+test('Meta 131026 continua sendo erro de destinatario', async () => {
+  const { MetaApiError, isRecipientPhoneError, isSenderNotRegisteredError } = await importMeta();
+  const error = new MetaApiError('Message undeliverable', {
+    status: 400,
+    body: { error: { code: 131026, message: 'Message undeliverable' } },
+  });
+  assert.equal(isSenderNotRegisteredError(error), false);
+  assert.equal(isRecipientPhoneError(error), true);
+});

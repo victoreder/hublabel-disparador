@@ -9,10 +9,21 @@ const RECIPIENT_ERROR_CODES = new Set([
   131026, // Message undeliverable
   131030, // Recipient not in allowed list
   131051, // Unsupported / invalid phone
-  133010, // Phone number not valid
-  133015, // Phone number not valid
   135000, // Generic user error (sometimes phone)
 ]);
+
+/**
+ * Erros do numero REMETENTE (conexao), nao do destinatario. 133010 = "Account not registered":
+ * o numero esta PENDING na Meta (nunca passou pelo /register) e nenhuma mensagem sai.
+ */
+const SENDER_NOT_REGISTERED_CODES = new Set([
+  133010, // Account not registered
+]);
+
+export function isSenderNotRegisteredError(error) {
+  if (!(error instanceof MetaApiError)) return false;
+  return SENDER_NOT_REGISTERED_CODES.has(Number(error.body?.error?.code));
+}
 
 function errorDetailsText(error) {
   return String(error?.body?.error?.error_data?.details || '').toLowerCase();
@@ -20,6 +31,7 @@ function errorDetailsText(error) {
 
 export function isRecipientPhoneError(error) {
   if (!(error instanceof MetaApiError)) return false;
+  if (isSenderNotRegisteredError(error)) return false;
 
   const code = Number(error.body?.error?.code);
   const details = errorDetailsText(error);

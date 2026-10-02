@@ -1,7 +1,13 @@
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { buildTemplateChatPreview } from './chatMessage.js';
-import { MetaApiError, isRecipientPhoneError, sendTemplateMessage, sendWithRetries } from './meta.js';
+import {
+  MetaApiError,
+  isRecipientPhoneError,
+  isSenderNotRegisteredError,
+  sendTemplateMessage,
+  sendWithRetries,
+} from './meta.js';
 import {
   formatPhoneForLog,
   getPhoneCandidatesForMeta,
@@ -37,6 +43,8 @@ import {
 
 const MSG_CONTATO_INEXISTENTE = 'Contato inexistente';
 const MSG_VARIAVEL_TEMPLATE_VAZIA = 'Variável do template sem valor';
+const MSG_REMETENTE_NAO_REGISTRADO =
+  'Número da conexão não registrado na Meta (status Pendente). Reconecte a conexão API Oficial.';
 
 function parseRespostaHttp(raw) {
   if (raw == null) return {};
@@ -81,6 +89,7 @@ function isWebhookPhoneRetryResend(respostaHttp) {
 
 function formatDispatchError(error) {
   if (!(error instanceof MetaApiError)) return error.message;
+  if (isSenderNotRegisteredError(error)) return MSG_REMETENTE_NAO_REGISTRADO;
 
   const details = String(error.body?.error?.error_data?.details || '');
   if (details.includes('missing text value')) {
