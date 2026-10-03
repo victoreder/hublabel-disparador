@@ -1,3 +1,5 @@
+import { isLidJid, normalizeLidJid } from '../evolution/lid.js';
+
 export class UazapiError extends Error {
   constructor(status, message, body) {
     super(message || `UazAPI HTTP ${status}`);
@@ -101,6 +103,12 @@ export function isRetryableUazapiKind(kind) {
   );
 }
 
+function fallbackJid(number) {
+  const value = String(number || '');
+  if (!value) return null;
+  return value.includes('@') ? value : `${value}@s.whatsapp.net`;
+}
+
 function normalizeChatCheckResults(data, fallbackNumbers = []) {
   const list = Array.isArray(data)
     ? data
@@ -122,7 +130,7 @@ function normalizeChatCheckResults(data, fallbackNumbers = []) {
     );
     return {
       exists,
-      jid: jid || (exists ? `${fallbackNumbers[i] || ''}@s.whatsapp.net` : null),
+      jid: jid || (exists ? fallbackJid(fallbackNumbers[i]) : null),
       number: String(o.number || o.query || o.phone || fallbackNumbers[i] || ''),
       lid: o.lid || o.jidLid || o.lidJid || null,
     };
@@ -233,9 +241,10 @@ export function createUazapiClient(config) {
        * Compatível com ensureContactValidatedForDispatch (Evolution API shape).
        */
       async checkWhatsAppNumbers(_instanceName, numbers) {
+        // @lid é enviado como "<digitos>@lid" (sem device); telefone vira só dígitos.
         const cleaned = (Array.isArray(numbers) ? numbers : [numbers])
-          .map((n) => String(n || '').replace(/\D/g, ''))
-          .filter((n) => n.length >= 10);
+          .map((n) => (isLidJid(n) ? normalizeLidJid(n) : String(n || '').replace(/\D/g, '')))
+          .filter((n) => n && (isLidJid(n) || n.length >= 10));
         if (!cleaned.length) return [];
 
         const data = await request('POST', '/chat/check', {

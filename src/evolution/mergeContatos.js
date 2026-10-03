@@ -120,7 +120,11 @@ async function mergeCards(keepId, removeId) {
   throwIfError(error, 'Erro ao mover cards do contato duplicado');
 }
 
-export async function mergeContatosDuplicados({ keepId, removeId, contaId, jid }) {
+function validatedContactPatch(jid, lid) {
+  return lid ? { telefone: jid, validado: true, lid } : { telefone: jid, validado: true };
+}
+
+export async function mergeContatosDuplicados({ keepId, removeId, contaId, jid, lid = null }) {
   await mergeEtiquetas(keepId, removeId, contaId);
   await mergeCamposPersonalizados(keepId, removeId, contaId);
   await mergeConversas(keepId, removeId, jid);
@@ -128,7 +132,7 @@ export async function mergeContatosDuplicados({ keepId, removeId, contaId, jid }
 
   const { error: updErr } = await supabase
     .from('SAAS_Contatos')
-    .update({ telefone: jid, validado: true })
+    .update(validatedContactPatch(jid, lid))
     .eq('id', keepId);
 
   throwIfError(updErr, 'Erro ao atualizar contato mantido após mesclagem');
@@ -154,25 +158,26 @@ export async function findExistingContactByPhone(contaId, jid, excludeId) {
   return (data ?? []).find((row) => phonesMatch(row.telefone, jid)) ?? null;
 }
 
-export async function persistValidatedContactPhone({ contatoId, contaId, jid }) {
+/** `lid` opcional: gravado junto quando a validação partiu de um contato @lid. */
+export async function persistValidatedContactPhone({ contatoId, contaId, jid, lid = null }) {
   const existing = await findExistingContactByPhone(contaId, jid, contatoId);
 
   if (existing) {
     const { keepId, removeId } = await pickKeepAndRemove(contatoId, existing.id);
-    const finalId = await mergeContatosDuplicados({ keepId, removeId, contaId, jid });
+    const finalId = await mergeContatosDuplicados({ keepId, removeId, contaId, jid, lid });
     return { idContato: finalId, jid };
   }
 
   const { error } = await supabase
     .from('SAAS_Contatos')
-    .update({ telefone: jid, validado: true })
+    .update(validatedContactPatch(jid, lid))
     .eq('id', contatoId);
 
   if (error && isDuplicateError(error)) {
     const dup = await findExistingContactByPhone(contaId, jid, contatoId);
     if (dup) {
       const { keepId, removeId } = await pickKeepAndRemove(contatoId, dup.id);
-      const finalId = await mergeContatosDuplicados({ keepId, removeId, contaId, jid });
+      const finalId = await mergeContatosDuplicados({ keepId, removeId, contaId, jid, lid });
       return { idContato: finalId, jid };
     }
   }
