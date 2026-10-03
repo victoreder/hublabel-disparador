@@ -13,13 +13,20 @@ export function isLidJid(value) {
     .endsWith(LID_SUFFIX);
 }
 
-/** Normaliza para "<digitos>@lid". Retorna null para telefones ou valores vazios. */
+/**
+ * Normaliza para "<digitos>@lid", descartando o sufixo de device (":NN").
+ * Ex.: "114903327215726:11@lid" → "114903327215726@lid".
+ * Retorna null para telefones ou valores vazios.
+ */
 export function normalizeLidJid(value) {
   const raw = String(value ?? '').trim();
   if (!raw) return null;
   if (raw.includes('@') && !isLidJid(raw)) return null;
 
-  const digits = raw.replace(/@.*$/, '').replace(/\D/g, '');
+  const digits = raw
+    .replace(/@.*$/, '')
+    .replace(/:.*$/, '')
+    .replace(/\D/g, '');
   if (!digits) return null;
 
   return `${digits}${LID_SUFFIX}`;

@@ -410,11 +410,12 @@ export function createDisparadorEvolution(config) {
     let lidAlternativo = null;
 
     if (tipo === 'Individual') {
+      const provedor = provedorDoDetalhe(detalhe);
       const validatorClient =
-        provedorDoDetalhe(detalhe) === 'uazapi'
-          ? uazapiClientFromDetalhe(detalhe)
-          : evolution;
-      const validation = await ensureContactValidatedForDispatch(detalhe, validatorClient);
+        provedor === 'uazapi' ? uazapiClientFromDetalhe(detalhe) : evolution;
+      const validation = await ensureContactValidatedForDispatch(detalhe, validatorClient, {
+        provedor,
+      });
       if (!validation.ok) {
         if (validation.reason === MSG_INEXISTENTE) {
           await markInvalidContact(detalhe);

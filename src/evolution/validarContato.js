@@ -113,7 +113,93 @@ async function rejectWithoutValidMatch({
   return { ok: false, reason: REASON_AMBIGUOUS };
 }
 
-export async function ensureContactValidatedForDispatch(detalhe, evolutionClient) {
+/** Linha do /chat/check que responde pelo @lid consultado (ou única existente). */
+function pickValidLidResult(results, lidJid) {
+  if (!Array.isArray(results)) return null;
+  const valid = results.filter((row) => row?.exists === true && (row?.jid || row?.number));
+  const match =
+    valid.find(
+      (row) => normalizeLidJid(row.number) === lidJid || normalizeLidJid(row.lid) === lidJid,
+    ) ?? (valid.length === 1 ? valid[0] : null);
+  return match ? finalizeValidMatch(match, null) : null;
+}
+
+/**
+ * Contato salvo como @lid (UazAPI): consulta o /chat/check com o próprio @lid, sem
+ * passar por variantes de telefone. Com isInWhatsapp:true grava o jid de telefone da
+ * resposta e o @lid no contato.
+ */
+async function validateLidContact({ detalhe, contato, evolutionClient, instanceName }) {
+  const lidJid = normalizeLidJid(contato.telefone);
+  if (!lidJid) {
+    return { ok: false, reason: MSG_INEXISTENTE };
+  }
+
+  let results;
+  try {
+    results = await evolutionClient.checkWhatsAppNumbers(instanceName, [lidJid]);
+  } catch (err) {
+    logger.warn('Falha na API /chat/check (@lid)', {
+      detailId: detalhe.id,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return { ok: false, reason: REASON_API_ERROR, error: err };
+  }
+
+  if (!Array.isArray(results)) {
+    results = Array.isArray(results?.numbers) ? results.numbers : [];
+  }
+
+  const valid = pickValidLidResult(results, lidJid);
+  if (!valid?.jid) {
+    const open = await isInstanceConfirmedOpen(evolutionClient, instanceName);
+    if (!open) return { ok: false, reason: REASON_INSTANCE_NOT_OPEN };
+
+    const explicitFalse = results.some(
+      (row) => row?.exists === false && normalizeLidJid(row?.number) === lidJid,
+    );
+    if (explicitFalse) return { ok: false, reason: MSG_INEXISTENTE };
+
+    logger.warn('Validação @lid ambígua/vazia — não marcando contato inexistente', {
+      detailId: detalhe.id,
+      instanceName,
+      resultsCount: results.length,
+    });
+    return { ok: false, reason: REASON_AMBIGUOUS };
+  }
+
+  const rawJid = String(valid.jid);
+  const jid = isLidJid(rawJid)
+    ? normalizeLidJid(rawJid)
+    : rawJid.includes('@')
+      ? rawJid
+      : `${normalizePhone(rawJid)}@s.whatsapp.net`;
+  const lid = normalizeLidJid(valid.lid) || lidJid;
+  const contaId = detalhe.UserId || contato.contaId;
+
+  try {
+    const persisted = await persistValidatedContactPhone({
+      contatoId: contato.id,
+      contaId,
+      jid,
+      lid,
+    });
+    return { ok: true, jid: persisted.jid, idContato: persisted.idContato, lid };
+  } catch (err) {
+    logger.error('Erro ao persistir contato @lid validado', {
+      detailId: detalhe.id,
+      contatoId: contato.id,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return { ok: false, reason: REASON_AMBIGUOUS, error: err };
+  }
+}
+
+/**
+ * @param {{ provedor?: string }} [options] provedor 'uazapi' habilita a validação
+ *   direta de contatos @lid (o /chat/whatsappNumbers da Evolution ainda não foi testado com @lid).
+ */
+export async function ensureContactValidatedForDispatch(detalhe, evolutionClient, options = {}) {
   if (!detalhe.idContato) {
     return { ok: false, reason: MSG_INEXISTENTE };
   }
@@ -138,6 +224,14 @@ export async function ensureContactValidatedForDispatch(detalhe, evolutionClient
   if (!instanceName) {
     logger.warn('Disparo sem InstanceName para validação (transitório)', { detailId: detalhe.id });
     return { ok: false, reason: REASON_INSTANCE_NOT_OPEN };
+  }
+
+  if (
+    options.provedor === 'uazapi' &&
+    isLidJid(contato.telefone) &&
+    typeof evolutionClient?.checkWhatsAppNumbers === 'function'
+  ) {
+    return validateLidContact({ detalhe, contato, evolutionClient, instanceName });
   }
 
   const candidates = getValidationNumberCandidates(contato.telefone);
