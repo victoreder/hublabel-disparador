@@ -280,7 +280,7 @@ test('exigir: sem sessão → 401; x-api-key correta vale como super admin', asy
 
 test('limite por IP bloqueia depois do máximo', () => {
   const mw = limitarTaxa({ nome: 'teste', max: 2, janelaMs: 60_000 });
-  const req = { headers: { 'x-forwarded-for': '1.2.3.4, 10.0.0.1' }, socket: {} };
+  const req = { headers: { 'x-forwarded-for': '1.2.3.4' }, socket: {} };
   const resultados = [];
   for (let i = 0; i < 3; i += 1) {
     const res = respostaFake();
@@ -289,4 +289,115 @@ test('limite por IP bloqueia depois do máximo', () => {
     resultados.push(passou ? 'ok' : res.statusCode);
   }
   assert.deepEqual(resultados, ['ok', 'ok', 429]);
+});
+
+const { ipDoCliente, ipLiberado } = await import('../src/inbound/seguranca/ip.js');
+const { PESO: PESO_JAIL, bloquearBanidos, detectarVarredura, registrarInfracao } = await import(
+  '../src/inbound/seguranca/jail.js'
+);
+const { login } = await import('../src/inbound/seguranca/login.js');
+const { limitarConcorrencia } = await import('../src/inbound/seguranca/sobrecarga.js');
+const { criarFiltroEssencial } = await import('../src/inbound/seguranca/middlewares.js');
+const { EventEmitter } = await import('node:events');
+
+test('IP do cliente: último hop do X-Forwarded-For; rede interna nunca é limitada', () => {
+  assert.equal(ipDoCliente({ headers: { 'x-forwarded-for': '6.6.6.6, 200.1.2.3' }, socket: {} }), '200.1.2.3');
+  assert.equal(ipDoCliente({ headers: {}, socket: { remoteAddress: '::ffff:8.8.8.8' } }), '8.8.8.8');
+  assert.equal(ipLiberado('10.0.1.5'), true);
+  assert.equal(ipLiberado('172.20.0.3'), true);
+  assert.equal(ipLiberado('200.1.2.3'), false);
+});
+
+test('jail: soma pontos e bane o IP ao passar do limite', async () => {
+  const ip = '203.0.113.7';
+  for (let i = 0; i < 2; i += 1) await registrarInfracao(ip, PESO_JAIL.VARREDURA, 'teste');
+  const res = respostaFake();
+  let passou = false;
+  await bloquearBanidos()({ headers: { 'x-forwarded-for': ip }, socket: {} }, res, () => (passou = true));
+  assert.equal(passou, false);
+  assert.equal(res.statusCode, 403);
+
+  const livre = respostaFake();
+  await bloquearBanidos()({ headers: { 'x-forwarded-for': '203.0.113.8' }, socket: {} }, livre, () => (passou = true));
+  assert.equal(passou, true);
+});
+
+test('varredura de robôs é barrada', () => {
+  const mw = detectarVarredura();
+  for (const path of ['/.env', '/wp-login.php', '/.git/config', '/vendor/phpunit/x']) {
+    const res = respostaFake();
+    res.end = () => res;
+    let passou = false;
+    mw({ path, headers: { 'x-forwarded-for': '198.51.100.1' }, socket: {} }, res, () => (passou = true));
+    assert.equal(passou, false, path);
+    assert.equal(res.statusCode, 404);
+  }
+  let passou = false;
+  mw({ path: '/login', headers: {}, socket: {} }, respostaFake(), () => (passou = true));
+  assert.equal(passou, true);
+});
+
+test('login: 5 senhas erradas bloqueiam o e-mail; sucesso devolve a sessão', async () => {
+  const fetchOriginal = globalThis.fetch;
+  let senhaCerta = false;
+  globalThis.fetch = async () => ({
+    status: senhaCerta ? 200 : 400,
+    json: async () =>
+      senhaCerta
+        ? { access_token: 'at', refresh_token: 'rt', expires_in: 3600 }
+        : { error_code: 'invalid_credentials', msg: 'Invalid login credentials' },
+  });
+
+  const req = (email) => ({ body: { email, password: 'x' }, headers: { 'x-forwarded-for': '192.0.2.50' }, socket: {} });
+  try {
+    for (let i = 1; i <= 4; i += 1) {
+      await assert.rejects(login(req('vitima@ex.com')), (e) => e.statusCode === 401 && e.message.includes(`${5 - i} tentativa`));
+    }
+    await assert.rejects(login(req('vitima@ex.com')), (e) => e.statusCode === 429);
+    senhaCerta = true;
+    await assert.rejects(login(req('vitima@ex.com')), (e) => e.statusCode === 429 && /Tente novamente/.test(e.message));
+
+    const ok = await login(req('outro@ex.com'));
+    assert.equal(ok.session.access_token, 'at');
+    assert.equal(ok.session.refresh_token, 'rt');
+  } finally {
+    globalThis.fetch = fetchOriginal;
+  }
+});
+
+test('concorrência: excedente vai para fila e, com fila cheia, recebe 503', () => {
+  const mw = limitarConcorrencia({ nome: 't', max: 1, fila: 1 });
+  const novo = () => {
+    const res = new EventEmitter();
+    res.statusCode = 200;
+    res.status = (code) => ((res.statusCode = code), res);
+    res.json = () => res;
+    res.set = () => res;
+    return { req: new EventEmitter(), res };
+  };
+  const a = novo();
+  const b = novo();
+  const c = novo();
+  const iniciados = [];
+  mw(a.req, a.res, () => iniciados.push('a'));
+  mw(b.req, b.res, () => iniciados.push('b'));
+  mw(c.req, c.res, () => iniciados.push('c'));
+  assert.deepEqual(iniciados, ['a']);
+  assert.equal(c.res.statusCode, 503);
+  a.res.emit('finish');
+  assert.deepEqual(iniciados, ['a', 'b']);
+});
+
+test('webhooks da Meta/Evolution ficam fora do limite global', () => {
+  const essencial = criarFiltroEssencial({
+    eventsMetaPath: '/eventsmeta',
+    evolutionWebhookPath: '/agente-no-whatsapp',
+    evolutionWebhookLegacyPath: '/webhook-mensagens',
+    metaApiPaths: { token: '/meta-token' },
+  });
+  assert.equal(essencial({ path: '/eventsmeta' }), true);
+  assert.equal(essencial({ path: '/agente-no-whatsapp/inserir-conhecimento' }), true);
+  assert.equal(essencial({ path: '/token' }), true);
+  assert.equal(essencial({ path: '/login' }), false);
+  assert.equal(essencial({ path: '/uploadmedia' }), false);
 });

@@ -4,6 +4,7 @@ import { buscarPaginaVendas, criarPaginaVendas, salvarPaginaVendas } from '../pa
 import { salvarPersonalizacao } from '../paginas/personalizacao.js';
 import { loadPageTemplates, renderPage, sendHtml, warnIfAnonKeyMissing } from '../paginas/render.js';
 import { protegida } from '../auth/autenticar.js';
+import { protecaoIa } from './acoes.js';
 import { postJson, responder } from './responder.js';
 
 /**
@@ -72,7 +73,8 @@ export function registerPaginasRoutes(app, { inboundConfig }) {
     app,
     '/personalizar-pagina',
     (req) => personalizarPaginaIa(req.body),
-    somenteSuperAdmin('/personalizar-pagina'),
+    // Reescrever a página inteira é a chamada mais pesada: uma por vez.
+    { middlewares: [protegida('/personalizar-pagina'), ...protecaoIa('personalizar-pagina', 1)] },
   );
 
   postJson(

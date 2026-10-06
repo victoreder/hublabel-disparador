@@ -512,6 +512,28 @@
 
 
 
+        async function loginPeloServidor(email, password) {
+            let resp;
+            try {
+                resp = await fetch('__HUB_BACK_URL__/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email, password: password })
+                });
+            } catch (e) {
+                return { data: null, error: { message: 'Não foi possível conectar. Verifique sua internet.', doServidor: true } };
+            }
+            const body = await resp.json().catch(() => ({}));
+            if (!resp.ok || !body.session) {
+                return { data: null, error: { message: body.error || 'Erro ao fazer login.', doServidor: true } };
+            }
+            const { data, error } = await supabase.auth.setSession({
+                access_token: body.session.access_token,
+                refresh_token: body.session.refresh_token
+            });
+            return { data: data, error: error };
+        }
+
         // Submissão do formulário
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -538,14 +560,17 @@
             try {
                 console.log('Enviando requisição de login via Supabase Auth...');
                 
-                // Login com Supabase Auth
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email: email,
-                    password: password
-                });
+                // Login pelo servidor (conta tentativas erradas e bloqueia após o limite);
+                // a sessão devolvida é gravada no supabase-js como antes.
+                const { data, error } = await loginPeloServidor(email, password);
                 
                 if (error) {
                     console.error('Erro no login:', error);
+                    
+                    if (error.doServidor) {
+                        showErrorMessage('❌ ' + error.message);
+                        return;
+                    }
                     
                     // Tratar erros específicos do Supabase
                     if (error.message.includes('Invalid login credentials') || 

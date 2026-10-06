@@ -1,14 +1,14 @@
 import { logger } from '../../logger.js';
+import { envInt } from '../seguranca/env.js';
+import { ipDoCliente, ipLiberado } from '../seguranca/ip.js';
+import { PESO, registrarInfracao } from '../seguranca/jail.js';
 
-/** IP real do cliente (atrás do Traefik vem em X-Forwarded-For). */
-export function ipDoCliente(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim();
-  return forwarded || req.socket?.remoteAddress || 'desconhecido';
-}
+export { envInt, ipDoCliente };
 
 /**
  * Limite simples em memória por janela fixa. Suficiente para uma réplica do
  * inbound; com várias réplicas cada uma conta separado (limite efetivo maior).
+ * IPs internos/liberados não são limitados. Estourar o limite soma pontos no jail.
  */
 export function limitarTaxa({ nome, max, janelaMs, chave = ipDoCliente }) {
   const contadores = new Map();
@@ -19,6 +19,9 @@ export function limitarTaxa({ nome, max, janelaMs, chave = ipDoCliente }) {
   }, janelaMs).unref();
 
   return (req, res, next) => {
+    const ip = ipDoCliente(req);
+    if (ipLiberado(ip)) return next();
+
     const agora = Date.now();
     const k = chave(req);
     let atual = contadores.get(k);
@@ -31,14 +34,13 @@ export function limitarTaxa({ nome, max, janelaMs, chave = ipDoCliente }) {
     if (atual.total > max) {
       const segundos = Math.ceil((atual.reinicia - agora) / 1000);
       res.set('Retry-After', String(segundos));
-      if (atual.total === max + 1) logger.warn(`[rate-limit] ${nome} excedido`, { chave: k, max });
+      if (atual.total === max + 1) {
+        logger.warn(`[rate-limit] ${nome} excedido`, { chave: k, ip, max });
+        // Pontua uma vez por janela: só abuso contínuo leva ao ban.
+        registrarInfracao(ip, PESO.LIMITE_EXCEDIDO, `limite ${nome}`);
+      }
       return res.status(429).json({ ok: false, error: 'Muitas tentativas. Tente novamente mais tarde.' });
     }
     return next();
   };
-}
-
-export function envInt(name, fallback) {
-  const parsed = Number.parseInt(process.env[name] ?? '', 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }

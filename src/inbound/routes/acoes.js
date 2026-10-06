@@ -17,6 +17,9 @@ import { processarIntegracaoPagamento, processarWebhookLead } from '../acoes/web
 import { protegida } from '../auth/autenticar.js';
 import { envInt, ipDoCliente, limitarTaxa } from '../auth/rateLimit.js';
 import { HttpError } from '../meta/httpError.js';
+import { PESO, registrarInfracao } from '../seguranca/jail.js';
+import { login } from '../seguranca/login.js';
+import { limitarConcorrencia } from '../seguranca/sobrecarga.js';
 import { buildPublicS3Url, createS3Client, sanitizeS3FileName, uploadBuffer } from '../storage/s3.js';
 import { allowCors, postJson, responder } from './responder.js';
 import { handleRagIngestRequest } from './rag.js';
@@ -29,7 +32,10 @@ import { handleRagIngestRequest } from './rag.js';
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: Number.parseInt(process.env.UPLOAD_MAX_FILE_BYTES ?? '', 10) || 100 * 1024 * 1024,
+    // Arquivo fica em memória até ir para o S3: tamanho e concorrência limitados.
+    fileSize: Number.parseInt(process.env.UPLOAD_MAX_FILE_BYTES ?? '', 10) || 50 * 1024 * 1024,
+    files: 1,
+    fields: 20,
   },
 });
 
@@ -44,7 +50,19 @@ function registerUpload(app, inboundConfig) {
   const s3 = createS3Client(inboundConfig.s3);
 
   app.options('/uploadmedia', allowCors);
-  app.post('/uploadmedia', allowCors, protegida('/uploadmedia'), upload.any(), (req, res) =>
+  app.post(
+    '/uploadmedia',
+    allowCors,
+    protegida('/uploadmedia'),
+    limitePorUsuario('uploadmedia', envInt('UPLOAD_LIMITE_MINUTO', 30)),
+    limitarConcorrencia({ nome: 'uploadmedia', max: envInt('UPLOAD_CONCORRENCIA', 3) }),
+    (req, res, next) =>
+      upload.any()(req, res, (err) => {
+        if (!err) return next();
+        const message = err.code === 'LIMIT_FILE_SIZE' ? 'Arquivo maior que o permitido.' : err.message;
+        return res.status(400).json({ ok: false, error: message });
+      }),
+    (req, res) =>
     responder(
       res,
       async () => {
@@ -85,11 +103,16 @@ function registerWebhookEntrada(app, path, processar) {
   app.post(path, allowCors, limite, ...parsers, (req, res) => {
     const token = String(req.query?.id ?? '').trim();
     const payload = req.body ?? {};
+    const ip = ipDoCliente(req);
     res.status(200).json({ message: 'Workflow was started' });
 
     const startedAt = Date.now();
     processar({ token, payload })
-      .then((result) => logger.info(`[${path}] processado`, { token, durationMs: Date.now() - startedAt, ...result }))
+      .then((result) => {
+        // Tentativa de adivinhar ids de webhook conta pontos no jail.
+        if (result?.status === 'nao_encontrado') registrarInfracao(ip, PESO.TOKEN_WEBHOOK_INVALIDO, `${path} id inválido`);
+        logger.info(`[${path}] processado`, { token, durationMs: Date.now() - startedAt, ...result });
+      })
       .catch((error) =>
         logger.error(`[${path}] erro`, { token, message: error.message, stack: error.stack }),
       );
@@ -100,8 +123,35 @@ function opcoes(path, extra = {}) {
   return { ...extra, middlewares: [protegida(path), ...(extra.middlewares ?? [])] };
 }
 
+/** Limite por usuário logado (cai para IP sem sessão). Usar depois de protegida(). */
+function limitePorUsuario(nome, maxPorMinuto) {
+  return limitarTaxa({
+    nome,
+    max: maxPorMinuto,
+    janelaMs: 60_000,
+    chave: (req) => req.usuario?.authUserId ?? ipDoCliente(req),
+  });
+}
+
+/** Rotas de IA: limite por usuário + no máximo N chamadas simultâneas no servidor. */
+function protecaoIa(nome, concorrencia = envInt('IA_CONCORRENCIA', 4)) {
+  return [
+    limitePorUsuario(nome, envInt('IA_LIMITE_MINUTO', 10)),
+    limitarConcorrencia({ nome, max: concorrencia }),
+  ];
+}
+
+export { protecaoIa };
+
 export function registerAcoesRoutes(app, { inboundConfig }) {
   registerUpload(app, inboundConfig);
+
+  // Login pelo servidor: conta senhas erradas e bloqueia o e-mail (ver seguranca/login.js).
+  postJson(app, '/auth/login', (req) => login(req), {
+    middlewares: [
+      limitarTaxa({ nome: 'auth-login', max: envInt('LOGIN_LIMITE_IP_MINUTO', 10), janelaMs: 60_000 }),
+    ],
+  });
 
   // Cadastro grátis: público, com limite por IP e chave para desligar na stack.
   const cadastroGratisAtivo = process.env.CADASTRO_GRATIS_ATIVO?.trim().toLowerCase() !== 'false';
@@ -155,14 +205,24 @@ export function registerAcoesRoutes(app, { inboundConfig }) {
 
   // IA (usuário logado com conta ativa)
   app.options('/testar-openai', allowCors);
-  app.post('/testar-openai', allowCors, protegida('/testar-openai'), (req, res) =>
+  app.post('/testar-openai', allowCors, protegida('/testar-openai'), ...protecaoIa('testar-openai'), (req, res) =>
     responder(res, async () => {
       const result = await testarOpenAi();
       res.status(result.status).json(result.json);
     }),
   );
-  postJson(app, '/criar-instrucao', (req) => criarInstrucao(req.body), opcoes('/criar-instrucao'));
-  postJson(app, '/gerarmensagem-ia', (req) => gerarMensagensIa(req.body), opcoes('/gerarmensagem-ia'));
+  postJson(
+    app,
+    '/criar-instrucao',
+    (req) => criarInstrucao(req.body),
+    opcoes('/criar-instrucao', { middlewares: protecaoIa('criar-instrucao') }),
+  );
+  postJson(
+    app,
+    '/gerarmensagem-ia',
+    (req) => gerarMensagensIa(req.body),
+    opcoes('/gerarmensagem-ia', { middlewares: protecaoIa('gerarmensagem-ia') }),
+  );
 
   // E-mail / Supabase Auth (super admin)
   for (const [path, fn] of [
@@ -193,13 +253,18 @@ export function registerAcoesRoutes(app, { inboundConfig }) {
         if (!req.usuario.superAdmin) throw new HttpError('Informe as credenciais SMTP do remetente.', 400);
         remetente = await fetchConfigEmails();
       }
-      const info = await sendDispatchEmail({
-        remetente: { id: 'teste', ...remetente },
-        to: body.para,
-        subject: body.assunto,
-        html: body.html,
-      });
-      return { ok: true, messageId: info.messageId };
+      try {
+        const info = await sendDispatchEmail({
+          remetente: { id: 'teste', ...remetente },
+          to: body.para,
+          subject: body.assunto,
+          html: body.html,
+        });
+        return { ok: true, messageId: info.messageId };
+      } catch (error) {
+        // Erro do SMTP é útil para quem está testando a configuração.
+        throw new HttpError(`Falha no SMTP: ${error.message}`, 400);
+      }
     },
     opcoes('/enviar-teste-email', {
       middlewares: [

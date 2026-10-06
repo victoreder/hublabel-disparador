@@ -2,9 +2,36 @@ import { logger } from '../../logger.js';
 import { AuthAdminError } from '../acoes/usuarios.js';
 import { HttpError } from '../meta/httpError.js';
 
-/** Mesmo comportamento dos webhooks do n8n: aceita chamadas de qualquer origem. */
+let origensPermitidas = null;
+
+/** Origem do BACK_URL (as próprias telas) + CORS_ORIGENS (lista separada por vírgula). */
+function origemPermitida(origin) {
+  if (!origensPermitidas) {
+    origensPermitidas = new Set(
+      [process.env.BACK_URL, ...String(process.env.CORS_ORIGENS ?? '').split(',')]
+        .map((v) => {
+          try {
+            return new URL(String(v).trim()).origin;
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean),
+    );
+  }
+  return origensPermitidas.has(origin);
+}
+
+/**
+ * CORS só para as telas do próprio sistema (e origens extras configuradas).
+ * Chamadas servidor-a-servidor (gateways, integrações) não usam CORS.
+ */
 export function allowCors(req, res, next) {
-  res.set('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (origin && origemPermitida(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Vary', 'Origin');
+  }
   res.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Hub-Session, X-Api-Key');
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -31,7 +58,9 @@ export async function responder(res, fn, { tag = 'acao', authErrorAsString = fal
     if (error instanceof AuthAdminError && !authErrorAsString) {
       return res.status(status).json(error.toJSON());
     }
-    return res.status(status).json({ ok: false, error: message });
+    // Erro inesperado (não HttpError) não expõe detalhes internos; a mensagem completa fica no log.
+    const publica = error instanceof HttpError ? message : 'Erro interno. Tente novamente.';
+    return res.status(status).json({ ok: false, error: publica });
   }
 }
 

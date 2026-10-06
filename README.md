@@ -234,6 +234,20 @@ As telas recebem um script (injetado pelo servidor) que manda o token da sessão
 
 Integrações externas sem tela podem chamar as rotas protegidas com o header `x-api-key: <HUB_API_KEY>` (vale como super admin).
 
+### Proteções contra ataque e sobrecarga (`src/inbound/seguranca/`)
+
+| Camada | Como funciona |
+|---|---|
+| **Login com bloqueio** | A tela de login autentica por `POST /auth/login` (o servidor fala com o Supabase). 5 senhas erradas para o mesmo e-mail em 15 min bloqueiam o e-mail por 15 min; no máximo 10 tentativas por IP/min. |
+| **Jail ("fail2ban")** | Comportamento suspeito soma pontos por IP: varredura (`/.env`, `/wp-login.php`...), login errado, sessão inválida, usuário comum tentando rota de admin, `x-api-key` errada, id de webhook inexistente, 404 e limite estourado. 30 pontos em 10 min = IP banido por 60 min (403 em tudo). |
+| **Limites** | Global de 300 req/min por IP; IA 10/min por usuário; upload 30/min por usuário; teste de e-mail 20/h; cadastro grátis 5/h por IP; `/token` e `/integracao` 120/min por IP. |
+| **Sobrecarga** | Rotas pesadas têm teto de execuções simultâneas (IA 4, página de vendas 1, upload 3) com fila curta → 503. Se o event loop engasgar (>250 ms), o que não é essencial recebe 503 e os webhooks da Meta/Evolution continuam sendo atendidos. Upload até 50 MB, JSON até 5 MB, timeout de requisição 120 s. |
+| **Cabeçalhos/CORS** | HSTS, `nosniff`, anti-clickjacking (telas não podem ser embutidas em outro site), CORS só para o próprio domínio (`CORS_ORIGENS` para extras), erro interno sem detalhes. |
+
+Contadores e bans ficam no Redis (`REDIS_URL`), valendo entre réplicas e após restart; sem Redis, em memória. A rede interna (Docker) e `SEGURANCA_IPS_LIBERADOS` nunca são limitados nem banidos. Webhooks da Meta/Evolution ficam fora do limite global.
+
+> `public/pages/login.html` foi alterada depois da extração (login via `/auth/login`). Se reextrair as telas do n8n, refaça essa alteração.
+
 ### Implantação
 
 1. Rodar `scripts/migracao-n8n-telas-acoes.sql` no SQL Editor do Supabase (uma vez).

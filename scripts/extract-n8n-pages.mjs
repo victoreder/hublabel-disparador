@@ -19,6 +19,9 @@
  *   __HUB_LOGO_URL__, __HUB_FAVICON_URL__ → tabela SAAS_Personalizacao
  *
  * A página de vendas (/pv) sai do nó "CRIAR FLUXO" (workflow embutido).
+ *
+ * Atenção: login.html foi alterada depois da extração (login via /auth/login,
+ * com bloqueio por tentativas). Reextrair sobrescreve essa alteração.
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';

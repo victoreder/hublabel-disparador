@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { config } from '../../config.js';
 import { logger } from '../../logger.js';
 import { isContaAtiva, supabase } from '../../supabase.js';
+import { PESO, infracao } from '../seguranca/jail.js';
 
 /**
  * Autorização das ações chamadas pelas telas.
@@ -58,10 +59,12 @@ const CACHE_MAX = 2000;
 const sessoes = new Map();
 
 export class AuthError extends Error {
-  constructor(message, statusCode) {
+  /** `peso`: pontos no jail (0 = não conta; ex.: sessão simplesmente ausente). */
+  constructor(message, statusCode, peso = 0) {
     super(message);
     this.name = 'AuthError';
     this.statusCode = statusCode;
+    this.peso = peso;
   }
 }
 
@@ -121,6 +124,8 @@ export async function identificar(req) {
     return { authUserId: null, usuarioId: null, contaId: null, funcao: 'admin', superAdmin: true, viaApiKey: true };
   }
 
+  if (req.headers['x-api-key']) throw new AuthError('Chave de API inválida.', 401, PESO.API_KEY_INVALIDA);
+
   const token = tokenDaSessao(req);
   if (!token) throw new AuthError('Sessão ausente. Faça login novamente.', 401);
 
@@ -128,7 +133,7 @@ export async function identificar(req) {
   if (cached && cached.expira > Date.now()) return cached.valor;
 
   const authUser = await buscarAuthUser(token);
-  if (!authUser) throw new AuthError('Sessão inválida ou expirada. Faça login novamente.', 401);
+  if (!authUser) throw new AuthError('Sessão inválida ou expirada. Faça login novamente.', 401, PESO.SESSAO_INVALIDA);
 
   const usuario = await buscarUsuario(authUser.id);
   if (!usuario) throw new AuthError('Usuário sem cadastro no sistema.', 403);
@@ -148,9 +153,11 @@ export async function identificar(req) {
 export async function verificarNivel(identidade, nivel) {
   if (identidade.superAdmin) return;
 
-  if (nivel === NIVEL.SUPER_ADMIN) throw new AuthError('Ação permitida só para o super admin.', 403);
+  if (nivel === NIVEL.SUPER_ADMIN) {
+    throw new AuthError('Ação permitida só para o super admin.', 403, PESO.SEM_PERMISSAO);
+  }
   if (nivel === NIVEL.ADMIN_CONTA && identidade.funcao !== 'admin') {
-    throw new AuthError('Ação permitida só para administradores da conta.', 403);
+    throw new AuthError('Ação permitida só para administradores da conta.', 403, PESO.SEM_PERMISSAO);
   }
   if (!identidade.contaId || !(await isContaAtiva(identidade.contaId))) {
     throw new AuthError('Conta bloqueada ou inativa.', 403);
@@ -168,7 +175,10 @@ export function exigir(nivel) {
     } catch (error) {
       const status = error instanceof AuthError ? error.statusCode : 500;
       if (status >= 500) logger.error('[auth] erro ao autorizar', { path: req.path, message: error.message });
-      else logger.warn('[auth] negado', { path: req.path, status, message: error.message });
+      else {
+        logger.warn('[auth] negado', { path: req.path, status, message: error.message });
+        if (error.peso) infracao(req, error.peso, `auth ${status} ${req.path}`);
+      }
       return res.status(status).json({ ok: false, error: error.message });
     }
   };
