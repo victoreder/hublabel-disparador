@@ -3,6 +3,7 @@ import { personalizarPaginaIa } from '../acoes/ia.js';
 import { buscarPaginaVendas, criarPaginaVendas, salvarPaginaVendas } from '../paginas/paginaVendas.js';
 import { salvarPersonalizacao } from '../paginas/personalizacao.js';
 import { loadPageTemplates, renderPage, sendHtml, warnIfAnonKeyMissing } from '../paginas/render.js';
+import { protegida } from '../auth/autenticar.js';
 import { postJson, responder } from './responder.js';
 
 /**
@@ -45,23 +46,49 @@ export function registerPaginasRoutes(app, { inboundConfig }) {
     }),
   );
 
-  postJson(app, '/criar-pv', async () => {
-    const pagina = await criarPaginaVendas();
-    return { ok: true, id: String(pagina.id) };
-  });
+  const somenteSuperAdmin = (path) => ({ middlewares: [protegida(path)] });
 
-  postJson(app, '/personalizar-pv', async (req) => {
-    await salvarPaginaVendas(req.body?.html);
-    return { ok: true };
-  });
+  postJson(
+    app,
+    '/criar-pv',
+    async () => {
+      const pagina = await criarPaginaVendas();
+      return { ok: true, id: String(pagina.id) };
+    },
+    somenteSuperAdmin('/criar-pv'),
+  );
 
-  postJson(app, '/personalizar-pagina', (req) => personalizarPaginaIa(req.body));
+  postJson(
+    app,
+    '/personalizar-pv',
+    async (req) => {
+      await salvarPaginaVendas(req.body?.html);
+      return { ok: true };
+    },
+    somenteSuperAdmin('/personalizar-pv'),
+  );
 
-  postJson(app, '/personalizar-saas', async (req) => {
-    const personalizacao = await salvarPersonalizacao(req.body ?? {});
-    logger.info('[personalizacao] atualizada', { nome: personalizacao.nome, cor: personalizacao.cor });
-    return { ok: true, personalizacao };
-  });
+  postJson(
+    app,
+    '/personalizar-pagina',
+    (req) => personalizarPaginaIa(req.body),
+    somenteSuperAdmin('/personalizar-pagina'),
+  );
+
+  postJson(
+    app,
+    '/personalizar-saas',
+    async (req) => {
+      const personalizacao = await salvarPersonalizacao(req.body ?? {});
+      logger.info('[personalizacao] atualizada', {
+        nome: personalizacao.nome,
+        cor: personalizacao.cor,
+        por: req.usuario?.authUserId ?? 'api-key',
+      });
+      return { ok: true, personalizacao };
+    },
+    somenteSuperAdmin('/personalizar-saas'),
+  );
 
   logger.info('[paginas] telas registradas', { total: slugs.length, slugs });
 }

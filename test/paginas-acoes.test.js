@@ -174,3 +174,119 @@ test('hojeMaisDias segue meia-noite de São Paulo (como $today.plus do n8n)', ()
   assert.equal(hojeMaisDias(2, new Date('2026-10-10T02:00:00Z')), '2026-10-11T00:00:00.000-03:00');
   assert.equal(hojeMaisDias(0, new Date('2026-10-10T15:00:00Z')), '2026-10-10T00:00:00.000-03:00');
 });
+
+const { buildAuthScript, injectAuthScript } = await import('../src/inbound/paginas/authScript.js');
+const { AuthError, NIVEL, ROTAS_PROTEGIDAS, exigir, verificarNivel } = await import(
+  '../src/inbound/auth/autenticar.js'
+);
+const { limitarTaxa } = await import('../src/inbound/auth/rateLimit.js');
+const vm = await import('node:vm');
+
+function rodarScriptNaTela({ backUrl, sessao }) {
+  const chamadas = [];
+  const storage = new Map([['sb-localhost-auth-token', JSON.stringify(sessao)]]);
+  const window = {
+    fetch: async (input, init = {}) => {
+      chamadas.push({ url: String(input), headers: new Headers(init.headers) });
+      return { status: 200 };
+    },
+  };
+  const ctx = {
+    window,
+    location: { href: 'https://painel.cliente.com/webhook/configuracoes' },
+    localStorage: { getItem: (k) => storage.get(k) ?? null },
+    URL,
+    Headers,
+    Request,
+    setTimeout,
+  };
+  const script = buildAuthScript(backUrl).replace(/^<script>|<\/script>$/g, '');
+  vm.runInNewContext(script, ctx);
+  return { fetch: window.fetch, chamadas };
+}
+
+test('script das telas anexa o token só nas rotas protegidas do próprio backend', async () => {
+  const { fetch, chamadas } = rodarScriptNaTela({
+    backUrl: 'https://painel.cliente.com/webhook',
+    sessao: { access_token: 'jwt-do-usuario' },
+  });
+
+  await fetch('https://painel.cliente.com/webhook/uploadmedia', { method: 'POST' });
+  await fetch('https://painel.cliente.com/webhook/sincronizar-supabase', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer PAT' },
+  });
+  await fetch('https://painel.cliente.com/webhook/agente-no-whatsapp', { method: 'POST' });
+  await fetch('https://outro.com/webhook/uploadmedia', { method: 'POST' });
+
+  assert.equal(chamadas[0].headers.get('x-hub-session'), 'jwt-do-usuario');
+  assert.equal(chamadas[1].headers.get('x-hub-session'), 'jwt-do-usuario');
+  assert.equal(chamadas[1].headers.get('authorization'), 'Bearer PAT');
+  assert.equal(chamadas[2].headers.get('x-hub-session'), null);
+  assert.equal(chamadas[3].headers.get('x-hub-session'), null);
+});
+
+test('script é injetado logo após <head>', () => {
+  const out = injectAuthScript('<html><head lang="pt"><script>x()</script></head></html>', '<script>A</script>');
+  assert.equal(out, '<html><head lang="pt"><script>A</script><script>x()</script></head></html>');
+});
+
+test('níveis de acesso', async () => {
+  const comum = { superAdmin: false, funcao: 'membro', contaId: 'c1' };
+  const adminConta = { superAdmin: false, funcao: 'admin', contaId: 'c1' };
+  const superAdmin = { superAdmin: true, funcao: null, contaId: null };
+
+  await assert.rejects(verificarNivel(comum, NIVEL.SUPER_ADMIN), (e) => e instanceof AuthError && e.statusCode === 403);
+  await assert.rejects(verificarNivel(adminConta, NIVEL.SUPER_ADMIN), /super admin/);
+  await assert.rejects(verificarNivel(comum, NIVEL.ADMIN_CONTA), /administradores/);
+  await verificarNivel(superAdmin, NIVEL.SUPER_ADMIN);
+  await verificarNivel(superAdmin, NIVEL.LOGADO);
+
+  assert.equal(ROTAS_PROTEGIDAS['/criar-usuario'], NIVEL.SUPER_ADMIN);
+  assert.equal(ROTAS_PROTEGIDAS['/excluir-conta'], NIVEL.SUPER_ADMIN);
+  assert.equal(ROTAS_PROTEGIDAS['/adicionar-usuario'], NIVEL.ADMIN_CONTA);
+  assert.equal(ROTAS_PROTEGIDAS['/usuario-gratis'], undefined);
+});
+
+function respostaFake() {
+  const res = { statusCode: 200, body: null, headers: {} };
+  res.status = (c) => ((res.statusCode = c), res);
+  res.json = (b) => ((res.body = b), res);
+  res.set = (k, v) => ((res.headers[k] = v), res);
+  return res;
+}
+
+test('exigir: sem sessão → 401; x-api-key correta vale como super admin', async () => {
+  process.env.HUB_API_KEY = 'chave-integracao';
+  const mw = exigir(NIVEL.SUPER_ADMIN);
+
+  const semSessao = respostaFake();
+  let passou = false;
+  await mw({ headers: {}, path: '/criar-usuario' }, semSessao, () => (passou = true));
+  assert.equal(passou, false);
+  assert.equal(semSessao.statusCode, 401);
+
+  const errada = respostaFake();
+  await mw({ headers: { 'x-api-key': 'chave-errada' }, path: '/criar-usuario' }, errada, () => (passou = true));
+  assert.equal(passou, false);
+  assert.equal(errada.statusCode, 401);
+
+  const req = { headers: { 'x-api-key': 'chave-integracao' }, path: '/criar-usuario' };
+  await mw(req, respostaFake(), () => (passou = true));
+  assert.equal(passou, true);
+  assert.equal(req.usuario.superAdmin, true);
+  delete process.env.HUB_API_KEY;
+});
+
+test('limite por IP bloqueia depois do máximo', () => {
+  const mw = limitarTaxa({ nome: 'teste', max: 2, janelaMs: 60_000 });
+  const req = { headers: { 'x-forwarded-for': '1.2.3.4, 10.0.0.1' }, socket: {} };
+  const resultados = [];
+  for (let i = 0; i < 3; i += 1) {
+    const res = respostaFake();
+    let passou = false;
+    mw(req, res, () => (passou = true));
+    resultados.push(passou ? 'ok' : res.statusCode);
+  }
+  assert.deepEqual(resultados, ['ok', 'ok', 429]);
+});

@@ -223,6 +223,21 @@ export function buildTemplatePayload(prep) {
   };
 }
 
+/** Confere se a conexão e o contato do envio pertencem à conta de quem chamou. */
+export async function verificarDonoTemplate(body, contaId) {
+  const [conexao, contato] = await Promise.all([
+    supabase.from('SAAS_Conexões').select('contaId').eq('id', body.idConexao).maybeSingle(),
+    supabase.from('SAAS_Contatos').select('contaId').eq('id', body.idContato).maybeSingle(),
+  ]);
+  if (conexao.error || contato.error) {
+    throw new HttpError(`Erro ao validar envio: ${(conexao.error || contato.error).message}`, 500);
+  }
+  if (!conexao.data || !contato.data) throw new HttpError('Conexão ou contato não encontrado.', 404);
+  if (conexao.data.contaId !== contaId || contato.data.contaId !== contaId) {
+    throw new HttpError('Conexão ou contato de outra conta.', 403);
+  }
+}
+
 export async function enviarTemplate(body, { graphVersion }) {
   const { data: prep, error } = await supabase.rpc('f_hub_meta_preparar_envio_template', {
     p_body: body ?? {},

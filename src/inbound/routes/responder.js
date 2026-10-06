@@ -6,7 +6,7 @@ import { HttpError } from '../meta/httpError.js';
 export function allowCors(req, res, next) {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Hub-Session, X-Api-Key');
   if (req.method === 'OPTIONS') return res.status(204).end();
   return next();
 }
@@ -35,10 +35,13 @@ export async function responder(res, fn, { tag = 'acao', authErrorAsString = fal
   }
 }
 
-/** Registra POST (com CORS e preflight) que responde o JSON retornado por `fn(req)`. */
-export function postJson(app, path, fn, options = {}) {
+/**
+ * Registra POST (com CORS e preflight) que responde o JSON retornado por `fn(req)`.
+ * `middlewares` roda antes (ex.: protegida(path), limitarTaxa(...)).
+ */
+export function postJson(app, path, fn, { middlewares = [], ...options } = {}) {
   app.options(path, allowCors);
-  app.post(path, allowCors, (req, res) =>
+  app.post(path, allowCors, ...middlewares, (req, res) =>
     responder(res, () => fn(req), { tag: path.replace(/^\//, ''), ...options }),
   );
 }

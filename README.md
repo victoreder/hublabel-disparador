@@ -221,6 +221,19 @@ O serviço `disparador-inbound` (`node src/inbound.js`) serve **todas as telas**
 | `/integracao?id=` | Gateway de pagamento (`SAAS_IntegracaoPagamento`): cria/renova usuário e envia boas-vindas |
 | `/criar-pv`, `/personalizar-pv`, `/personalizar-pagina`, `GET /buscar-pv`, `GET /pv` | Página de vendas (`SAAS_PaginaVendas`) |
 
+### Segurança das ações
+
+As telas recebem um script (injetado pelo servidor) que manda o token da sessão do Supabase no header `X-Hub-Session` em toda chamada às rotas protegidas. O servidor valida o token no Supabase Auth e confere o usuário em `SAAS_Usuarios`. A lista fica em `ROTAS_PROTEGIDAS` (`src/inbound/auth/autenticar.js`):
+
+| Nível | Rotas |
+|---|---|
+| Super admin (`super_admin = true`) | `/criar-usuario`, `/excluir-conta`, `/personalizar-saas`, `/criar-pv`, `/personalizar-pv`, `/personalizar-pagina`, `/sincronizar-supabase`, `/email-supabase`, `/alterar-credencial-smtp` |
+| Admin da conta (`funcao = 'admin'`) | `/adicionar-usuario` — o membro entra sempre na conta de quem está logado |
+| Usuário logado, conta ativa | `/uploadmedia`, `/gerarmensagem-ia`, `/criar-instrucao`, `/testar-openai`, `/enviar-teste-email`, `/enviar-template` (só conexão/contato da própria conta), `/inserir-conhecimento` |
+| Público | telas, `/pv`, `/buscar-pv`, `/usuario-gratis` (limite por IP; `CADASTRO_GRATIS_ATIVO=false` desliga), `/token` e `/integracao` (id secreto na URL + limite por IP) |
+
+Integrações externas sem tela podem chamar as rotas protegidas com o header `x-api-key: <HUB_API_KEY>` (vale como super admin).
+
 ### Implantação
 
 1. Rodar `scripts/migracao-n8n-telas-acoes.sql` no SQL Editor do Supabase (uma vez).

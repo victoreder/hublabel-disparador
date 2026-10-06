@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { config } from '../../config.js';
 import { logger } from '../../logger.js';
+import { buildAuthScript, injectAuthScript } from './authScript.js';
 import { corParaRgb, getPersonalizacao } from './personalizacao.js';
 
 export const PAGES_DIR = new URL('../../../public/pages/', import.meta.url);
@@ -84,7 +85,11 @@ export async function renderPage(slug, inboundConfig) {
   const cached = rendered.get(slug);
   if (cached?.key === key) return cached;
 
-  const body = Buffer.from(applyReplacements(template, replacements), 'utf8');
+  const html = injectAuthScript(
+    applyReplacements(template, replacements),
+    buildAuthScript(inboundConfig.backUrl),
+  );
+  const body = Buffer.from(html, 'utf8');
   const entry = {
     key,
     body,
