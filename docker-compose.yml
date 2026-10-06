@@ -1,6 +1,10 @@
 services:
   disparador-meta:
-    build: .
+    build:
+      context: .
+      args:
+        LICENSE_PUBLIC_KEY: ${LICENSE_PUBLIC_KEY}
+        LICENSE_SERVER_URL: ${LICENSE_SERVER_URL}
     container_name: hublabel-disparador-meta
     restart: unless-stopped
     ports:
@@ -12,7 +16,11 @@ services:
       PORT: 3080
 
   disparador-evolution:
-    build: .
+    build:
+      context: .
+      args:
+        LICENSE_PUBLIC_KEY: ${LICENSE_PUBLIC_KEY}
+        LICENSE_SERVER_URL: ${LICENSE_SERVER_URL}
     container_name: hublabel-disparador-evolution
     restart: unless-stopped
     command: ["node", "src/workers/evolution.js"]
@@ -24,7 +32,11 @@ services:
       disable: true
 
   disparador-inbound:
-    build: .
+    build:
+      context: .
+      args:
+        LICENSE_PUBLIC_KEY: ${LICENSE_PUBLIC_KEY}
+        LICENSE_SERVER_URL: ${LICENSE_SERVER_URL}
     container_name: hublabel-disparador-inbound
     restart: unless-stopped
     command: ["node", "src/inbound.js"]

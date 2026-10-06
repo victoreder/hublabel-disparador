@@ -1,5 +1,8 @@
 version: "3.7"
 
+## LICENCA_CHAVE e LICENCA_EMAIL: recebidos na compra. Iguais nos 3 serviços.
+## A licença fica presa ao SUPABASE_URL desta instalação.
+
 ## BACK_URL com path opcional (ex.: .../webhook). Slugs no código: /meta-token, /eventsmeta.
 ## Traefik: Path externo = BACK_URL path + slug. StripPrefix remove o path do BACK_URL → Express recebe /meta-token.
 ## Sem /webhook no BACK_URL: Traefik Path(`/meta-token`) direto, sem middleware strip.
@@ -12,6 +15,8 @@ services:
     environment:
       SUPABASE_URL: https://SEU-PROJETO.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_SUA_SERVICE_ROLE_KEY
+      LICENCA_CHAVE: HL-XXXX-XXXX-XXXX-XXXX
+      LICENCA_EMAIL: email-da-compra@exemplo.com
       NODE_ENV: production
 
     networks:
@@ -43,6 +48,8 @@ services:
     environment:
       SUPABASE_URL: https://SEU-PROJETO.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_SUA_SERVICE_ROLE_KEY
+      LICENCA_CHAVE: HL-XXXX-XXXX-XXXX-XXXX
+      LICENCA_EMAIL: email-da-compra@exemplo.com
       EVOLUTION_BASE_URL: https://evolution2.victoreder.com.br
       EVOLUTION_API_KEY: COLE_AQUI_SUA_APIKEY_EVOLUTION
       NODE_ENV: production
@@ -72,6 +79,8 @@ services:
     environment:
       SUPABASE_URL: https://SEU-PROJETO.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_SUA_SERVICE_ROLE_KEY
+      LICENCA_CHAVE: HL-XXXX-XXXX-XXXX-XXXX
+      LICENCA_EMAIL: email-da-compra@exemplo.com
       BACK_URL: https://webhook2.victoreder.com.br/webhook
       S3_ENDPOINT: https://s32.victoreder.com.br
       S3_ACCESS_KEY_ID: COLE_S3_ACCESS_KEY

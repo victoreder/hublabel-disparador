@@ -9,6 +9,7 @@ import { registerMetaApiRoutes, startMetaTokenRenewalCron } from './inbound/rout
 import { registerRagRoutes } from './inbound/routes/rag.js';
 import { registerGerarEmailRoutes } from './inbound/routes/gerarEmail.js';
 import { registerSyncTemplatesRoutes } from './inbound/routes/syncTemplates.js';
+import { ensureLicense } from './license.js';
 import { logger } from './logger.js';
 import { getSupabaseKeyInfo, validateSupabaseConnection, fetchOpenAIApiKey } from './supabase.js';
 
@@ -28,6 +29,7 @@ async function main() {
     logger.error('[inbound] uncaughtException', { message: error.message, stack: error.stack });
   });
 
+  await ensureLicense('inbound');
   await validateSupabaseConnection();
 
   try {

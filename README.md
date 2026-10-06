@@ -106,56 +106,39 @@ npm start
 
 Health: `http://localhost:3080/health`
 
-## Imagem Docker (pública)
+## Imagem Docker e licenciamento
 
 ```
 ghcr.io/victoreder/hublabel-disparador:latest
 ```
 
-Atualizada automaticamente a cada push na `main`.
+Atualizada automaticamente a cada push na `main`. O **repositório é privado**. O **package da imagem é
+público**, mas a imagem contém só o código empacotado e ofuscado, e não roda sem licença válida
+(`LICENCA_CHAVE` + `LICENCA_EMAIL` nas variáveis da stack).
 
-### Portainer (sem chave GitHub)
+- Guia do vendedor (setup, criar/revogar/transferir licenças): [`docs/LICENCIAMENTO.md`](docs/LICENCIAMENTO.md)
+- Guia de instalação para o cliente: [`docs/INSTALACAO-CLIENTE.md`](docs/INSTALACAO-CLIENTE.md)
+- Servidor de licenças: [`license-server/`](license-server/)
 
-Com repositório e **package** públicos no GHCR, o cliente só precisa:
+### Env de licença (obrigatórias na imagem distribuída)
 
-| Campo | Valor |
-|--------|--------|
-| **Image** | `ghcr.io/victoreder/hublabel-disparador:latest` |
-| **Port** | `3080:3080` |
-| **Restart** | Unless stopped |
+| Variável | Descrição |
+|----------|-----------|
+| `LICENCA_CHAVE` | Chave recebida na compra (`HL-XXXX-XXXX-XXXX-XXXX`) |
+| `LICENCA_EMAIL` | E-mail da compra |
 
-**Env** (cada cliente usa o **próprio** Supabase):
-
-```
-SUPABASE_URL=https://projeto-do-cliente.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=service_role_do_cliente
-META_GRAPH_API_VERSION=v25.0
-PORT=3080
-SEND_INTERVAL_MS=2000
-POLL_IDLE_MS=2000
-MAX_RETRIES=3
-```
-
-Não é necessário registry/token GitHub para puxar a imagem pública.
-
-### Tornar público (admin HubLabel)
-
-1. GitHub → repo **hublabel-disparador** → Settings → Danger zone → **Change visibility** → Public
-2. GitHub → **Packages** → `hublabel-disparador` → Package settings → **Change visibility** → Public
-
-> Repositório público **não** torna o package público automaticamente. Os dois precisam ser públicos.
+Rodando do fonte (`npm start`, `npm test`) a licença não é exigida.
 
 ## Docker (build local)
 
+O build precisa da chave pública e da URL do servidor de licenças (ver `docs/LICENCIAMENTO.md`):
+
 ```bash
-docker build -t hublabel-disparador-meta .
+docker build \
+  --build-arg LICENSE_PUBLIC_KEY="..." \
+  --build-arg LICENSE_SERVER_URL="https://licenca.seudominio" \
+  -t hublabel-disparador-meta .
 docker run -d --name disparador-meta --env-file .env -p 3080:3080 hublabel-disparador-meta
-```
-
-Ou com compose:
-
-```bash
-docker compose up -d --build
 ```
 
 ## Retentativas
