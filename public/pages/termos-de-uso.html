@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Termos de Uso | __HUB_NOME__</title>
+    <meta name="description" content="Termos de Uso da plataforma __HUB_NOME__ e integração WhatsApp Business Platform (Meta).">
+
+    <link rel="icon" type="image/png" href="__HUB_FAVICON_URL__">
+    <link rel="shortcut icon" type="image/png" href="__HUB_FAVICON_URL__">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: 'rgba(__HUB_COR_RGB__, 0.1)',
+                            100: 'rgba(__HUB_COR_RGB__, 0.16)',
+                            500: '#__HUB_COR__',
+                            600: '#1eb85a',
+                            700: '#178a45',
+                        },
+                    },
+                    boxShadow: {
+                        soft: '0 8px 32px rgba(0, 0, 0, 0.03)',
+                    },
+                },
+            },
+        };
+    </script>
+    <style>
+        body { background: #f8fafc; }
+        .legal-content h2 { scroll-margin-top: 96px; }
+        .legal-content a { color: #__HUB_COR__; font-weight: 600; }
+        .legal-content a:hover { color: #1eb85a; text-decoration: underline; }
+    </style>
+</head>
+<body class="font-sans antialiased text-slate-900 selection:bg-brand-500 selection:text-white min-h-screen flex flex-col">
+
+    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-100">
+        <div class="max-w-4xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-4">
+            <a href="login.html" class="flex items-center gap-3 shrink-0">
+                <img src="__HUB_LOGO_URL__" alt="__HUB_NOME__" class="h-9 w-auto max-w-[180px] object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="hidden items-center gap-2">
+                    <div class="w-9 h-9 rounded-xl bg-[#__HUB_COR__] text-white flex items-center justify-center text-sm font-extrabold shadow-[0_4px_14px_rgba(37,211,102,0.35)]">D</div>
+                    <span class="font-extrabold text-lg tracking-tight">__HUB_NOME__</span>
+                </div>
+            </a>
+            <nav class="flex items-center gap-2 sm:gap-4 text-sm font-bold">
+                <a href="politica-privacidade" class="text-slate-500 hover:text-[#__HUB_COR__] transition-colors hidden sm:inline">Privacidade</a>
+                <a href="login.html" class="inline-flex items-center gap-2 text-[#__HUB_COR__] hover:text-[#1eb85a] transition-colors">
+                    <i class="fa-solid fa-arrow-left text-xs"></i>
+                    <span>Voltar</span>
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-1 w-full">
+        <div class="max-w-4xl mx-auto px-5 sm:px-8 py-10 sm:py-14">
+            <div class="mb-8 sm:mb-10">
+                <span class="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-[#__HUB_COR__] bg-brand-50 border border-brand-100 px-3 py-1.5 rounded-full mb-4">
+                    <i class="fa-solid fa-file-contract"></i>
+                    Documento legal
+                </span>
+                <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-3">Termos de Uso</h1>
+                <p class="text-sm font-medium text-slate-500">Última atualização: 08/06/2026</p>
+            </div>
+
+            <article class="legal-content bg-white border border-slate-100 rounded-3xl shadow-soft p-6 sm:p-10 text-slate-700 leading-relaxed">
+
+                <p>
+                    Estes Termos de Uso regulam o acesso e a utilização da plataforma
+                    <strong class="text-slate-900">__HUB_NOME__</strong>, doravante denominada
+                    simplesmente “Plataforma”, “nós” ou “nossa”.
+                </p>
+                <p class="mt-4 p-4 rounded-2xl bg-brand-50 border border-brand-100 text-slate-800">
+                    Ao acessar, contratar ou utilizar a plataforma <strong>__HUB_NOME__</strong>, o usuário declara que leu,
+                    compreendeu e concorda com estes Termos de Uso e com a nossa
+                    <a href="politica-privacidade">Política de Privacidade</a>.
+                </p>
+                <p class="mt-4">Caso não concorde com estes Termos, o usuário não deverá utilizar a plataforma.</p>
+
+                <nav class="mt-8 p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-100">
+                    <h2 class="text-lg font-extrabold text-slate-900 mb-3">Sumário</h2>
+                    <ul class="space-y-2 text-sm font-semibold columns-1 sm:columns-2 gap-x-8">
+                        <li><a href="#definicoes" class="no-underline hover:underline">1. Definições</a></li>
+                        <li><a href="#objeto" class="no-underline hover:underline">2. Objeto</a></li>
+                        <li><a href="#cadastro" class="no-underline hover:underline">3. Cadastro e acesso</a></li>
+                        <li><a href="#integracao" class="no-underline hover:underline">4. Integração WhatsApp</a></li>
+                        <li><a href="#responsabilidades" class="no-underline hover:underline">5. Responsabilidades do usuário</a></li>
+                        <li><a href="#uso-proibido" class="no-underline hover:underline">6. Uso proibido</a></li>
+                        <li><a href="#planos" class="no-underline hover:underline">7. Planos e pagamentos</a></li>
+                        <li><a href="#cancelamento" class="no-underline hover:underline">8. Cancelamento</a></li>
+                        <li><a href="#reembolsos" class="no-underline hover:underline">9. Reembolsos</a></li>
+                        <li><a href="#limitacoes" class="no-underline hover:underline">10. Limitações da plataforma</a></li>
+                        <li><a href="#meta" class="no-underline hover:underline">11. Relação com a Meta</a></li>
+                        <li><a href="#conteudo" class="no-underline hover:underline">12. Conteúdo das mensagens</a></li>
+                        <li><a href="#privacidade" class="no-underline hover:underline">13. Dados pessoais</a></li>
+                        <li><a href="#contatos" class="no-underline hover:underline">14. Dados de contatos</a></li>
+                        <li><a href="#seguranca" class="no-underline hover:underline">15. Segurança da conta</a></li>
+                        <li><a href="#propriedade" class="no-underline hover:underline">16. Propriedade intelectual</a></li>
+                        <li><a href="#suporte" class="no-underline hover:underline">17. Suporte</a></li>
+                        <li><a href="#atualizacoes" class="no-underline hover:underline">18. Atualizações</a></li>
+                        <li><a href="#suspensao" class="no-underline hover:underline">19. Suspensão ou encerramento</a></li>
+                        <li><a href="#garantias" class="no-underline hover:underline">20. Isenção de garantias</a></li>
+                        <li><a href="#limitacao" class="no-underline hover:underline">21. Limitação de responsabilidade</a></li>
+                        <li><a href="#conformidade" class="no-underline hover:underline">22. Obrigações legais</a></li>
+                        <li><a href="#comunicacoes" class="no-underline hover:underline">23. Comunicações</a></li>
+                        <li><a href="#alteracoes" class="no-underline hover:underline">24. Alterações nestes Termos</a></li>
+                        <li><a href="#foro" class="no-underline hover:underline">25. Lei aplicável e foro</a></li>
+                        <li><a href="#contato" class="no-underline hover:underline">26. Contato</a></li>
+                    </ul>
+                </nav>
+
+                <h2 id="definicoes" class="mt-10 text-xl font-extrabold text-slate-900">1. Definições</h2>
+                <p class="mt-3">Para fins destes Termos de Uso:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li><strong class="text-slate-900">Plataforma:</strong> sistema online disponibilizado pela __HUB_NOME__ para gestão de atendimentos, automações, mensagens e integrações com WhatsApp Business Platform.</li>
+                    <li><strong class="text-slate-900">Usuário:</strong> pessoa física que acessa ou utiliza a plataforma em nome próprio ou em nome de uma empresa.</li>
+                    <li><strong class="text-slate-900">Cliente:</strong> pessoa física ou jurídica que contrata a plataforma.</li>
+                    <li><strong class="text-slate-900">Conta:</strong> ambiente criado para que o usuário utilize os recursos da plataforma.</li>
+                    <li><strong class="text-slate-900">WhatsApp Business Platform:</strong> solução oficial da Meta para envio, recebimento e gerenciamento de mensagens pelo WhatsApp por meio de APIs.</li>
+                    <li><strong class="text-slate-900">WABA:</strong> WhatsApp Business Account, conta comercial do WhatsApp vinculada ao Meta Business.</li>
+                    <li><strong class="text-slate-900">Contato:</strong> pessoa que interage com o usuário por meio do WhatsApp conectado à plataforma.</li>
+                    <li><strong class="text-slate-900">Dados:</strong> informações inseridas, recebidas, transmitidas ou processadas pela plataforma durante seu uso.</li>
+                </ul>
+
+                <h2 id="objeto" class="mt-10 text-xl font-extrabold text-slate-900">2. Objeto</h2>
+                <p class="mt-3">A <strong class="text-slate-900">__HUB_NOME__</strong> oferece uma plataforma SaaS para empresas que desejam gerenciar atendimentos, mensagens, automações e comunicações por meio do WhatsApp Business Platform.</p>
+                <p class="mt-3">A plataforma pode permitir, conforme o plano contratado:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>conexão com conta oficial do WhatsApp Business Platform;</li>
+                    <li>envio e recebimento de mensagens;</li>
+                    <li>gestão de conversas;</li>
+                    <li>organização de contatos;</li>
+                    <li>uso de etiquetas, departamentos ou responsáveis;</li>
+                    <li>criação de automações;</li>
+                    <li>recebimento de eventos via webhook;</li>
+                    <li>acompanhamento de status de mensagens;</li>
+                    <li>gerenciamento operacional de atendimentos;</li>
+                    <li>outras funcionalidades disponibilizadas no sistema.</li>
+                </ul>
+                <p class="mt-3">A plataforma não é afiliada, controlada ou pertencente à Meta, Facebook, Instagram ou WhatsApp. O WhatsApp é uma marca pertencente à Meta Platforms, Inc.</p>
+
+                <h2 id="cadastro" class="mt-10 text-xl font-extrabold text-slate-900">3. Cadastro e acesso à plataforma</h2>
+                <p class="mt-3">Para utilizar a plataforma, o usuário deverá criar uma conta e fornecer informações verdadeiras, completas e atualizadas.</p>
+                <p class="mt-3">O usuário é responsável por:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>manter seus dados cadastrais atualizados;</li>
+                    <li>proteger seu login e senha;</li>
+                    <li>não compartilhar acessos indevidamente;</li>
+                    <li>garantir que pessoas autorizadas utilizem a conta;</li>
+                    <li>informar imediatamente qualquer uso não autorizado da conta.</li>
+                </ul>
+                <p class="mt-3">A <strong class="text-slate-900">__HUB_NOME__</strong> poderá suspender ou encerrar contas que apresentem dados falsos, uso indevido, violação destes Termos ou risco à segurança da plataforma.</p>
+
+                <h2 id="integracao" class="mt-10 text-xl font-extrabold text-slate-900">4. Uso da integração com WhatsApp Business Platform</h2>
+                <p class="mt-3">A plataforma permite que o usuário conecte sua conta oficial do WhatsApp Business Platform, também conhecida como WABA.</p>
+                <p class="mt-3">Ao conectar uma conta WABA, o usuário declara que:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>possui autorização para conectar e operar aquela conta;</li>
+                    <li>é responsável pelo número de WhatsApp conectado;</li>
+                    <li>possui autorização para tratar os dados dos contatos atendidos;</li>
+                    <li>cumprirá as regras da Meta e do WhatsApp;</li>
+                    <li>utilizará a plataforma apenas para finalidades lícitas;</li>
+                    <li>não utilizará a plataforma para envio de spam, fraudes, golpes ou mensagens abusivas.</li>
+                </ul>
+                <p class="mt-3">A continuidade da integração depende também da disponibilidade e das regras da Meta. Mudanças realizadas pela Meta, WhatsApp ou provedores terceiros podem afetar o funcionamento da plataforma.</p>
+
+                <h2 id="responsabilidades" class="mt-10 text-xl font-extrabold text-slate-900">5. Responsabilidades do usuário</h2>
+                <p class="mt-3">O usuário é integralmente responsável pelo uso que fizer da plataforma.</p>
+                <p class="mt-3">É responsabilidade do usuário:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>utilizar a plataforma de acordo com a legislação vigente;</li>
+                    <li>respeitar a LGPD e demais normas de proteção de dados;</li>
+                    <li>obter consentimento ou outra base legal adequada para contatar pessoas via WhatsApp;</li>
+                    <li>respeitar as políticas da Meta e do WhatsApp;</li>
+                    <li>não enviar mensagens ilegais, enganosas, abusivas ou não solicitadas;</li>
+                    <li>não utilizar a plataforma para práticas fraudulentas;</li>
+                    <li>não violar direitos de terceiros;</li>
+                    <li>não tentar acessar áreas, contas ou dados de outros usuários;</li>
+                    <li>não realizar engenharia reversa, cópia, exploração ou tentativa de invasão da plataforma;</li>
+                    <li>não utilizar a plataforma para envio massivo irregular, spam ou atividades proibidas.</li>
+                </ul>
+                <p class="mt-3">O usuário reconhece que é o único responsável pelo conteúdo das mensagens enviadas, pelas automações configuradas e pela relação com seus próprios contatos, clientes e leads.</p>
+
+                <h2 id="uso-proibido" class="mt-10 text-xl font-extrabold text-slate-900">6. Uso proibido</h2>
+                <p class="mt-3">É proibido utilizar a plataforma para:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>envio de spam;</li>
+                    <li>golpes, fraudes ou tentativas de enganar terceiros;</li>
+                    <li>phishing ou roubo de dados;</li>
+                    <li>atividades ilegais;</li>
+                    <li>envio de conteúdo ofensivo, discriminatório, ameaçador ou abusivo;</li>
+                    <li>violação de direitos autorais, marcas ou direitos de terceiros;</li>
+                    <li>disparos em massa sem base legal;</li>
+                    <li>venda de produtos ou serviços proibidos pelas políticas da Meta;</li>
+                    <li>manipulação indevida de conversas;</li>
+                    <li>tentativa de burlar limitações da plataforma ou da Meta;</li>
+                    <li>uso de credenciais, tokens ou contas de terceiros sem autorização;</li>
+                    <li>sobrecarga, ataque, scraping, mineração ou tentativa de extração indevida de dados.</li>
+                </ul>
+                <p class="mt-3">A violação desta cláusula poderá resultar em suspensão imediata da conta, bloqueio de acesso, encerramento do contrato e adoção das medidas legais cabíveis.</p>
+
+                <h2 id="planos" class="mt-10 text-xl font-extrabold text-slate-900">7. Planos, pagamentos e cobrança</h2>
+                <p class="mt-3">O acesso à plataforma poderá depender da contratação de um plano pago.</p>
+                <p class="mt-3">Os valores, recursos incluídos, limites de uso, forma de pagamento e periodicidade de cobrança serão informados no momento da contratação ou em proposta comercial específica.</p>
+                <p class="mt-3">O usuário concorda que:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>os valores podem variar conforme o plano contratado;</li>
+                    <li>funcionalidades podem ser limitadas conforme o plano;</li>
+                    <li>a falta de pagamento pode resultar em suspensão ou cancelamento da conta;</li>
+                    <li>taxas cobradas por terceiros, como Meta, WhatsApp, gateway de pagamento ou provedores externos, podem não estar incluídas no valor da plataforma;</li>
+                    <li>eventuais reajustes poderão ser comunicados previamente, quando aplicável.</li>
+                </ul>
+                <p class="mt-3">Caso exista período gratuito, teste ou trial, a <strong class="text-slate-900">__HUB_NOME__</strong> poderá limitar funcionalidades, prazos, quantidade de mensagens, conexões ou usuários.</p>
+
+                <h2 id="cancelamento" class="mt-10 text-xl font-extrabold text-slate-900">8. Cancelamento</h2>
+                <p class="mt-3">O usuário poderá solicitar o cancelamento da assinatura conforme os canais oficiais de atendimento da <strong class="text-slate-900">__HUB_NOME__</strong>.</p>
+                <p class="mt-3">O cancelamento não elimina automaticamente valores já devidos, cobranças vencidas, obrigações contratuais ou responsabilidades decorrentes do uso anterior da plataforma.</p>
+                <p class="mt-3">Após o cancelamento, a conta poderá ser suspensa, desativada ou ter seus dados removidos conforme a <a href="politica-privacidade">Política de Privacidade</a> e as regras de retenção aplicáveis.</p>
+
+                <h2 id="reembolsos" class="mt-10 text-xl font-extrabold text-slate-900">9. Reembolsos</h2>
+                <p class="mt-3">As condições de reembolso, quando existirem, serão informadas na página de contratação, proposta comercial, contrato específico ou política comercial vigente.</p>
+                <p class="mt-3">Na ausência de regra específica, valores já pagos pelo uso da plataforma poderão não ser reembolsáveis, especialmente quando o serviço já tiver sido disponibilizado ou utilizado.</p>
+                <p class="mt-3">Essa cláusula não limita direitos previstos em lei.</p>
+
+                <h2 id="limitacoes" class="mt-10 text-xl font-extrabold text-slate-900">10. Limitações da plataforma</h2>
+                <p class="mt-3">A <strong class="text-slate-900">__HUB_NOME__</strong> se esforça para manter a plataforma estável, segura e funcional. No entanto, o usuário reconhece que sistemas online podem sofrer interrupções, instabilidades ou indisponibilidades.</p>
+                <p class="mt-3">A plataforma pode ser afetada por:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>falhas de internet;</li>
+                    <li>manutenção programada;</li>
+                    <li>instabilidades de servidores;</li>
+                    <li>problemas em provedores terceiros;</li>
+                    <li>alterações nas APIs da Meta;</li>
+                    <li>bloqueios, limitações ou mudanças no WhatsApp Business Platform;</li>
+                    <li>falhas de autenticação;</li>
+                    <li>problemas na conta WABA do usuário;</li>
+                    <li>suspensão ou restrição aplicada pela Meta;</li>
+                    <li>erros de configuração realizados pelo usuário.</li>
+                </ul>
+                <p class="mt-3">A <strong class="text-slate-900">__HUB_NOME__</strong> não garante disponibilidade ininterrupta, ausência total de erros ou compatibilidade permanente com serviços de terceiros.</p>
+
+                <h2 id="meta" class="mt-10 text-xl font-extrabold text-slate-900">11. Relação com a Meta e WhatsApp</h2>
+                <p class="mt-3">A plataforma utiliza integrações oficiais ou autorizadas com o WhatsApp Business Platform, quando aplicável.</p>
+                <p class="mt-3">O usuário reconhece que:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>o WhatsApp pertence à Meta Platforms, Inc.;</li>
+                    <li>a Meta possui suas próprias regras, políticas e limitações;</li>
+                    <li>a Meta pode aprovar, rejeitar, restringir, suspender ou alterar contas, números, templates, mensagens e permissões;</li>
+                    <li>a <strong class="text-slate-900">__HUB_NOME__</strong> não controla decisões tomadas pela Meta;</li>
+                    <li>mudanças nas políticas ou APIs da Meta podem impactar a plataforma.</li>
+                </ul>
+                <p class="mt-3">O usuário é responsável por cumprir os Termos de Serviço, Políticas Comerciais, Políticas de Mensagens e demais regras aplicáveis da Meta e do WhatsApp.</p>
+
+                <h2 id="conteudo" class="mt-10 text-xl font-extrabold text-slate-900">12. Conteúdo das mensagens</h2>
+                <p class="mt-3">O usuário é exclusivamente responsável por todo conteúdo enviado ou configurado na plataforma, incluindo:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>textos, imagens, vídeos, áudios, documentos e links;</li>
+                    <li>templates, mensagens automáticas, fluxos de automação e respostas manuais;</li>
+                    <li>campanhas ou comunicações enviadas via WhatsApp.</li>
+                </ul>
+                <p class="mt-3">A <strong class="text-slate-900">__HUB_NOME__</strong> não se responsabiliza por danos, reclamações, bloqueios, denúncias, penalidades ou prejuízos decorrentes do conteúdo enviado pelo usuário.</p>
+
+                <h2 id="privacidade" class="mt-10 text-xl font-extrabold text-slate-900">13. Dados pessoais e privacidade</h2>
+                <p class="mt-3">O tratamento de dados pessoais realizado pela plataforma está descrito na nossa <a href="politica-privacidade">Política de Privacidade</a>.</p>
+                <p class="mt-3">Ao utilizar a plataforma, o usuário declara estar ciente de que dados pessoais poderão ser tratados para viabilizar o funcionamento do serviço, incluindo dados de cadastro, dados técnicos, dados da conta WABA, mensagens, contatos e informações necessárias para operação da plataforma.</p>
+                <p class="mt-3">O usuário declara ser responsável por possuir base legal adequada para inserir, importar, tratar ou enviar mensagens aos seus contatos, clientes e leads.</p>
+
+                <h2 id="contatos" class="mt-10 text-xl font-extrabold text-slate-900">14. Dados de contatos e clientes finais</h2>
+                <p class="mt-3">Ao utilizar a plataforma para atender contatos via WhatsApp, o usuário poderá tratar dados pessoais de terceiros.</p>
+                <p class="mt-3">Nesses casos, o usuário contratante é responsável por:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>informar seus contatos sobre o tratamento de dados;</li>
+                    <li>possuir consentimento ou outra base legal aplicável;</li>
+                    <li>respeitar solicitações de exclusão, descadastro ou oposição;</li>
+                    <li>não enviar mensagens indevidas;</li>
+                    <li>cumprir a LGPD e demais normas aplicáveis;</li>
+                    <li>responder por reclamações feitas por seus próprios clientes, leads ou contatos.</li>
+                </ul>
+                <p class="mt-3">A <strong class="text-slate-900">__HUB_NOME__</strong> atua como prestadora de serviço, processando os dados conforme as instruções do usuário e conforme necessário para o funcionamento da plataforma.</p>
+
+                <h2 id="seguranca" class="mt-10 text-xl font-extrabold text-slate-900">15. Segurança da conta</h2>
+                <p class="mt-3">O usuário deve proteger suas credenciais de acesso.</p>
+                <p class="mt-3">A <strong class="text-slate-900">__HUB_NOME__</strong> não será responsável por prejuízos decorrentes de:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>compartilhamento de senha;</li>
+                    <li>acesso por pessoas não autorizadas;</li>
+                    <li>uso de dispositivos inseguros;</li>
+                    <li>falha do usuário em encerrar sessões;</li>
+                    <li>uso de senhas fracas;</li>
+                    <li>vazamento de credenciais fora da plataforma;</li>
+                    <li>acesso indevido causado por negligência do usuário.</li>
+                </ul>
+                <p class="mt-3">Caso identifique qualquer suspeita de acesso indevido, o usuário deverá comunicar imediatamente a equipe de suporte.</p>
+
+                <h2 id="propriedade" class="mt-10 text-xl font-extrabold text-slate-900">16. Propriedade intelectual</h2>
+                <p class="mt-3">Todos os direitos sobre a plataforma, incluindo software, código-fonte, layout, marca, identidade visual, funcionalidades, banco de dados, documentação, textos, elementos gráficos e demais componentes, pertencem à <strong class="text-slate-900">__HUB_NOME__</strong> ou aos seus licenciantes.</p>
+                <p class="mt-3">O usuário recebe apenas uma licença limitada, temporária, revogável, não exclusiva e intransferível para utilizar a plataforma conforme o plano contratado.</p>
+                <p class="mt-3">É proibido:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>copiar a plataforma;</li>
+                    <li>vender, sublicenciar ou distribuir o sistema sem autorização;</li>
+                    <li>fazer engenharia reversa;</li>
+                    <li>tentar acessar o código-fonte;</li>
+                    <li>reproduzir funcionalidades para criar produto concorrente;</li>
+                    <li>remover avisos de propriedade intelectual;</li>
+                    <li>usar marcas, nomes ou elementos da plataforma sem autorização.</li>
+                </ul>
+
+                <h2 id="suporte" class="mt-10 text-xl font-extrabold text-slate-900">17. Suporte</h2>
+                <p class="mt-3">O suporte será prestado pelos canais oficiais informados pela <strong class="text-slate-900">__HUB_NOME__</strong>.</p>
+                <p class="mt-3">O suporte pode abranger:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>dúvidas sobre uso da plataforma;</li>
+                    <li>problemas técnicos;</li>
+                    <li>orientação sobre conexão WABA;</li>
+                    <li>análise de erros;</li>
+                    <li>dúvidas operacionais.</li>
+                </ul>
+                <p class="mt-3">O suporte não inclui, salvo contratação específica:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>consultoria jurídica;</li>
+                    <li>gestão de campanhas;</li>
+                    <li>criação de estratégias comerciais;</li>
+                    <li>criação completa de automações personalizadas;</li>
+                    <li>suporte direto a clientes finais do usuário;</li>
+                    <li>resolução de problemas causados exclusivamente pela Meta, WhatsApp, provedores externos ou configurações incorretas do usuário.</li>
+                </ul>
+
+                <h2 id="atualizacoes" class="mt-10 text-xl font-extrabold text-slate-900">18. Atualizações e alterações na plataforma</h2>
+                <p class="mt-3">A <strong class="text-slate-900">__HUB_NOME__</strong> poderá, a qualquer momento:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>atualizar funcionalidades;</li>
+                    <li>corrigir falhas;</li>
+                    <li>alterar interfaces;</li>
+                    <li>remover recursos obsoletos;</li>
+                    <li>incluir novos módulos;</li>
+                    <li>limitar recursos por plano;</li>
+                    <li>realizar manutenções;</li>
+                    <li>alterar fluxos técnicos necessários para funcionamento da plataforma.</li>
+                </ul>
+                <p class="mt-3">Sempre que possível, alterações relevantes serão comunicadas aos usuários.</p>
+
+                <h2 id="suspensao" class="mt-10 text-xl font-extrabold text-slate-900">19. Suspensão ou encerramento da conta</h2>
+                <p class="mt-3">A <strong class="text-slate-900">__HUB_NOME__</strong> poderá suspender ou encerrar o acesso do usuário, com ou sem aviso prévio, em caso de:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>violação destes Termos;</li>
+                    <li>inadimplência;</li>
+                    <li>uso ilegal;</li>
+                    <li>envio de spam;</li>
+                    <li>tentativa de fraude;</li>
+                    <li>risco à segurança da plataforma;</li>
+                    <li>violação de políticas da Meta ou WhatsApp;</li>
+                    <li>uso abusivo dos recursos;</li>
+                    <li>reclamações recorrentes de contatos;</li>
+                    <li>ordem judicial ou solicitação de autoridade competente;</li>
+                    <li>utilização da plataforma de forma prejudicial a terceiros ou à própria empresa.</li>
+                </ul>
+                <p class="mt-3">A suspensão ou encerramento não impede a cobrança de valores pendentes ou a adoção de medidas legais cabíveis.</p>
+
+                <h2 id="garantias" class="mt-10 text-xl font-extrabold text-slate-900">20. Isenção de garantias</h2>
+                <p class="mt-3">A plataforma é fornecida no estado em que se encontra, conforme disponibilidade técnica e plano contratado.</p>
+                <p class="mt-3">A <strong class="text-slate-900">__HUB_NOME__</strong> não garante que:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>a plataforma será livre de erros;</li>
+                    <li>o serviço nunca ficará indisponível;</li>
+                    <li>a conta WABA do usuário será aprovada pela Meta;</li>
+                    <li>o número de WhatsApp não será bloqueado pela Meta;</li>
+                    <li>mensagens serão sempre entregues;</li>
+                    <li>templates serão aprovados;</li>
+                    <li>automações gerarão vendas, leads ou resultados financeiros;</li>
+                    <li>integrações de terceiros permanecerão disponíveis indefinidamente.</li>
+                </ul>
+                <p class="mt-3">Resultados comerciais dependem de fatores externos, como oferta, atendimento, base de contatos, estratégia, conformidade, reputação do número e regras da Meta.</p>
+
+                <h2 id="limitacao" class="mt-10 text-xl font-extrabold text-slate-900">21. Limitação de responsabilidade</h2>
+                <p class="mt-3">Na máxima extensão permitida pela legislação aplicável, a <strong class="text-slate-900">__HUB_NOME__</strong> não será responsável por:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>lucros cessantes;</li>
+                    <li>perda de receita;</li>
+                    <li>perda de oportunidades comerciais;</li>
+                    <li>danos indiretos;</li>
+                    <li>perda de dados causada por terceiros;</li>
+                    <li>bloqueios aplicados pela Meta ou WhatsApp;</li>
+                    <li>falhas em provedores externos;</li>
+                    <li>mau uso da plataforma pelo usuário;</li>
+                    <li>envio indevido de mensagens;</li>
+                    <li>reclamações feitas por clientes finais do usuário;</li>
+                    <li>uso da plataforma em desacordo com a legislação;</li>
+                    <li>decisões comerciais tomadas pelo usuário com base no uso da plataforma.</li>
+                </ul>
+                <p class="mt-3">Caso exista responsabilidade comprovada da <strong class="text-slate-900">__HUB_NOME__</strong>, ela ficará limitada, sempre que permitido por lei, ao valor pago pelo usuário nos últimos 3 meses anteriores ao evento que gerou a reclamação.</p>
+
+                <h2 id="conformidade" class="mt-10 text-xl font-extrabold text-slate-900">22. Obrigações legais e conformidade</h2>
+                <p class="mt-3">O usuário se compromete a utilizar a plataforma em conformidade com:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>legislação brasileira aplicável;</li>
+                    <li>LGPD;</li>
+                    <li>Marco Civil da Internet;</li>
+                    <li>Código de Defesa do Consumidor, quando aplicável;</li>
+                    <li>normas de proteção de dados;</li>
+                    <li>regras da Meta;</li>
+                    <li>políticas do WhatsApp Business Platform;</li>
+                    <li>contratos e regulamentos aplicáveis ao seu próprio negócio.</li>
+                </ul>
+                <p class="mt-3">O usuário é responsável por verificar se sua atividade, produto, serviço, mensagem ou abordagem comercial está permitida pela legislação e pelas políticas da Meta.</p>
+
+                <h2 id="comunicacoes" class="mt-10 text-xl font-extrabold text-slate-900">23. Comunicações</h2>
+                <p class="mt-3">A <strong class="text-slate-900">__HUB_NOME__</strong> poderá enviar comunicações ao usuário por:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>e-mail;</li>
+                    <li>WhatsApp;</li>
+                    <li>notificações dentro da plataforma;</li>
+                    <li>painel administrativo;</li>
+                    <li>outros canais informados no cadastro.</li>
+                </ul>
+                <p class="mt-3">Essas comunicações podem incluir avisos técnicos, cobranças, alterações contratuais, atualizações, suporte, segurança e informações importantes sobre a conta.</p>
+
+                <h2 id="alteracoes" class="mt-10 text-xl font-extrabold text-slate-900">24. Alterações nestes Termos</h2>
+                <p class="mt-3">Estes Termos de Uso poderão ser atualizados periodicamente.</p>
+                <p class="mt-3">A versão mais recente estará sempre disponível em:</p>
+                <p class="mt-2"><a href="termos-uso.html">termos-uso.html</a></p>
+                <p class="mt-3">O uso contínuo da plataforma após alterações nos Termos representa concordância com a nova versão.</p>
+                <p class="mt-3">Caso o usuário não concorde com as alterações, deverá interromper o uso da plataforma e solicitar o cancelamento da conta.</p>
+
+                <h2 id="foro" class="mt-10 text-xl font-extrabold text-slate-900">25. Lei aplicável e foro</h2>
+                <p class="mt-3">Estes Termos serão regidos pelas leis da República Federativa do Brasil.</p>
+                <p class="mt-3">Fica eleito o foro da comarca de <strong class="text-slate-900">Florianópolis/SC</strong>, salvo quando a legislação aplicável determinar foro diverso, para resolver quaisquer controvérsias decorrentes destes Termos.</p>
+
+                <h2 id="contato" class="mt-10 text-xl font-extrabold text-slate-900">26. Contato</h2>
+                <p class="mt-3">Em caso de dúvidas sobre estes Termos de Uso, entre em contato:</p>
+                <ul class="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2 list-none pl-4">
+                    <li><strong class="text-slate-900">CNPJ:</strong> 48.713.673/0001-15</li>
+                    <li><strong class="text-slate-900">Endereço:</strong> Rua Príncipe Humberto, 112, Conj. 44, Centro, São Bernardo do Campo/SP, CEP 09725-200</li>
+                    <li><strong class="text-slate-900">Site:</strong> <a href="login.html">login.html</a></li>
+                </ul>
+
+            </article>
+        </div>
+    </main>
+
+    <footer class="border-t border-slate-100 bg-white mt-auto">
+        <div class="max-w-4xl mx-auto px-5 sm:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm font-semibold text-slate-500">
+            <p>© __HUB_NOME__ — Todos os direitos reservados.</p>
+            <div class="flex items-center gap-4">
+                <a href="politica-privacidade" class="text-[#__HUB_COR__] hover:text-[#1eb85a] transition-colors">Política de Privacidade</a>
+                <a href="login.html" class="text-slate-400 hover:text-slate-600 transition-colors">Login</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

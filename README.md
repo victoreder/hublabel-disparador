@@ -190,3 +190,39 @@ docker run -d --name disparador-evolution --env-file .env \
 ```
 
 Ou `docker compose up -d` (sobe Meta + Evolution).
+
+---
+
+## Telas e ações (antes no n8n)
+
+O serviço `disparador-inbound` (`node src/inbound.js`) serve **todas as telas** do sistema e as **ações** que antes rodavam no workflow n8n `[SAAS] HUBLABEL` — nas mesmas URLs (`BACK_URL/<slug>`, ex.: `https://webhook2.victoreder.com.br/webhook/login`).
+
+### Telas
+
+- HTML em `public/pages/<slug>.html` → `GET BACK_URL/<slug>` (25 telas + `pv.html`, padrão da página de vendas).
+- Valores por cliente viram placeholders preenchidos ao servir: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `BACK_URL` e `EVOLUTION_BASE_URL` vêm da stack.
+- **White-label** (nome, cor, telefone de suporte, logo, favicon) vem da tabela `SAAS_Personalizacao` e é aplicado no servidor — a tela já chega personalizada, sem piscar. A aba *Personalização* do admin grava nela (`POST /personalizar-saas`). Vídeos continuam em `SAAS_VideosAjuda`.
+- Para reextrair as telas de um export do n8n: `npm run extrair-telas -- caminho/do/workflow.json`.
+
+### Ações
+
+| Rota (POST) | O que faz |
+|---|---|
+| `/uploadmedia` | Upload de mídia para o S3 → `{ link }` |
+| `/usuario-gratis` | Cadastro grátis (plano `PLANO_GRATIS_ID`, `PLANO_GRATIS_DIAS` dias) |
+| `/criar-usuario` | Admin cria cliente (plano e vencimento informados) |
+| `/adicionar-usuario` | Adiciona membro na conta |
+| `/excluir-conta` | Remove o usuário do Supabase Auth |
+| `/testar-openai`, `/criar-instrucao`, `/gerarmensagem-ia` | IA (chave em `SAAS_Config_IA`) |
+| `/sincronizar-supabase`, `/email-supabase` | SMTP / e-mail de reset no Auth do Supabase (via PAT) |
+| `/enviar-teste-email` | Teste de SMTP |
+| `/enviar-template` | Envia template da API Oficial pelo chat/CRM |
+| `/token?id=` | Webhook de leads (`SAAS_Webhook`): teste salva payload; ativo cria contato e manda a mensagem padrão |
+| `/integracao?id=` | Gateway de pagamento (`SAAS_IntegracaoPagamento`): cria/renova usuário e envia boas-vindas |
+| `/criar-pv`, `/personalizar-pv`, `/personalizar-pagina`, `GET /buscar-pv`, `GET /pv` | Página de vendas (`SAAS_PaginaVendas`) |
+
+### Implantação
+
+1. Rodar `scripts/migracao-n8n-telas-acoes.sql` no SQL Editor do Supabase (uma vez).
+2. Na stack, adicionar `SUPABASE_ANON_KEY` ao `disparador-inbound` e apontar o domínio inteiro para ele (veja `portainer-stack.example.yml` — um único router `Host(...)`, sem StripPrefix).
+3. Remover o router do n8n desse domínio (senão os dois disputam o mesmo `Host`).

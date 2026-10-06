@@ -1,0 +1,2730 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criar Template WhatsApp - __HUB_NOME__</title>
+    <link rel="icon" type="image/png" href="__HUB_FAVICON_URL__">
+    <link rel="shortcut icon" type="image/png" href="__HUB_FAVICON_URL__">
+    <link rel="apple-touch-icon" href="__HUB_FAVICON_URL__">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --brand-500: #__HUB_COR__;
+            --brand-sidebar-bg: color-mix(in srgb, var(--brand-500) 10%, #000000);
+            --brand-sidebar-active: color-mix(in srgb, var(--brand-500) 18%, #000000);
+            --brand-sidebar-hover: color-mix(in srgb, var(--brand-500) 16%, var(--brand-sidebar-bg));
+            --brand-sidebar-divider: color-mix(in srgb, var(--brand-500) 20%, var(--brand-sidebar-bg));
+            --brand-sidebar-muted: color-mix(in srgb, var(--brand-500) 45%, #ffffff);
+            --surface: #fbfcfd;
+            --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.03);
+        }
+        body {
+            background: #f4f4f5;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: #18181b;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+        }
+        body.dark-mode {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            color: #e2e8f0;
+        }
+        .app-layout { display: flex; min-height: 100vh; }
+
+        /* Sidebar (dashboard.html) */
+        .sidebar {
+            width: 72px; overflow: hidden; background: #1A202C;
+            transition: width 0.3s ease; position: fixed; top: 0; left: 0;
+            z-index: 1000; display: flex; flex-direction: column; height: 100vh;
+        }
+        .sidebar:hover, .sidebar.sidebar-expanded { width: 250px; }
+        .sidebar-header { padding: 24px 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; min-height: 96px; }
+        .sidebar-logo-link { display: flex; align-items: center; justify-content: center; width: 32px; height: 40px; min-width: 32px; transition: width 0.3s ease; }
+        .sidebar:hover .sidebar-logo-link, .sidebar.sidebar-expanded .sidebar-logo-link, .sidebar.mobile-open .sidebar-logo-link { width: 100%; min-width: 180px; padding: 0 16px; }
+        .sidebar-logo-img { width: 32px; height: 32px; object-fit: contain; }
+        .sidebar-logo-full { display: none; }
+        .sidebar:hover .sidebar-logo-favicon, .sidebar.sidebar-expanded .sidebar-logo-favicon, .sidebar.mobile-open .sidebar-logo-favicon { display: none; }
+        .sidebar:hover .sidebar-logo-full, .sidebar.sidebar-expanded .sidebar-logo-full, .sidebar.mobile-open .sidebar-logo-full { display: block; width: auto; max-width: 100%; height: 45px; }
+        .sidebar-menu { padding: 4px 0; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+        .sidebar-nav-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 4px 16px; }
+        .menu-item {
+            display: flex; align-items: center; justify-content: center; padding: 10px 0; margin: 2px 10px;
+            color: rgba(255,255,255,0.7); text-decoration: none; transition: all 0.2s; white-space: nowrap; border-radius: 16px;
+        }
+        .sidebar:hover .menu-item, .sidebar.sidebar-expanded .menu-item, .sidebar.mobile-open .menu-item { justify-content: flex-start; padding: 10px 12px; }
+        .menu-item:hover { background: rgba(255,255,255,0.08); color: white; }
+        .menu-item.active { background: #2D3748; color: white; }
+        .menu-icon { width: 25px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .menu-icon svg { width: 16px; height: 16px; stroke: currentColor; }
+        .menu-icon .material-symbols-rounded { font-size: 16px; }
+        .menu-text { margin-left: 0; opacity: 0; width: 0; overflow: hidden; transition: opacity 0.3s, margin-left 0.3s; }
+        .sidebar:hover .menu-text, .sidebar.sidebar-expanded .menu-text, .sidebar.mobile-open .menu-text { margin-left: 16px; opacity: 1; width: auto; flex: 1; }
+        .menu-badge-admin { display: none; margin-left: auto; font-size: 0.6rem; padding: 2px 8px; border-radius: 999px; background: #__HUB_COR__; color: #fff; }
+        .sidebar:hover .menu-badge-admin, .sidebar.sidebar-expanded .menu-badge-admin, .sidebar.mobile-open .menu-badge-admin { display: inline-block; }
+        .version-text { color: #666; font-size: 0.6rem; text-align: center; padding: 8px 20px; opacity: 0; transition: opacity 0.3s; }
+        .sidebar:hover .version-text, .sidebar.sidebar-expanded .version-text { opacity: 1; }
+        .sidebar-footer { margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1); padding: 10px 0; }
+        .logout-item { color: #ff6b6b !important; }
+        .logout-item:hover { background: rgba(255,107,107,0.1) !important; }
+        .theme-toggle-item { cursor: default; }
+        .theme-switch { display: none; position: relative; width: 44px; height: 24px; margin-left: auto; }
+        .sidebar:hover .theme-switch, .sidebar.sidebar-expanded .theme-switch, .sidebar.mobile-open .theme-switch { display: inline-block; }
+        .theme-switch input { opacity: 0; width: 0; height: 0; }
+        .theme-switch .slider { position: absolute; cursor: pointer; inset: 0; background: #444; border-radius: 24px; transition: 0.3s; }
+        .theme-switch .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+        .theme-switch input:checked + .slider { background: #__HUB_COR__; }
+        .theme-switch input:checked + .slider:before { transform: translateX(20px); }
+        body.light-mode .sidebar { background: var(--brand-sidebar-bg); }
+        body.light-mode .menu-item { color: rgba(255,255,255,0.72); }
+        body.light-mode .menu-item:hover { background: var(--brand-sidebar-hover); color: #fff; }
+        body.light-mode .menu-item.active { background: var(--brand-sidebar-active); color: #fff; }
+        body.light-mode .sidebar-nav-divider { background: var(--brand-sidebar-divider); }
+        body.light-mode .sidebar-footer { border-top-color: var(--brand-sidebar-divider); }
+        body.light-mode .version-text { color: var(--brand-sidebar-muted); }
+        body.dark-mode .menu-item:hover { background: rgba(37,211,102,0.14); color: #__HUB_COR__; }
+        body.dark-mode .menu-item.active { background: rgba(37,211,102,0.18); color: #__HUB_COR__; font-weight: 700; }
+
+        .mobile-close-btn { display: none; position: absolute; top: 12px; right: 12px; background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer; padding: 4px; border-radius: 8px; z-index: 10; }
+        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; }
+        .sidebar-overlay.active { display: block; }
+        .mobile-menu-toggle {
+            display: none; position: fixed; top: 16px; left: 16px; z-index: 998; width: 44px; height: 44px;
+            border-radius: 12px; background: white; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; align-items: center; justify-content: center;
+        }
+        .mobile-menu-toggle svg { width: 20px; height: 20px; color: #334155; }
+        @media (max-width: 768px) {
+            .mobile-menu-toggle { display: flex; }
+            .sidebar { width: 0; }
+            .sidebar.mobile-open { width: 250px; }
+            .sidebar.mobile-open .mobile-close-btn { display: flex; }
+            .main-content { margin-left: 0 !important; padding: 24px 16px !important; }
+        }
+
+        /* Main */
+        .main-content { flex: 1; margin-left: 72px; padding: 32px 40px; background: var(--surface); min-height: 100vh; }
+        body.dark-mode .main-content { background: transparent; }
+        .page-header { margin-bottom: 28px; }
+        .page-header h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.025em; color: #0f172a; margin-bottom: 6px; }
+        .page-header p { color: #64748b; font-size: 0.875rem; font-weight: 500; }
+        body.dark-mode .page-header h1 { color: #f8fafc; }
+        body.dark-mode .page-header p { color: #94a3b8; }
+
+        .form-card {
+            background: white; border-radius: 1.5rem; padding: 28px;
+            box-shadow: var(--shadow-soft); border: 1px solid #f1f5f9;
+        }
+        body.dark-mode .form-card { background: rgba(30,41,59,0.6); border-color: rgba(71,85,105,0.4); }
+
+        /* Layout 3 colunas — meta | editor | preview */
+        .template-layout {
+            display: grid;
+            grid-template-columns: 272px minmax(0, 1fr) 340px;
+            background: white;
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: var(--shadow-soft);
+            overflow: hidden;
+            min-height: calc(100vh - 180px);
+            align-items: stretch;
+        }
+        body.dark-mode .template-layout { background: rgba(30,41,59,0.75); border-color: rgba(71,85,105,0.45); }
+
+        .meta-panel {
+            padding: 24px 20px;
+            border-right: 1px solid #e2e8f0;
+            background: #fafafa;
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+        }
+        body.dark-mode .meta-panel { background: rgba(15,23,42,0.45); border-right-color: rgba(71,85,105,0.4); }
+
+        .meta-section { display: flex; flex-direction: column; gap: 8px; }
+        .meta-section > label {
+            font-size: 0.8125rem; font-weight: 700; color: #334155;
+        }
+        body.dark-mode .meta-section > label { color: #e2e8f0; }
+        .meta-section input, .meta-section select {
+            width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid #e2e8f0;
+            font-family: inherit; font-size: 0.875rem; background: white; color: #0f172a;
+        }
+        body.dark-mode .meta-section input, body.dark-mode .meta-section select {
+            background: rgba(15,23,42,0.55); border-color: rgba(71,85,105,0.5); color: #f8fafc;
+        }
+        .meta-section input:focus, .meta-section select:focus {
+            outline: none; border-color: #__HUB_COR__; box-shadow: 0 0 0 3px rgba(37,211,102,0.12);
+        }
+
+        .language-list { display: flex; flex-direction: column; gap: 8px; }
+        .language-chip {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 8px 12px; border-radius: 8px; font-size: 0.8125rem; font-weight: 600;
+            background: rgba(37,211,102,0.12); color: #15803d; border: 1px solid rgba(37,211,102,0.25);
+        }
+        body.dark-mode .language-chip { color: #__HUB_COR__; background: rgba(37,211,102,0.1); }
+        .language-chip::before {
+            content: ''; width: 8px; height: 8px; border-radius: 50%; background: #__HUB_COR__; flex-shrink: 0;
+        }
+
+        .editor-panel {
+            display: flex; flex-direction: column; min-width: 0; background: white;
+        }
+        body.dark-mode .editor-panel { background: transparent; }
+
+        .editor-header {
+            padding: 22px 28px 18px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        body.dark-mode .editor-header { border-bottom-color: rgba(71,85,105,0.35); }
+        .editor-header-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+        .editor-title {
+            font-size: 1.125rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;
+            word-break: break-word;
+        }
+        body.dark-mode .editor-title { color: #f8fafc; }
+        .editor-subtitle { font-size: 0.8125rem; color: #64748b; font-weight: 500; }
+        body.dark-mode .editor-subtitle { color: #94a3b8; }
+        .editor-status {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 10px; border-radius: 999px; font-size: 0.6875rem; font-weight: 700;
+            background: rgba(100,116,139,0.12); color: #64748b;
+        }
+        .editor-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+        body.dark-mode .editor-status { background: rgba(148,163,184,0.15); color: #94a3b8; }
+        .editor-status.approved { background: rgba(22,163,74,0.12); color: #16a34a; }
+        .editor-status.pending { background: rgba(234,179,8,0.12); color: #ca8a04; }
+        .editor-status.rejected { background: rgba(239,68,68,0.12); color: #ef4444; }
+        .editor-status.other { background: rgba(100,116,139,0.12); color: #64748b; }
+        body.view-only-mode .editor-form input:not([type="radio"]):not([type="checkbox"]),
+        body.view-only-mode .editor-form textarea,
+        body.view-only-mode .editor-form select,
+        body.view-only-mode .meta-panel input,
+        body.view-only-mode .meta-panel select {
+            opacity: 0.92; cursor: default;
+        }
+        body.view-only-mode .media-upload-box { pointer-events: none; opacity: 0.85; }
+        body.view-only-mode .btn-insert-var,
+        body.view-only-mode #btnAddButton,
+        body.view-only-mode .btn-remove { display: none !important; }
+        .view-only-banner {
+            margin-bottom: 16px; padding: 12px 16px; border-radius: 12px;
+            background: rgba(__HUB_COR_RGB__, 0.08); border: 1px solid rgba(__HUB_COR_RGB__, 0.25);
+            font-size: 0.8125rem; font-weight: 600; color: #15803d;
+        }
+        body.dark-mode .view-only-banner {
+            background: rgba(__HUB_COR_RGB__, 0.1); border-color: rgba(__HUB_COR_RGB__, 0.3); color: #4ade80;
+        }
+
+        .editor-form {
+            flex: 1; padding: 24px 28px 28px; overflow-y: auto;
+        }
+
+        .form-section { margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid #f1f5f9; }
+        body.dark-mode .form-section { border-bottom-color: rgba(71,85,105,0.35); }
+        .form-section:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .form-section-title {
+            font-size: 0.9375rem; font-weight: 700; color: #0f172a; margin-bottom: 4px;
+        }
+        body.dark-mode .form-section-title { color: #f8fafc; }
+        .form-section-desc { font-size: 0.75rem; color: #94a3b8; font-weight: 500; margin-bottom: 14px; }
+        body.dark-mode .form-section-desc { color: #64748b; }
+
+        .editor-body-preview {
+            margin-top: 12px; padding: 14px 16px; border-radius: 10px;
+            background: #f8fafc; border: 1px solid #e2e8f0;
+            font-size: 0.875rem; line-height: 1.55; color: #334155; white-space: pre-wrap; word-break: break-word;
+        }
+        body.dark-mode .editor-body-preview { background: rgba(15,23,42,0.35); border-color: rgba(71,85,105,0.4); color: #cbd5e1; }
+        .editor-form .form-group textarea#bodyText { min-height: 200px; }
+
+        .language-list select {
+            font-size: 0.8125rem; padding: 8px 10px; border-radius: 8px;
+            border: 1px solid #e2e8f0; background: white; color: #475569; width: 100%;
+        }
+        body.dark-mode .language-list select {
+            background: rgba(15,23,42,0.55); border-color: rgba(71,85,105,0.5); color: #cbd5e1;
+        }
+
+        .editor-form .form-actions {
+            margin-top: 8px; padding-top: 20px; border-top: 1px solid #f1f5f9;
+        }
+        body.dark-mode .editor-form .form-actions { border-top-color: rgba(71,85,105,0.35); }
+
+        .preview-panel {
+            padding: 24px 16px;
+            border-left: 1px solid #e2e8f0;
+            background: #ececef;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+            align-self: stretch;
+            min-height: 100%;
+            position: sticky; top: 0;
+            overflow-y: auto;
+        }
+        body.dark-mode .preview-panel { background: rgba(15,23,42,0.5); border-left-color: rgba(71,85,105,0.4); }
+
+        .phone-frame {
+            width: min(272px, 100%);
+            aspect-ratio: 9 / 19.5;
+            max-height: min(calc(100vh - 140px), 620px);
+            background: #111; border-radius: 40px; padding: 12px;
+            box-shadow: 0 24px 48px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(255,255,255,0.08);
+            display: flex; flex-direction: column; flex-shrink: 0;
+        }
+        .phone-screen {
+            flex: 1; min-height: 0; height: 100%;
+            border-radius: 28px; overflow: hidden; background: #fff;
+            display: flex; flex-direction: column;
+        }
+        body.dark-mode .phone-screen { background: #0b141a; }
+        .phone-wa-topbar {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 14px; background: #075e54; color: white;
+            flex-shrink: 0;
+        }
+        body.dark-mode .phone-wa-topbar { background: #1f2c34; }
+        .phone-avatar {
+            width: 36px; height: 36px; border-radius: 50%; background: #dfe5e7;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            font-size: 0.875rem; font-weight: 700; color: #54656f;
+        }
+        .phone-contact-name { font-size: 0.875rem; font-weight: 700; line-height: 1.2; }
+        .phone-contact-sub { font-size: 0.6875rem; opacity: 0.85; margin-top: 1px; }
+        .phone-input-bar {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 10px; background: #f0f2f5; border-top: 1px solid #e9edef;
+            flex-shrink: 0;
+        }
+        body.dark-mode .phone-input-bar { background: #1f2c34; border-top-color: rgba(134,150,160,0.15); }
+        .phone-input-fake {
+            flex: 1; height: 34px; border-radius: 20px; background: white;
+            border: 1px solid #e9edef;
+        }
+        body.dark-mode .phone-input-fake { background: #2a3942; border-color: rgba(134,150,160,0.2); }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .form-row.single { grid-template-columns: 1fr; }
+        @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group label { font-size: 0.8125rem; font-weight: 700; color: #334155; }
+        body.dark-mode .form-group label { color: #e2e8f0; }
+        .form-group .hint { font-size: 0.75rem; color: #94a3b8; font-weight: 500; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid #e2e8f0;
+            font-family: inherit; font-size: 0.875rem; background: #f8fafc; color: #0f172a; transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        body.dark-mode .form-group input, body.dark-mode .form-group select, body.dark-mode .form-group textarea {
+            background: rgba(15,23,42,0.5); border-color: rgba(71,85,105,0.5); color: #f8fafc;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none; border-color: #__HUB_COR__; box-shadow: 0 0 0 3px rgba(37,211,102,0.15);
+        }
+        .form-group input.invalid, .form-group textarea.invalid { border-color: #ef4444; }
+        .form-group textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
+
+        .radio-group { display: flex; flex-wrap: wrap; gap: 10px; }
+        .radio-pill {
+            display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px;
+            border: 1px solid #e2e8f0; background: #f8fafc; cursor: pointer; font-size: 0.8125rem; font-weight: 600; color: #475569; transition: all 0.2s;
+        }
+        body.dark-mode .radio-pill { background: rgba(15,23,42,0.4); border-color: rgba(71,85,105,0.5); color: #cbd5e1; }
+        .radio-pill input { display: none; }
+        .radio-pill:has(input:checked) { border-color: #__HUB_COR__; background: rgba(37,211,102,0.1); color: #15803d; }
+        body.dark-mode .radio-pill:has(input:checked) { color: #__HUB_COR__; background: rgba(37,211,102,0.12); }
+        .radio-pill.disabled { opacity: 0.45; cursor: not-allowed; }
+
+        .vars-section {
+            margin-top: 16px; padding: 20px 22px; border-radius: 12px;
+            background: #ffffff; border: 1px solid #cbd5e1;
+        }
+        body.dark-mode .vars-section { background: rgba(30,41,59,0.6); border-color: rgba(71,85,105,0.55); }
+        .vars-section-title {
+            font-size: 0.875rem; font-weight: 700; color: #334155; margin-bottom: 16px; line-height: 1.4;
+        }
+        body.dark-mode .vars-section-title { color: #e2e8f0; }
+        .var-example-row { display: flex; flex-direction: column; gap: 6px; }
+        .var-campo-select {
+            width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;
+            font-size: 0.8125rem; font-family: inherit; background: #fff;
+        }
+        body.dark-mode .var-campo-select { background: rgba(15,23,42,0.5); border-color: rgba(71,85,105,0.45); color: #e2e8f0; }
+        .var-campo-label { font-size: 0.7rem; font-weight: 600; color: #64748b; margin-top: 2px; }
+        .var-example-row { display: flex; flex-direction: column; gap: 8px; }
+        .var-example-label {
+            font-size: 0.875rem; font-weight: 700; color: #334155; line-height: 1.3;
+        }
+        body.dark-mode .var-example-label { color: #e2e8f0; }
+        .var-example-row input.var-example,
+        .var-example-row input.var-example:focus {
+            width: 100%;
+            padding: 11px 14px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #ffffff;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #0f172a;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .var-example-row input.var-example::placeholder { color: #94a3b8; font-weight: 400; }
+        .var-example-row input.var-example:focus {
+            outline: none;
+            border-color: #__HUB_COR__;
+            box-shadow: 0 0 0 3px rgba(37,211,102,0.12);
+        }
+        body.dark-mode .var-example-row input.var-example {
+            background: rgba(15,23,42,0.55);
+            border-color: rgba(148,163,184,0.6);
+            color: #f8fafc;
+        }
+        body.dark-mode .var-example-row input.var-example::placeholder { color: #64748b; }
+        body.dark-mode .var-example-row input.var-example:focus {
+            border-color: #__HUB_COR__;
+            box-shadow: 0 0 0 3px rgba(37,211,102,0.15);
+        }
+
+        .buttons-list { display: flex; flex-direction: column; gap: 12px; }
+        .button-item {
+            padding: 14px; border-radius: 14px; border: 1px solid #e2e8f0; background: #f8fafc;
+        }
+        body.dark-mode .button-item { background: rgba(15,23,42,0.35); border-color: rgba(71,85,105,0.45); }
+        .button-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .button-item-header span { font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
+        .btn-remove { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.75rem; font-weight: 700; padding: 4px 8px; border-radius: 8px; }
+        .btn-remove:hover { background: rgba(239,68,68,0.1); }
+
+        .btn-add {
+            display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 12px;
+            border: 1px dashed #cbd5e1; background: transparent; color: #64748b; font-size: 0.8125rem; font-weight: 700; cursor: pointer;
+        }
+        .btn-add:hover { border-color: #__HUB_COR__; color: #__HUB_COR__; background: rgba(37,211,102,0.06); }
+        .btn-add:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .form-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; padding-top: 24px; border-top: 1px solid #f1f5f9; }
+        body.dark-mode .form-actions { border-top-color: rgba(71,85,105,0.35); }
+        .btn {
+            padding: 14px 24px; border-radius: 14px; border: none; font-size: 0.875rem; font-weight: 700;
+            cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-primary { background: #__HUB_COR__; color: white; box-shadow: 0 4px 16px rgba(37,211,102,0.25); }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(37,211,102,0.35); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-primary.loading { pointer-events: none; opacity: 0.75; }
+        .btn-secondary { background: #f1f5f9; color: #475569; }
+        body.dark-mode .btn-secondary { background: rgba(51,65,85,0.5); color: #e2e8f0; }
+        .btn-secondary:hover { background: #e2e8f0; }
+        body.dark-mode .btn-secondary:hover { background: rgba(71,85,105,0.6); }
+
+        /* Preview WhatsApp */
+        .wa-phone {
+            background: #e5ddd5 url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4cdc4' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            padding: 16px 12px 12px;
+            flex: 1; min-height: 0; overflow-y: auto;
+        }
+        body.dark-mode .wa-phone { background-color: #0b141a; }
+        .wa-bubble {
+            background: #fff; border-radius: 8px 8px 8px 2px; padding: 8px 10px 6px;
+            max-width: 100%; box-shadow: 0 1px 2px rgba(0,0,0,0.08); position: relative;
+        }
+        body.dark-mode .wa-bubble { background: #1f2c34; }
+        .wa-header { font-weight: 700; font-size: 0.9375rem; color: #111b21; margin-bottom: 4px; }
+        body.dark-mode .wa-header { color: #e9edef; }
+        .wa-body { font-size: 0.875rem; color: #111b21; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+        body.dark-mode .wa-body { color: #e9edef; }
+        .wa-footer { font-size: 0.75rem; color: #667781; margin-top: 6px; }
+        body.dark-mode .wa-footer { color: #8696a0; }
+        .wa-time { font-size: 0.625rem; color: #667781; text-align: right; margin-top: 4px; }
+        .wa-buttons { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+        .wa-btn {
+            text-align: center; padding: 10px; border-radius: 8px; background: #fff;
+            color: #00a5f4; font-size: 0.8125rem; font-weight: 600; border-top: 1px solid #e9edef;
+        }
+        body.dark-mode .wa-btn { background: #1f2c34; border-top-color: rgba(134,150,160,0.2); color: #53bdeb; }
+
+        /* Estados */
+        .alert-box {
+            padding: 16px 18px; border-radius: 14px; margin-bottom: 20px; font-size: 0.875rem; font-weight: 500;
+        }
+        .alert-warning { background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.35); color: #b45309; }
+        body.dark-mode .alert-warning { color: #fbbf24; }
+        .alert-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #dc2626; }
+        body.dark-mode .alert-error { color: #f87171; }
+        .alert-success { background: rgba(37,211,102,0.1); border: 1px solid rgba(37,211,102,0.3); color: #15803d; }
+        body.dark-mode .alert-success { color: #__HUB_COR__; }
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+            font-size: 0.75rem; font-weight: 700; background: rgba(251,191,36,0.15); color: #b45309;
+        }
+        .status-badge.pending::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+        .empty-conexoes { text-align: center; padding: 48px 24px; }
+        .empty-conexoes p { color: #64748b; margin-bottom: 16px; }
+        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 200100; display: flex; flex-direction: column; gap: 8px; width: min(380px, calc(100vw - 28px)); pointer-events: none; }
+        .toast-notification { pointer-events: auto; padding: 10px 14px; border-radius: 12px; font-size: 13px; display: flex; align-items: center; opacity: 0; transform: translateY(-8px); transition: all 0.22s; background: rgba(255,255,255,0.9); border: 1px solid rgba(0,0,0,0.09); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+        .toast-notification.show { opacity: 1; transform: translateY(0); }
+        .toast-notification.success { border-left: 4px solid #34c759; }
+        .toast-notification.error { border-left: 4px solid #ff3b30; }
+        body.dark-mode .toast-notification { background: rgba(44,44,46,0.9); color: #fff; border-color: rgba(255,255,255,0.12); }
+
+        #successPanel { display: none; }
+        #successPanel.visible { display: block; }
+        #formPanel.hidden { display: none; }
+
+        .page-header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+        .page-back-link {
+            display: inline-flex; align-items: center; gap: 6px; font-size: 0.8125rem; font-weight: 700;
+            color: #64748b; text-decoration: none; margin-bottom: 12px; transition: color 0.2s;
+        }
+        .page-back-link:hover { color: #__HUB_COR__; }
+        body.dark-mode .page-back-link { color: #94a3b8; }
+        body.dark-mode .page-back-link:hover { color: #__HUB_COR__; }
+
+        .category-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        @media (max-width: 600px) { .category-cards { grid-template-columns: 1fr; } }
+        .category-card {
+            padding: 14px; border-radius: 14px; border: 1px solid #e2e8f0; background: #f8fafc;
+            cursor: pointer; transition: all 0.2s;
+        }
+        body.dark-mode .category-card { background: rgba(15,23,42,0.35); border-color: rgba(71,85,105,0.45); }
+        .category-card input { display: none; }
+        .category-card:has(input:checked) { border-color: #__HUB_COR__; background: rgba(37,211,102,0.08); box-shadow: 0 0 0 3px rgba(37,211,102,0.1); }
+        body.dark-mode .category-card:has(input:checked) { background: rgba(37,211,102,0.1); }
+        .category-card-title { font-size: 0.8125rem; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+        body.dark-mode .category-card-title { color: #f8fafc; }
+        .category-card-desc { font-size: 0.7rem; color: #64748b; line-height: 1.4; }
+        body.dark-mode .category-card-desc { color: #94a3b8; }
+        .category-hint {
+            margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-size: 0.75rem; font-weight: 500;
+            background: rgba(37,211,102,0.08); border: 1px solid rgba(37,211,102,0.2); color: #15803d;
+        }
+        body.dark-mode .category-hint { color: #__HUB_COR__; background: rgba(37,211,102,0.1); }
+        .category-hint.warn { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.3); color: #b45309; }
+        body.dark-mode .category-hint.warn { color: #fbbf24; }
+
+        .field-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .field-feedback { font-size: 0.7rem; font-weight: 600; }
+        .field-feedback.ok { color: #16a34a; }
+        .field-feedback.err { color: #ef4444; }
+        body.dark-mode .field-feedback.ok { color: #__HUB_COR__; }
+        body.dark-mode .field-feedback.err { color: #f87171; }
+        .char-counter { font-size: 0.7rem; font-weight: 600; color: #94a3b8; margin-left: auto; }
+        .char-counter.warn { color: #f59e0b; }
+        .char-counter.err { color: #ef4444; }
+
+        .textarea-toolbar { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+        .btn-insert-var {
+            display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 8px;
+            border: 1px solid #e2e8f0; background: white; font-size: 0.75rem; font-weight: 700;
+            color: #475569; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-insert-var:hover { border-color: #__HUB_COR__; color: #15803d; background: rgba(37,211,102,0.06); }
+        body.dark-mode .btn-insert-var { background: rgba(15,23,42,0.5); border-color: rgba(71,85,105,0.5); color: #e2e8f0; }
+
+        .media-upload-box {
+            border: 2px dashed #cbd5e1; border-radius: 14px; padding: 20px; text-align: center;
+            background: #f8fafc; cursor: pointer; transition: all 0.2s;
+        }
+        body.dark-mode .media-upload-box { background: rgba(15,23,42,0.35); border-color: rgba(71,85,105,0.5); }
+        .media-upload-box:hover { border-color: #__HUB_COR__; background: rgba(37,211,102,0.04); }
+        .media-upload-box.has-file { border-style: solid; border-color: #__HUB_COR__; }
+        .media-upload-box.uploading { opacity: 0.7; pointer-events: none; }
+        .media-preview { margin-top: 12px; border-radius: 10px; max-width: 100%; max-height: 160px; object-fit: cover; }
+        .media-preview-doc {
+            margin-top: 12px; padding: 12px; border-radius: 10px; background: #e2e8f0;
+            font-size: 0.8125rem; font-weight: 600; color: #475569; word-break: break-all;
+        }
+        body.dark-mode .media-preview-doc { background: rgba(51,65,85,0.5); color: #e2e8f0; }
+        .media-status { font-size: 0.75rem; font-weight: 600; margin-top: 8px; color: #64748b; }
+        .media-status.ok { color: #16a34a; }
+        .media-status.err { color: #ef4444; }
+        .wa-header-media { margin-bottom: 8px; border-radius: 6px; overflow: hidden; }
+        .wa-header-media img, .wa-header-media video { width: 100%; max-height: 140px; object-fit: cover; display: block; }
+        .wa-header-media-doc { padding: 10px; background: #f0f2f5; font-size: 0.75rem; font-weight: 600; color: #54656f; border-radius: 6px; margin-bottom: 8px; }
+        body.dark-mode .wa-header-media-doc { background: #2a3942; color: #aebac1; }
+
+        .wa-contact { font-size: 0.7rem; font-weight: 700; color: #667781; margin-bottom: 8px; }
+        body.dark-mode .wa-contact { color: #8696a0; }
+        .wa-btn .btn-icon { font-size: 0.875rem; margin-right: 4px; vertical-align: middle; }
+
+        .mobile-tabs { display: none; gap: 8px; margin-bottom: 16px; grid-column: 1 / -1; padding: 16px 16px 0; }
+        .mobile-tab {
+            flex: 1; padding: 10px; border-radius: 12px; border: 1px solid #e2e8f0; background: #f8fafc;
+            font-size: 0.8125rem; font-weight: 700; color: #64748b; cursor: pointer; text-align: center;
+        }
+        .mobile-tab.active { border-color: #__HUB_COR__; background: rgba(37,211,102,0.1); color: #15803d; }
+        body.dark-mode .mobile-tab { background: rgba(15,23,42,0.4); border-color: rgba(71,85,105,0.5); color: #94a3b8; }
+        body.dark-mode .mobile-tab.active { color: #__HUB_COR__; }
+        @media (max-width: 1200px) {
+            .template-layout { grid-template-columns: 1fr; min-height: auto; }
+            .meta-panel { border-right: none; border-bottom: 1px solid #e2e8f0; }
+            body.dark-mode .meta-panel { border-bottom-color: rgba(71,85,105,0.4); }
+            .preview-panel { border-left: none; border-top: 1px solid #e2e8f0; position: static; min-height: 420px; justify-content: flex-start; }
+            body.dark-mode .preview-panel { border-top-color: rgba(71,85,105,0.4); }
+            .mobile-tabs { display: flex; }
+            .template-layout .preview-panel { display: none; }
+            .template-layout.show-preview .meta-panel,
+            .template-layout.show-preview .editor-panel { display: none; }
+            .template-layout.show-preview .preview-panel { display: flex; }
+        }
+
+        .success-timeline { font-size: 0.8125rem; color: #64748b; margin-top: 12px; line-height: 1.5; }
+        body.dark-mode .success-timeline { color: #94a3b8; }
+    </style>
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.0/+esm';
+        const SUPABASE_URL = '__HUB_SUPABASE_URL__';
+        const SUPABASE_ANON_KEY = '__HUB_SUPABASE_ANON_KEY__';
+        window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+        });
+    </script>
+</head>
+<body>
+    <script>
+    (function () {
+        var dark = false;
+        try {
+            var s = '; ' + document.cookie;
+            var parts = s.split('; darkMode=');
+            if (parts.length === 2) dark = parts.pop().split(';').shift() === 'true';
+        } catch (e) {}
+        document.body.classList.add(dark ? 'dark-mode' : 'light-mode');
+    })();
+    </script>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" onclick="toggleMobileMenu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    </button>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileMenu()"></div>
+
+    <div class="app-layout">
+        <div class="sidebar">
+            <button class="mobile-close-btn" id="mobileCloseBtn" onclick="closeMobileMenu()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            <div class="sidebar-header">
+                <a href="#" class="sidebar-logo-link" onclick="return false;">
+                    <img class="sidebar-logo-img sidebar-logo-favicon" src="__HUB_FAVICON_URL__" alt="__HUB_NOME__">
+                    <img class="sidebar-logo-img sidebar-logo-full" src="__HUB_LOGO_URL__" alt="__HUB_NOME__" onerror="this.src='__HUB_FAVICON_URL__'">
+                </a>
+            </div>
+            <nav class="sidebar-menu">
+                <a href="#" class="menu-item" onclick="navigateToPage('__HUB_BACK_URL__/dashboard')">
+                    <span class="menu-icon"><span class="material-symbols-rounded" aria-hidden="true">analytics</span></span>
+                    <span class="menu-text">Dashboard</span>
+                </a>
+                <a href="#" class="menu-item" data-menu-id="chat" onclick="navigateToPage('__HUB_BACK_URL__/chat')">
+                    <span class="menu-icon"><span class="material-symbols-rounded" aria-hidden="true">chat</span></span>
+                    <span class="menu-text">Chat</span>
+                </a>
+                <a href="#" class="menu-item" data-menu-id="agentes-ia" onclick="navigateToPage('__HUB_BACK_URL__/agentes-ia')">
+                    <span class="menu-icon"><span class="material-symbols-rounded" aria-hidden="true">network_intel_node</span></span>
+                    <span class="menu-text">Agentes IA</span>
+                </a>
+                <a href="#" class="menu-item" data-menu-id="crm" onclick="navigateToPage('__HUB_BACK_URL__/crm')">
+                    <span class="menu-icon"><span class="material-symbols-rounded" aria-hidden="true">view_kanban</span></span>
+                    <span class="menu-text">CRM</span>
+                </a>
+                <a href="#" class="menu-item" data-menu-id="conexoes" onclick="navigateToPage('__HUB_BACK_URL__/conexoes')">
+                    <span class="menu-icon"><span class="material-symbols-rounded" aria-hidden="true">qr_code</span></span>
+                    <span class="menu-text">Conexões</span>
+                </a>
+                <a href="#" class="menu-item" data-menu-id="disparos" onclick="navigateToPage('__HUB_BACK_URL__/disparos')">
+                    <span class="menu-icon"><span class="material-symbols-rounded" aria-hidden="true">send</span></span>
+                    <span class="menu-text">Disparos</span>
+                </a>
+                <a href="#" class="menu-item" data-menu-id="contatos" onclick="navigateToPage('__HUB_BACK_URL__/contatos')">
+                    <span class="menu-icon"><span class="material-symbols-rounded" aria-hidden="true">contacts</span></span>
+                    <span class="menu-text">Contatos</span>
+                </a>
+                <div class="sidebar-nav-divider"></div>
+                <a href="#" class="menu-item" data-menu-id="ajuda" onclick="navigateToPage('__HUB_BACK_URL__/ajuda')">
+                    <span class="menu-icon"><span class="material-symbols-rounded" aria-hidden="true">help</span></span>
+                    <span class="menu-text">Ajuda</span>
+                </a>
+                <a href="#" class="menu-item" data-menu-id="configuracoes" onclick="navigateToPage('__HUB_BACK_URL__/configuracoes')">
+                    <span class="menu-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </span>
+                    <span class="menu-text">Configurações</span>
+                </a>
+                <a href="#" id="menu-item-admin" class="menu-item menu-item-admin" style="display: none;" onclick="if(typeof navigateToPage==='function'){navigateToPage('__HUB_BACK_URL__/adminpannel');return false;}">
+                    <span class="menu-icon"><span class="material-symbols-rounded" aria-hidden="true">admin_panel_settings</span></span>
+                    <span class="menu-text">Administração</span>
+                    <span class="menu-badge-admin">Admin</span>
+                </a>
+            </nav>
+            <div class="version-text" id="versaoAtualTexto">Versão atual: -</div>
+            <div class="sidebar-footer">
+                <div class="menu-item theme-toggle-item" onclick="event.stopPropagation();">
+                    <span class="menu-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                    </span>
+                    <span class="menu-text" id="themeToggleText">Modo Escuro</span>
+                    <label class="theme-switch" onclick="event.stopPropagation();">
+                        <input type="checkbox" id="darkModeToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <a href="#" class="menu-item logout-item" onclick="logout()">
+                    <span class="menu-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16,17 21,12 16,7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                    </span>
+                    <span class="menu-text">Sair</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="page-header">
+                <a href="#" class="page-back-link" id="linkVoltar" onclick="cancelarFormulario(); return false;">
+                    <span class="material-symbols-rounded" style="font-size:16px;">arrow_back</span> Voltar
+                </a>
+                <h1>Criar template WhatsApp</h1>
+                <p>Envie um template para análise da Meta, vinculado a uma conexão API Oficial.</p>
+            </div>
+
+            <div id="viewOnlyBanner" class="view-only-banner" style="display:none;">
+                Modo visualização — este template não pode ser editado.
+            </div>
+
+            <div id="loadingConexoes" class="alert-box alert-warning">Carregando conexões API Oficial...</div>
+            <div id="emptyConexoes" class="form-card empty-conexoes" style="display:none;">
+                <p>Nenhuma conexão API Oficial encontrada. Conecte um número na Meta antes de criar templates.</p>
+                <button type="button" class="btn btn-primary" onclick="navigateToPage('__HUB_BACK_URL__/conexoes')">Ir para Conexões API Oficial</button>
+            </div>
+
+            <div id="successPanel" class="form-card">
+                <div class="alert-box alert-success">
+                    <strong>Template enviado para análise</strong><br>
+                    A Meta está revisando seu template. O status inicial é <span class="status-badge pending" id="successStatus">Em análise</span>.
+                </div>
+                <p style="margin-bottom:8px;font-size:0.875rem;color:#64748b;" id="successDetails"></p>
+                <p class="success-timeline">A Meta costuma analisar em 24–48 horas. Você pode acompanhar o status na listagem de templates — ao aprovar, o template fica disponível para disparos.</p>
+                <div class="form-actions" style="border:none;padding-top:0;margin-top:16px;">
+                    <button type="button" class="btn btn-primary" id="btnVerTemplates">Ver templates da conexão</button>
+                    <button type="button" class="btn btn-secondary" id="btnNovoTemplate">Criar outro template</button>
+                </div>
+            </div>
+
+            <div id="formPanel" class="template-layout" style="display:none;">
+                <div class="mobile-tabs" id="mobileTabs">
+                    <button type="button" class="mobile-tab active" data-tab="form">Editar</button>
+                    <button type="button" class="mobile-tab" data-tab="preview">Preview</button>
+                </div>
+
+                <aside class="meta-panel">
+                    <div class="meta-section">
+                        <label for="conexaoSelect">Conexão WhatsApp</label>
+                        <select id="conexaoSelect" required></select>
+                    </div>
+                    <div class="meta-section">
+                        <label for="templateName">Nome do modelo</label>
+                        <input type="text" id="templateName" placeholder="confirmacao_pedido" autocomplete="off" required>
+                        <span class="field-feedback" id="nameFeedback"></span>
+                    </div>
+                    <div class="meta-section">
+                        <label for="categorySelect">Categoria do modelo</label>
+                        <select id="categorySelect">
+                            <option value="MARKETING">Marketing</option>
+                            <option value="UTILITY">Utilidade</option>
+                        </select>
+                    </div>
+                    <div class="meta-section">
+                        <label for="templateLanguage">Idiomas</label>
+                        <div class="language-list">
+                            <div class="language-chip" id="languageChip">Portuguese (BR)</div>
+                            <select id="templateLanguage">
+                                <option value="pt_BR" selected>pt_BR — Português (Brasil)</option>
+                                <option value="en_US">en_US — Inglês (EUA)</option>
+                                <option value="es_ES">es_ES — Espanhol</option>
+                                <option value="es_AR">es_AR — Espanhol (Argentina)</option>
+                            </select>
+                        </div>
+                    </div>
+                </aside>
+
+                <div class="editor-panel">
+                    <div class="editor-header">
+                        <div class="editor-header-row">
+                            <h2 class="editor-title" id="editorTemplateTitle">nome_do_template</h2>
+                            <span class="editor-status">Rascunho</span>
+                        </div>
+                        <p class="editor-subtitle" id="editorLanguageLabel">Portuguese (BR)</p>
+                    </div>
+
+                    <form class="editor-form" id="templateForm" onsubmit="return false;">
+                        <div class="form-section">
+                            <div class="form-section-title">Cabeçalho</div>
+                            <div class="form-section-desc">Opcional</div>
+                            <div class="radio-group" style="margin-bottom:14px;" id="headerModeGroup">
+                                <label class="radio-pill"><input type="radio" name="headerMode" value="none" checked> Sem cabeçalho</label>
+                                <label class="radio-pill"><input type="radio" name="headerMode" value="text"> Texto</label>
+                                <label class="radio-pill"><input type="radio" name="headerMode" value="media"> Mídia</label>
+                            </div>
+                            <div id="headerMediaBlock" style="display:none;">
+                                <div class="form-group" style="margin-bottom:12px;">
+                                    <label>Tipo de mídia</label>
+                                    <div class="radio-group" id="headerMediaTypeGroup">
+                                        <label class="radio-pill"><input type="radio" name="headerMediaType" value="IMAGE" checked> Imagem</label>
+                                        <label class="radio-pill"><input type="radio" name="headerMediaType" value="VIDEO"> Vídeo</label>
+                                        <label class="radio-pill"><input type="radio" name="headerMediaType" value="DOCUMENT"> Documento</label>
+                                    </div>
+                                </div>
+                                <div class="media-upload-box" id="mediaUploadBox" onclick="document.getElementById('headerMediaFile').click()">
+                                    <span class="material-symbols-rounded" style="font-size:28px;color:#94a3b8;">cloud_upload</span>
+                                    <p style="font-size:0.8125rem;font-weight:600;color:#64748b;margin-top:8px;" id="mediaUploadLabel">Clique para enviar imagem</p>
+                                    <p style="font-size:0.7rem;color:#94a3b8;margin-top:4px;" id="mediaUploadHint">JPG ou PNG, até 5 MB</p>
+                                </div>
+                                <input type="file" id="headerMediaFile" style="display:none" accept="image/jpeg,image/png">
+                                <div id="mediaPreviewContainer"></div>
+                                <p class="media-status" id="mediaUploadStatus"></p>
+                            </div>
+                            <div id="headerTextBlock" style="display:none;">
+                                <div class="form-group">
+                                    <label for="headerText">Texto do cabeçalho</label>
+                                    <div class="textarea-toolbar">
+                                        <button type="button" class="btn-insert-var" onclick="inserirVariavel('headerText')">
+                                            <span class="material-symbols-rounded" style="font-size:14px;">add</span> Inserir variável
+                                        </button>
+                                    </div>
+                                    <input type="text" id="headerText" placeholder="Pedido confirmado" maxlength="60">
+                                    <div class="field-meta">
+                                        <span class="hint">Variáveis &#123;&#123;1&#125;&#125;, &#123;&#123;2&#125;&#125;…</span>
+                                        <span class="char-counter" id="headerCharCounter">0/60</span>
+                                    </div>
+                                </div>
+                                <div id="headerVarsSection" class="vars-section" style="display:none;">
+                                    <div class="vars-section-title">Exemplos das variáveis do cabeçalho</div>
+                                    <div class="vars-grid" id="headerVarsGrid"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">Mensagem</div>
+                            <div class="form-section-desc">Obrigatório</div>
+                            <div class="form-group">
+                                <div class="textarea-toolbar">
+                                    <button type="button" class="btn-insert-var" onclick="inserirVariavel('bodyText')">
+                                        <span class="material-symbols-rounded" style="font-size:14px;">add</span> Inserir variável
+                                    </button>
+                                </div>
+                                <textarea id="bodyText" placeholder="Olá &#123;&#123;1&#125;&#125;, seu pedido &#123;&#123;2&#125;&#125; foi confirmado e será enviado em breve." maxlength="1024" required></textarea>
+                                <div class="field-meta">
+                                    <span class="field-feedback" id="bodyFeedback"></span>
+                                    <span class="char-counter" id="bodyCharCounter">0/1024</span>
+                                </div>
+                                <div class="editor-body-preview" id="editorBodyPreview"></div>
+                                <span class="hint" style="margin-top:8px;display:block;">Não pode começar ou terminar apenas com variável. Preencha exemplos abaixo quando usar &#123;&#123;n&#125;&#125;.</span>
+                            </div>
+                            <div id="bodyVarsSection" class="vars-section" style="display:none;">
+                                <div class="vars-section-title">Exemplos das variáveis (Meta) e vínculo com campos do contato</div>
+                                <div class="vars-grid" id="bodyVarsGrid"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">Rodapé</div>
+                            <div class="form-section-desc">Opcional</div>
+                            <div class="form-group">
+                                <input type="text" id="footerText" placeholder="" maxlength="60">
+                                <div class="field-meta">
+                                    <span class="field-feedback" id="footerFeedback"></span>
+                                    <span class="char-counter" id="footerCharCounter">0/60</span>
+                                </div>
+                                <span class="hint">Texto fixo, sem variáveis</span>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="form-section-title">Botões</div>
+                            <div class="form-section-desc">Opcional</div>
+                            <div class="radio-group" style="margin-bottom:14px;" id="buttonModeGroup">
+                                <label class="radio-pill"><input type="radio" name="buttonMode" value="none" checked> Sem botões</label>
+                                <label class="radio-pill"><input type="radio" name="buttonMode" value="quick_reply"> Respostas rápidas</label>
+                                <label class="radio-pill"><input type="radio" name="buttonMode" value="action"> Ações</label>
+                            </div>
+                            <div id="buttonsEditor" style="display:none;">
+                                <div class="buttons-list" id="buttonsList"></div>
+                                <button type="button" class="btn-add" id="btnAddButton" style="margin-top:12px;">
+                                    <span class="material-symbols-rounded" style="font-size:18px;">add</span> Adicionar botão
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="formError" class="alert-box alert-error" style="display:none;"></div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="cancelarFormulario()">Cancelar</button>
+                            <button type="submit" class="btn btn-primary" id="btnSubmit">
+                                <span id="btnSubmitText">Enviar para análise</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <aside class="preview-panel">
+                    <div class="phone-frame">
+                        <div class="phone-screen">
+                            <div class="phone-wa-topbar">
+                                <div class="phone-avatar" id="previewAvatar">W</div>
+                                <div>
+                                    <div class="phone-contact-name" id="previewContact">Conexão API Oficial</div>
+                                    <div class="phone-contact-sub">Conta comercial</div>
+                                </div>
+                            </div>
+                            <div class="wa-phone">
+                                <div class="wa-bubble">
+                                    <div id="previewHeaderMedia" class="wa-header-media" style="display:none;"></div>
+                                    <div class="wa-header" id="previewHeader" style="display:none;"></div>
+                                    <div class="wa-body" id="previewBody">Digite a mensagem para ver o preview...</div>
+                                    <div class="wa-footer" id="previewFooter" style="display:none;"></div>
+                                    <div class="wa-time" id="previewTime"></div>
+                                </div>
+                                <div class="wa-buttons" id="previewButtons"></div>
+                            </div>
+                            <div class="phone-input-bar">
+                                <div class="phone-input-fake"></div>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let statusBloqueado = false;
+        let conexoesApiOficial = [];
+        let buttonCounter = 0;
+        let lastSuccessConexaoId = null;
+        let headerMediaFormat = 'IMAGE';
+        let headerMediaPreviewUrl = null;
+        let headerMediaFileName = '';
+        let headerMediaUploading = false;
+        const CAMPOS_PADRAO_CONTATO = [
+            { id: 'nome', nome: 'Nome' },
+            { id: 'email', nome: 'Email' }
+        ];
+        let camposPersonalizados = [];
+        let headerMediaPublicUrl = null;
+        let variaveisCamposCache = { body: {}, header: {} };
+        let modoVisualizacao = false;
+        let templateVisualizacaoId = null;
+        let _suppressLimparHeaderMidia = false;
+
+        const VAR_REGEX = /\{\{(\d+)\}\}/g;
+
+        /** Monta placeholder de variável Meta (chaves duplas + índice) sem sequência que o n8n interpreta ao servir. */
+        function tokenVariavel(n) {
+            return '{' + '{' + n + '}' + '}';
+        }
+
+        var LANGUAGE_LABELS = {
+            pt_BR: 'Portuguese (BR)',
+            en_US: 'English (US)',
+            es_ES: 'Spanish',
+            es_AR: 'Spanish (AR)'
+        };
+
+        function getCookie(name) {
+            const value = '; ' + document.cookie;
+            const parts = value.split('; ' + name + '=');
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+        function setCookie(name, value, days) {
+            const date = new Date();
+            date.setTime(date.getTime() + days * 86400000);
+            document.cookie = name + '=' + value + ';expires=' + date.toUTCString() + ';path=/;SameSite=Strict';
+        }
+        function navigateToPage(url) { window.location.href = url; }
+
+        function getWebhookBaseUrl() {
+            const origin = window.location.origin;
+            const path = window.location.pathname;
+            if (path === '/webhook' || path.startsWith('/webhook/')) {
+                return origin + '/webhook';
+            }
+            return '__HUB_BACK_URL__';
+        }
+
+        function showToast(message, type) {
+            if (statusBloqueado) return;
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification ' + (type === 'error' ? 'error' : 'success');
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(function () { toast.classList.add('show'); }, 50);
+            setTimeout(function () {
+                toast.classList.remove('show');
+                setTimeout(function () { toast.remove(); }, 300);
+            }, 5000);
+        }
+
+        async function aguardarSupabase(maxTentativas) {
+            maxTentativas = maxTentativas || 50;
+            for (var i = 0; i < maxTentativas; i++) {
+                if (window.supabase) return true;
+                await new Promise(function (r) { setTimeout(r, 100); });
+            }
+            return !!window.supabase;
+        }
+
+        async function obterUserIdComStatus() {
+            if (!window.supabase) return null;
+            var contaId = null;
+            try {
+                const { data: { user }, error: userError } = await window.supabase.auth.getUser();
+                if (!userError && user && user.id) {
+                    const { data: usuarioData, error: usuarioError } = await window.supabase
+                        .from('SAAS_Usuarios')
+                        .select('contaId, SAAS_Contas(status)')
+                        .eq('auth_user_id', user.id)
+                        .maybeSingle();
+                    if (!usuarioError && usuarioData && usuarioData.contaId) {
+                        if (usuarioData.SAAS_Contas && usuarioData.SAAS_Contas.status === false) {
+                            statusBloqueado = true;
+                            logoutAndRedirectAcessoBloqueado();
+                            throw new Error('STATUS_BLOQUEADO');
+                        }
+                        contaId = usuarioData.contaId;
+                        setCookie('userId', contaId, 7);
+                    }
+                }
+            } catch (error) {
+                if (error.message === 'STATUS_BLOQUEADO') throw error;
+                console.error('Erro ao obter usuário:', error);
+            }
+            if (!contaId) {
+                var cookieUserId = getCookie('userId');
+                if (cookieUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cookieUserId)) {
+                    contaId = cookieUserId;
+                }
+            }
+            return contaId;
+        }
+
+        function logoutAndRedirectAcessoBloqueado() {
+            document.cookie = 'userId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            sessionStorage.clear();
+            if (window.supabase) window.supabase.auth.signOut().catch(function () {});
+            window.location.replace(getWebhookBaseUrl() + '/acesso-bloqueado');
+        }
+
+        async function checkAuth() {
+            var supabaseOk = await aguardarSupabase();
+            if (!supabaseOk) {
+                exibirErroInicial('Não foi possível carregar o Supabase. Verifique sua conexão e recarregue a página.');
+                return null;
+            }
+            const { data: { session }, error: sessionError } = await window.supabase.auth.getSession();
+            if (sessionError || !session || !session.access_token) {
+                window.location.replace(getWebhookBaseUrl() + '/login');
+                return null;
+            }
+            try {
+                var contaId = await obterUserIdComStatus();
+                if (!contaId) {
+                    window.location.replace(getWebhookBaseUrl() + '/login');
+                    return null;
+                }
+                return contaId;
+            } catch (e) {
+                if (e.message === 'STATUS_BLOQUEADO') return null;
+                throw e;
+            }
+        }
+
+        function exibirErroInicial(msg) {
+            var loading = document.getElementById('loadingConexoes');
+            if (loading) {
+                loading.style.display = 'block';
+                loading.className = 'alert-box alert-error';
+                loading.textContent = msg;
+            }
+        }
+
+        async function logout() {
+            document.cookie = 'userId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            sessionStorage.clear();
+            if (window.supabase) await window.supabase.auth.signOut();
+            window.location.href = getWebhookBaseUrl() + '/login';
+        }
+
+        async function carregarVersao() {
+            const el = document.getElementById('versaoAtualTexto');
+            if (!el || !window.supabase) return;
+            try {
+                const { data } = await window.supabase.from('SAAS_Versao').select('versaoAtual').order('ultimaAtualizacao', { ascending: false }).limit(1);
+                if (data?.[0]?.versaoAtual) el.textContent = 'Versão atual: ' + data[0].versaoAtual;
+            } catch (e) {}
+        }
+
+        async function verificarMostrarMenuAdmin() {
+            const el = document.getElementById('menu-item-admin');
+            if (!el || !window.supabase) return;
+            try {
+                const { data: { user } } = await window.supabase.auth.getUser();
+                if (!user) return;
+                const { data } = await window.supabase.from('SAAS_Usuarios').select('super_admin').eq('auth_user_id', user.id).limit(1);
+                if (data?.[0]?.super_admin === true) el.style.display = '';
+            } catch (e) {}
+        }
+
+        function extrairIndicesVariaveis(texto) {
+            if (!texto) return [];
+            const indices = new Set();
+            let match;
+            const re = /\{\{(\d+)\}\}/g;
+            while ((match = re.exec(texto)) !== null) {
+                indices.add(parseInt(match[1], 10));
+            }
+            return Array.from(indices).sort(function (a, b) { return a - b; });
+        }
+
+        function parseCampoSelectValue(value) {
+            if (!value) return null;
+            if (value === 'nome' || value === 'email') return value;
+            var n = parseInt(value, 10);
+            return Number.isNaN(n) ? null : n;
+        }
+
+        function buildCampoSelectOptions(selectedId) {
+            var selected = selectedId != null ? String(selectedId) : '';
+            var padraoOpts = CAMPOS_PADRAO_CONTATO.map(function (c) {
+                var sel = selected === c.id ? ' selected' : '';
+                return '<option value="' + c.id + '"' + sel + '>' + c.nome + '</option>';
+            }).join('');
+            var customOpts = camposPersonalizados.map(function (c) {
+                var sel = selected === String(c.id) ? ' selected' : '';
+                return '<option value="' + c.id + '"' + sel + '>' + (c.nome || ('Campo ' + c.id)) + '</option>';
+            }).join('');
+            var sep = customOpts ? '<option value="" disabled>—— Campos personalizados ——</option>' : '';
+            return '<option value="">Selecione o campo do contato</option>' +
+                padraoOpts +
+                sep +
+                customOpts;
+        }
+
+        function renderVarExamples(containerId, texto, prefix) {
+            const container = document.getElementById(containerId);
+            const sectionId = prefix === 'body' ? 'bodyVarsSection' : 'headerVarsSection';
+            const section = document.getElementById(sectionId);
+            if (!container) return;
+            const indices = extrairIndicesVariaveis(texto);
+            if (!indices.length) {
+                container.innerHTML = '';
+                if (section) section.style.display = 'none';
+                return;
+            }
+            if (section) section.style.display = 'block';
+            container.innerHTML = indices.map(function (n) {
+                var val = (getStoredExample(prefix, n) || '').replace(/"/g, '&quot;');
+                var campoSel = (variaveisCamposCache[prefix] && variaveisCamposCache[prefix][n]) || '';
+                return '<div class="var-example-row">' +
+                    '<label class="var-example-label" for="var-' + prefix + '-' + n + '">Variável ' + tokenVariavel(n) + '</label>' +
+                    '<input type="text" id="var-' + prefix + '-' + n + '" class="var-example" data-prefix="' + prefix + '" data-index="' + n + '" placeholder="Valor de exemplo (Meta)" value="' + val + '">' +
+                    '<label class="var-campo-label" for="campo-' + prefix + '-' + n + '">Campo do contato</label>' +
+                    '<select id="campo-' + prefix + '-' + n + '" class="var-campo-select" data-prefix="' + prefix + '" data-index="' + n + '">' +
+                    buildCampoSelectOptions(campoSel) +
+                    '</select></div>';
+            }).join('');
+        }
+
+        async function carregarCamposPersonalizados(contaId) {
+            try {
+                var res = await window.supabase
+                    .from('SAAS_Campos_Personalizados')
+                    .select('id, nome, tipo')
+                    .eq('contaId', contaId)
+                    .order('nome', { ascending: true });
+                if (res.error) throw res.error;
+                camposPersonalizados = res.data || [];
+            } catch (e) {
+                camposPersonalizados = [];
+                console.warn('Campos personalizados:', e);
+            }
+        }
+
+        function coletarVariaveisCampos() {
+            var map = { body: {}, header: {}, buttons: [] };
+            document.querySelectorAll('.var-campo-select[data-prefix]').forEach(function (sel) {
+                var prefix = sel.dataset.prefix;
+                var idx = sel.dataset.index;
+                var parsed = parseCampoSelectValue(sel.value);
+                if (parsed == null) return;
+                if (!map[prefix]) map[prefix] = {};
+                map[prefix][idx] = parsed;
+            });
+            var btnIndex = 0;
+            document.querySelectorAll('.button-item').forEach(function (item) {
+                var type = getTipoBotaoItem(item);
+                if (type === 'URL') {
+                    var extra = item.querySelector('.btn-extra-input')?.value?.trim() || '';
+                    var campoSel = item.querySelector('.btn-campo-select');
+                    if (/\{\{\d+\}\}/.test(extra) && campoSel && campoSel.value) {
+                        var parsedBtn = parseCampoSelectValue(campoSel.value);
+                        if (parsedBtn != null) {
+                            var btnMap = { index: btnIndex, type: 'url' };
+                            if (typeof parsedBtn === 'string') {
+                                btnMap.campoPadrao = parsedBtn;
+                            } else {
+                                btnMap.campoId = parsedBtn;
+                            }
+                            map.buttons.push(btnMap);
+                        }
+                    }
+                } else if (type === 'QUICK_REPLY') {
+                    var payload = item.querySelector('.btn-payload-input')?.value?.trim();
+                    if (payload) {
+                        map.buttons.push({ index: btnIndex, type: 'quick_reply', payload: payload });
+                    }
+                }
+                btnIndex++;
+            });
+            if (headerMediaPublicUrl) {
+                map.headerMidia = {
+                    type: (headerMediaFormat || 'IMAGE').toLowerCase(),
+                    link: headerMediaPublicUrl
+                };
+            }
+            return map;
+        }
+
+        async function salvarVariaveisCamposNoTemplate(templateId, variaveisCampos, componentsList) {
+            if (!templateId || !window.supabase) return;
+            var blob = {
+                componentes: componentsList || [],
+                variaveisCampos: variaveisCampos || {}
+            };
+            await window.supabase
+                .from('SAAS_Templates_Meta')
+                .update({ componentes: blob })
+                .eq('id', templateId);
+        }
+
+        let exampleCache = {};
+        function getStoredExample(prefix, index) {
+            return exampleCache[prefix + '_' + index] || '';
+        }
+        function setStoredExample(prefix, index, value) {
+            exampleCache[prefix + '_' + index] = value;
+        }
+
+        function getHeaderMode() {
+            const checked = document.querySelector('input[name="headerMode"]:checked');
+            return checked ? checked.value : 'none';
+        }
+
+        function getCategory() {
+            var el = document.getElementById('categorySelect');
+            return el ? el.value : 'MARKETING';
+        }
+
+        function getHeaderMediaType() {
+            var checked = document.querySelector('input[name="headerMediaType"]:checked');
+            return checked ? checked.value : 'IMAGE';
+        }
+
+        function atualizarHeaderModeUI() {
+            var mode = getHeaderMode();
+            document.getElementById('headerTextBlock').style.display = mode === 'text' ? 'block' : 'none';
+            document.getElementById('headerMediaBlock').style.display = mode === 'media' ? 'block' : 'none';
+            if (mode !== 'media' && !_suppressLimparHeaderMidia) {
+                limparHeaderMidia(true);
+            }
+            atualizarPreview();
+        }
+
+        function atualizarMediaTypeUI() {
+            headerMediaFormat = getHeaderMediaType();
+            var label = document.getElementById('mediaUploadLabel');
+            var hint = document.getElementById('mediaUploadHint');
+            var fileInput = document.getElementById('headerMediaFile');
+            if (!label || !hint || !fileInput) return;
+            if (headerMediaFormat === 'IMAGE') {
+                label.textContent = 'Clique para enviar imagem';
+                hint.textContent = 'JPG ou PNG, até 5 MB';
+                fileInput.accept = 'image/jpeg,image/png';
+            } else if (headerMediaFormat === 'VIDEO') {
+                label.textContent = 'Clique para enviar vídeo';
+                hint.textContent = 'MP4, até 16 MB';
+                fileInput.accept = 'video/mp4';
+            } else {
+                label.textContent = 'Clique para enviar documento';
+                hint.textContent = 'PDF, até 5 MB';
+                fileInput.accept = 'application/pdf';
+            }
+            if (!_suppressLimparHeaderMidia) {
+                limparHeaderMidia(false);
+            }
+        }
+
+        function limparHeaderMidia(limparPreview) {
+            headerMediaPublicUrl = null;
+            headerMediaFileName = '';
+            if (headerMediaPreviewUrl) {
+                URL.revokeObjectURL(headerMediaPreviewUrl);
+                headerMediaPreviewUrl = null;
+            }
+            var fileInput = document.getElementById('headerMediaFile');
+            if (fileInput) fileInput.value = '';
+            var box = document.getElementById('mediaUploadBox');
+            if (box) box.classList.remove('has-file', 'uploading');
+            var status = document.getElementById('mediaUploadStatus');
+            if (status) { status.textContent = ''; status.className = 'media-status'; }
+            if (limparPreview !== false) {
+                var prev = document.getElementById('mediaPreviewContainer');
+                if (prev) prev.innerHTML = '';
+                atualizarPreview();
+            }
+        }
+
+        async function uploadHeaderMidia(file) {
+            var box = document.getElementById('mediaUploadBox');
+            var status = document.getElementById('mediaUploadStatus');
+            headerMediaUploading = true;
+            if (box) box.classList.add('uploading');
+            if (status) { status.textContent = 'Fazendo upload...'; status.className = 'media-status'; }
+
+            var originalFileName = file.name;
+            var formData = new FormData();
+            formData.append('file', file, originalFileName);
+            formData.append('originalFileName', originalFileName);
+
+            try {
+                var res = await fetch('__HUB_BACK_URL__/uploadmedia', {
+                    method: 'POST',
+                    body: formData
+                });
+                var responseText = await res.text();
+                if (!res.ok) {
+                    throw new Error('Erro no upload: ' + res.status + ' - ' + responseText);
+                }
+                var data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    throw new Error('Resposta inválida do servidor');
+                }
+                var link = data.link || data.url || data.publicUrl || null;
+                if (!link) throw new Error('Link da mídia não retornado pelo servidor');
+
+                headerMediaPublicUrl = link;
+                headerMediaFileName = file.name;
+                if (box) box.classList.add('has-file');
+                if (status) { status.textContent = '✓ Mídia enviada com sucesso'; status.className = 'media-status ok'; }
+                renderMediaPreviewLocal(file);
+                atualizarPreview();
+            } catch (err) {
+                headerMediaPublicUrl = null;
+                if (box) box.classList.remove('has-file');
+                var prev = document.getElementById('mediaPreviewContainer');
+                if (prev) prev.innerHTML = '';
+                if (status) { status.textContent = '✗ ' + (err.message || 'Erro no upload'); status.className = 'media-status err'; }
+                showToast(err.message || 'Erro ao enviar mídia', 'error');
+            } finally {
+                headerMediaUploading = false;
+                if (box) box.classList.remove('uploading');
+            }
+        }
+
+        function renderMediaPreviewLocal(file) {
+            var container = document.getElementById('mediaPreviewContainer');
+            if (!container) return;
+            if (headerMediaPreviewUrl) URL.revokeObjectURL(headerMediaPreviewUrl);
+            headerMediaPreviewUrl = URL.createObjectURL(file);
+            if (headerMediaFormat === 'IMAGE') {
+                container.innerHTML = '<img class="media-preview" src="' + headerMediaPreviewUrl + '" alt="Preview">';
+            } else if (headerMediaFormat === 'VIDEO') {
+                container.innerHTML = '<video class="media-preview" src="' + headerMediaPreviewUrl + '" controls></video>';
+            } else {
+                container.innerHTML = '<div class="media-preview-doc">📄 ' + file.name + '</div>';
+            }
+        }
+
+        function onHeaderMediaFileSelected(input) {
+            var file = input.files && input.files[0];
+            if (!file) return;
+            var maxBytes = headerMediaFormat === 'VIDEO' ? 16 * 1024 * 1024 : 5 * 1024 * 1024;
+            if (file.size > maxBytes) {
+                showToast('Arquivo muito grande para o tipo selecionado', 'error');
+                input.value = '';
+                return;
+            }
+            renderMediaPreviewLocal(file);
+            uploadHeaderMidia(file);
+        }
+
+        function proximoIndiceVariavel(texto) {
+            var indices = extrairIndicesVariaveis(texto || '');
+            if (!indices.length) return 1;
+            return Math.max.apply(null, indices) + 1;
+        }
+
+        function inserirVariavel(fieldId) {
+            var el = document.getElementById(fieldId);
+            if (!el) return;
+            var token = tokenVariavel(proximoIndiceVariavel(el.value));
+            var start = el.selectionStart != null ? el.selectionStart : el.value.length;
+            var end = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+            var val = el.value;
+            el.value = val.substring(0, start) + token + val.substring(end);
+            var pos = start + token.length;
+            if (el.setSelectionRange) el.setSelectionRange(pos, pos);
+            el.focus();
+            if (fieldId === 'bodyText') {
+                renderVarExamples('bodyVarsGrid', el.value, 'body');
+                validarCampoBody();
+            } else if (fieldId === 'headerText') {
+                renderVarExamples('headerVarsGrid', el.value, 'header');
+            }
+            atualizarContadores();
+            atualizarPreview();
+        }
+
+        var nameWarnTimeout = null;
+
+        function sanitizarNomeTemplate(raw) {
+            var hadInvalid = false;
+            var result = '';
+            for (var i = 0; i < raw.length; i++) {
+                var c = raw[i];
+                if (c === ' ') {
+                    result += '_';
+                } else if (c >= 'A' && c <= 'Z') {
+                    result += c.toLowerCase();
+                } else if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c === '_') {
+                    result += c;
+                } else {
+                    hadInvalid = true;
+                }
+            }
+            return { value: result, hadInvalid: hadInvalid };
+        }
+
+        function mostrarAvisoNome(msg) {
+            var input = document.getElementById('templateName');
+            var fb = document.getElementById('nameFeedback');
+            if (!input || !fb) return;
+            fb.textContent = msg;
+            fb.className = 'field-feedback err';
+            fb.dataset.fromInput = '1';
+            input.classList.add('invalid');
+            clearTimeout(nameWarnTimeout);
+            nameWarnTimeout = setTimeout(function () {
+                if (fb.dataset.fromInput && validarNome(input.value.trim())) {
+                    fb.textContent = '';
+                    fb.className = 'field-feedback';
+                    fb.removeAttribute('data-from-input');
+                    input.classList.remove('invalid');
+                }
+            }, 3000);
+        }
+
+        function processarInputNomeTemplate(input) {
+            var parsed = sanitizarNomeTemplate(input.value);
+            if (parsed.value !== input.value) {
+                input.value = parsed.value;
+            }
+            if (parsed.hadInvalid) {
+                mostrarAvisoNome('Caractere não permitido. Use apenas letras, números e _');
+            } else {
+                var fb = document.getElementById('nameFeedback');
+                if (fb && fb.dataset.fromInput) {
+                    fb.textContent = '';
+                    fb.className = 'field-feedback';
+                    fb.removeAttribute('data-from-input');
+                    input.classList.remove('invalid');
+                }
+            }
+        }
+
+        function validarCampoBody() {
+            var input = document.getElementById('bodyText');
+            var fb = document.getElementById('bodyFeedback');
+            if (!input || !fb) return false;
+            var val = input.value.trim();
+            if (!val) {
+                fb.textContent = '';
+                fb.className = 'field-feedback';
+                input.classList.remove('invalid');
+                return false;
+            }
+            if (textoComecaOuTerminaComVariavel(val)) {
+                fb.textContent = '✗ Não pode começar/terminar só com variável';
+                fb.className = 'field-feedback err';
+                input.classList.add('invalid');
+                return false;
+            }
+            fb.textContent = '✓ Corpo válido';
+            fb.className = 'field-feedback ok';
+            input.classList.remove('invalid');
+            return true;
+        }
+
+        function validarCampoFooter() {
+            var input = document.getElementById('footerText');
+            var fb = document.getElementById('footerFeedback');
+            if (!input || !fb) return true;
+            var val = input.value.trim();
+            if (!val) {
+                fb.textContent = '';
+                fb.className = 'field-feedback';
+                input.classList.remove('invalid');
+                return true;
+            }
+            if (/\{\{\d+\}\}/.test(val)) {
+                fb.textContent = '✗ Rodapé não aceita variáveis';
+                fb.className = 'field-feedback err';
+                input.classList.add('invalid');
+                return false;
+            }
+            fb.textContent = '✓ Rodapé válido';
+            fb.className = 'field-feedback ok';
+            input.classList.remove('invalid');
+            return true;
+        }
+
+        function atualizarContadores() {
+            function setCounter(id, el, max) {
+                var counter = document.getElementById(id);
+                if (!counter || !el) return;
+                var len = el.value.length;
+                counter.textContent = len + '/' + max;
+                counter.className = 'char-counter' + (len > max * 0.9 ? (len >= max ? ' err' : ' warn') : '');
+            }
+            setCounter('bodyCharCounter', document.getElementById('bodyText'), 1024);
+            setCounter('footerCharCounter', document.getElementById('footerText'), 60);
+            setCounter('headerCharCounter', document.getElementById('headerText'), 60);
+        }
+
+        function getNomeConexaoSelecionada() {
+            var select = document.getElementById('conexaoSelect');
+            if (!select || !select.value) return 'Conexão API Oficial';
+            var opt = select.options[select.selectedIndex];
+            return opt ? opt.textContent.split(' · ')[0] : 'Conexão API Oficial';
+        }
+
+        function aplicarTextoComExemplos(texto, prefix) {
+            if (!texto) return '';
+            return texto.replace(/\{\{(\d+)\}\}/g, function (_, n) {
+                const input = document.querySelector('.var-example[data-prefix="' + prefix + '"][data-index="' + n + '"]');
+                const val = input?.value?.trim();
+                return val || tokenVariavel(n);
+            });
+        }
+
+        function atualizarEditorHeader() {
+            var nameInput = document.getElementById('templateName');
+            var langSelect = document.getElementById('templateLanguage');
+            var name = nameInput && nameInput.value.trim() ? nameInput.value.trim() : 'nome_do_template';
+            var lang = langSelect ? langSelect.value : 'pt_BR';
+            var langLabel = LANGUAGE_LABELS[lang] || lang;
+            var titleEl = document.getElementById('editorTemplateTitle');
+            var langEl = document.getElementById('editorLanguageLabel');
+            var chipEl = document.getElementById('languageChip');
+            if (titleEl) titleEl.textContent = name;
+            if (langEl) langEl.textContent = langLabel;
+            if (chipEl) chipEl.textContent = langLabel;
+        }
+
+        function atualizarPreview() {
+            atualizarEditorHeader();
+
+            const contactEl = document.getElementById('previewContact');
+            const avatarEl = document.getElementById('previewAvatar');
+            var nomeConexao = getNomeConexaoSelecionada();
+            if (contactEl) contactEl.textContent = nomeConexao;
+            if (avatarEl) avatarEl.textContent = (nomeConexao.charAt(0) || 'W').toUpperCase();
+
+            const headerMode = getHeaderMode();
+            const headerEl = document.getElementById('previewHeader');
+            const headerMediaEl = document.getElementById('previewHeaderMedia');
+            const bodyEl = document.getElementById('previewBody');
+            const footerEl = document.getElementById('previewFooter');
+            const buttonsEl = document.getElementById('previewButtons');
+            const timeEl = document.getElementById('previewTime');
+
+            if (headerMediaEl) {
+                headerMediaEl.style.display = 'none';
+                headerMediaEl.innerHTML = '';
+            }
+            if (headerMode === 'media' && (headerMediaPreviewUrl || headerMediaPublicUrl)) {
+                headerEl.style.display = 'none';
+                if (headerMediaEl) {
+                    headerMediaEl.style.display = 'block';
+                    var mediaSrc = headerMediaPreviewUrl || headerMediaPublicUrl;
+                    if (headerMediaFormat === 'IMAGE') {
+                        headerMediaEl.innerHTML = '<img src="' + mediaSrc + '" alt="Header">';
+                    } else if (headerMediaFormat === 'VIDEO') {
+                        headerMediaEl.innerHTML = '<video src="' + mediaSrc + '" controls></video>';
+                    } else {
+                        headerMediaEl.innerHTML = '<div class="wa-header-media-doc">📄 ' + (headerMediaFileName || 'Documento') + '</div>';
+                    }
+                }
+            } else if (headerMode === 'text') {
+                const ht = document.getElementById('headerText').value.trim();
+                if (ht) {
+                    headerEl.style.display = 'block';
+                    headerEl.textContent = aplicarTextoComExemplos(ht, 'header');
+                } else {
+                    headerEl.style.display = 'none';
+                }
+            } else {
+                headerEl.style.display = 'none';
+            }
+
+            const body = document.getElementById('bodyText').value.trim();
+            bodyEl.textContent = body ? aplicarTextoComExemplos(body, 'body') : 'Digite a mensagem para ver o preview...';
+
+            var bodyPreviewEl = document.getElementById('editorBodyPreview');
+            if (bodyPreviewEl) {
+                bodyPreviewEl.textContent = body ? aplicarTextoComExemplos(body, 'body') : '';
+            }
+
+            const footer = document.getElementById('footerText').value.trim();
+            if (footer) {
+                footerEl.style.display = 'block';
+                footerEl.textContent = footer;
+            } else {
+                footerEl.style.display = 'none';
+            }
+
+            const now = new Date();
+            timeEl.textContent = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+            buttonsEl.innerHTML = '';
+            document.querySelectorAll('.button-item').forEach(function (item) {
+                const type = getTipoBotaoItem(item);
+                const text = item.querySelector('.btn-text-input')?.value?.trim();
+                if (!text) return;
+                const div = document.createElement('div');
+                div.className = 'wa-btn';
+                var icon = '↩';
+                if (type === 'URL') icon = '🔗';
+                else if (type === 'PHONE_NUMBER') icon = '📞';
+                div.innerHTML = '<span class="btn-icon">' + icon + '</span>' + text;
+                buttonsEl.appendChild(div);
+            });
+        }
+
+        function getButtonMode() {
+            var checked = document.querySelector('input[name="buttonMode"]:checked');
+            return checked ? checked.value : 'none';
+        }
+
+        function contarBotoesDetalhado() {
+            var quick = 0, url = 0, phone = 0;
+            document.querySelectorAll('.button-item').forEach(function (item) {
+                var type = item.dataset.btnType || item.querySelector('.btn-type-select')?.value;
+                if (type === 'QUICK_REPLY') quick++;
+                else if (type === 'URL') url++;
+                else if (type === 'PHONE_NUMBER') phone++;
+            });
+            return { quick: quick, url: url, phone: phone, total: quick + url + phone };
+        }
+
+        function atualizarModoBotoesUI() {
+            var mode = getButtonMode();
+            var editor = document.getElementById('buttonsEditor');
+            if (editor) editor.style.display = mode === 'none' ? 'none' : 'block';
+            atualizarLimiteBotoes();
+            atualizarPreview();
+        }
+
+        function onButtonModeChange() {
+            document.getElementById('buttonsList').innerHTML = '';
+            buttonCounter = 0;
+            atualizarModoBotoesUI();
+            if (getButtonMode() === 'quick_reply') {
+                criarBotaoItem();
+            }
+        }
+
+        function atualizarLimiteBotoes() {
+            var btnAdd = document.getElementById('btnAddButton');
+            if (!btnAdd) return;
+            var mode = getButtonMode();
+            var c = contarBotoesDetalhado();
+            var disabled = false;
+            if (mode === 'quick_reply') {
+                disabled = c.quick >= 3;
+            } else if (mode === 'action') {
+                disabled = c.total >= 3 || (c.url >= 2 && c.phone >= 1);
+            } else {
+                disabled = true;
+            }
+            btnAdd.disabled = disabled;
+            document.querySelectorAll('.button-item .btn-type-select').forEach(function (sel) {
+                var item = sel.closest('.button-item');
+                if (!item) return;
+                var urlOpt = sel.querySelector('option[value="URL"]');
+                var phoneOpt = sel.querySelector('option[value="PHONE_NUMBER"]');
+                var others = contarBotoesDetalhado();
+                var thisType = sel.value;
+                if (urlOpt) urlOpt.disabled = others.url >= 2 && thisType !== 'URL';
+                if (phoneOpt) phoneOpt.disabled = others.phone >= 1 && thisType !== 'PHONE_NUMBER';
+            });
+        }
+
+        function criarBotaoItem() {
+            var mode = getButtonMode();
+            if (mode === 'none') return;
+            buttonCounter++;
+            var id = buttonCounter;
+            var div = document.createElement('div');
+            div.className = 'button-item';
+            div.dataset.id = id;
+            if (mode === 'quick_reply') {
+                div.dataset.btnType = 'QUICK_REPLY';
+                div.innerHTML =
+                    '<div class="button-item-header"><span>Resposta rápida ' + id + '</span><button type="button" class="btn-remove" onclick="removerBotao(' + id + ')">Remover</button></div>' +
+                    '<div class="form-group"><label>Texto do botão</label><input type="text" class="btn-text-input" maxlength="25" placeholder="Sim" oninput="atualizarPreview()"></div>' +
+                    '<div class="form-group"><label>Payload (valor enviado ao clicar)</label><input type="text" class="btn-payload-input" maxlength="128" placeholder="quero_saber_mais"></div>';
+            } else {
+                var c = contarBotoesDetalhado();
+                var defaultType = c.url < 2 ? 'URL' : 'PHONE_NUMBER';
+                div.dataset.btnType = defaultType;
+                div.innerHTML =
+                    '<div class="button-item-header"><span>Botão de ação ' + id + '</span><button type="button" class="btn-remove" onclick="removerBotao(' + id + ')">Remover</button></div>' +
+                    '<div class="form-row">' +
+                    '<div class="form-group"><label>Tipo</label>' +
+                    '<select class="btn-type-select" onchange="onButtonTypeChange(' + id + ');atualizarLimiteBotoes();atualizarPreview();">' +
+                    '<option value="URL"' + (defaultType === 'URL' ? ' selected' : '') + '>URL</option>' +
+                    '<option value="PHONE_NUMBER"' + (defaultType === 'PHONE_NUMBER' ? ' selected' : '') + '>Telefone</option>' +
+                    '</select></div>' +
+                    '<div class="form-group"><label>Texto do botão</label><input type="text" class="btn-text-input" maxlength="25" placeholder="Ver site" oninput="atualizarPreview()"></div>' +
+                    '</div>' +
+                    '<div class="form-group btn-extra-field"><label class="btn-extra-label">' + (defaultType === 'URL' ? 'URL' : 'Telefone (com DDI)') + '</label>' +
+                    '<input type="text" class="btn-extra-input" placeholder="' + (defaultType === 'URL' ? 'https://exemplo.com/' + tokenVariavel(1) : '+5511999999999') + '" oninput="atualizarBtnCampoSelect(' + id + ')"></div>' +
+                    '<div class="form-group btn-campo-wrap" id="btnCampoWrap' + id + '" style="display:none;"><label>Campo do contato (parte dinâmica da URL)</label>' +
+                    '<select class="btn-campo-select">' + buildCampoSelectOptions('') + '</select></div>';
+            }
+            document.getElementById('buttonsList').appendChild(div);
+            atualizarLimiteBotoes();
+        }
+
+        function removerBotao(id) {
+            var item = document.querySelector('.button-item[data-id="' + id + '"]');
+            if (item) item.remove();
+            atualizarLimiteBotoes();
+            atualizarPreview();
+        }
+
+        function atualizarBtnCampoSelect(id) {
+            var item = document.querySelector('.button-item[data-id="' + id + '"]');
+            if (!item) return;
+            var extra = item.querySelector('.btn-extra-input')?.value || '';
+            var wrap = document.getElementById('btnCampoWrap' + id);
+            if (!wrap) return;
+            wrap.style.display = /\{\{\d+\}\}/.test(extra) ? 'block' : 'none';
+        }
+
+        function onButtonTypeChange(id) {
+            var item = document.querySelector('.button-item[data-id="' + id + '"]');
+            if (!item) return;
+            var type = item.querySelector('.btn-type-select').value;
+            item.dataset.btnType = type;
+            var extra = item.querySelector('.btn-extra-field');
+            var label = item.querySelector('.btn-extra-label');
+            var input = item.querySelector('.btn-extra-input');
+            if (type === 'URL') {
+                extra.style.display = 'flex';
+                label.textContent = 'URL';
+                input.placeholder = 'https://exemplo.com/' + tokenVariavel(1);
+            } else {
+                extra.style.display = 'flex';
+                label.textContent = 'Telefone (com DDI)';
+                input.placeholder = '+5511999999999';
+            }
+        }
+
+        function getTipoBotaoItem(item) {
+            return item.dataset.btnType || item.querySelector('.btn-type-select')?.value;
+        }
+
+        function validarNome(name) {
+            return /^[a-z0-9_]+$/.test(name);
+        }
+
+        function textoComecaOuTerminaComVariavel(texto) {
+            const t = texto.trim();
+            return /^\{\{\d+\}\}/.test(t) || /\{\{\d+\}\}$/.test(t);
+        }
+
+        function coletarExemplos(prefix) {
+            const valores = {};
+            document.querySelectorAll('.var-example[data-prefix="' + prefix + '"]').forEach(function (input) {
+                const idx = parseInt(input.dataset.index, 10);
+                valores[idx] = input.value.trim();
+                setStoredExample(prefix, idx, input.value.trim());
+            });
+            return valores;
+        }
+
+        function validarExemplosPreenchidos(texto, prefix, label) {
+            const indices = extrairIndicesVariaveis(texto);
+            const exemplos = coletarExemplos(prefix);
+            const faltando = indices.filter(function (n) { return !exemplos[n]; });
+            if (faltando.length) {
+                return label + ': preencha exemplo para variável(is) ' + faltando.map(function (n) { return tokenVariavel(n); }).join(', ');
+            }
+            return null;
+        }
+
+        function montarComponents() {
+            const components = [];
+            const headerMode = getHeaderMode();
+
+            if (headerMode === 'text') {
+                const text = document.getElementById('headerText').value.trim();
+                if (text) {
+                    const comp = { type: 'HEADER', format: 'TEXT', text: text };
+                    const indices = extrairIndicesVariaveis(text);
+                    if (indices.length) {
+                        const exemplos = coletarExemplos('header');
+                        comp.example = { header_text: indices.map(function (n) { return exemplos[n]; }) };
+                    }
+                    components.push(comp);
+                }
+            } else if (headerMode === 'media' && headerMediaPublicUrl) {
+                components.push({
+                    type: 'HEADER',
+                    format: headerMediaFormat,
+                    example: {
+                        header_url: [headerMediaPublicUrl]
+                    }
+                });
+            }
+
+            const bodyText = document.getElementById('bodyText').value.trim();
+            const bodyComp = { type: 'BODY', text: bodyText };
+            const bodyIndices = extrairIndicesVariaveis(bodyText);
+            if (bodyIndices.length) {
+                const exemplos = coletarExemplos('body');
+                bodyComp.example = { body_text: [bodyIndices.map(function (n) { return exemplos[n]; })] };
+            }
+            components.push(bodyComp);
+
+            const footer = document.getElementById('footerText').value.trim();
+            if (footer) {
+                components.push({ type: 'FOOTER', text: footer });
+            }
+
+            const buttons = [];
+            const btnMode = getButtonMode();
+            if (btnMode === 'none') {
+                return components;
+            }
+            document.querySelectorAll('.button-item').forEach(function (item) {
+                const type = getTipoBotaoItem(item);
+                const text = item.querySelector('.btn-text-input').value.trim();
+                const extra = item.querySelector('.btn-extra-input')?.value?.trim();
+                if (!text) return;
+                if (type === 'QUICK_REPLY') {
+                    buttons.push({ type: 'QUICK_REPLY', text: text });
+                } else if (type === 'URL') {
+                    const btn = { type: 'URL', text: text, url: extra || '' };
+                    const urlVars = extrairIndicesVariaveis(extra);
+                    if (urlVars.length) {
+                        const exemploUrl = extra.replace(/\{\{\d+\}\}/g, 'promo');
+                        btn.example = [exemploUrl];
+                    }
+                    buttons.push(btn);
+                } else if (type === 'PHONE_NUMBER') {
+                    buttons.push({ type: 'PHONE_NUMBER', text: text, phone_number: extra || '' });
+                }
+            });
+            if (buttons.length) {
+                components.push({ type: 'BUTTONS', buttons: buttons });
+            }
+
+            return components;
+        }
+
+        function validarFormulario() {
+            const erros = [];
+            const conexaoId = document.getElementById('conexaoSelect').value;
+            if (!conexaoId) erros.push('Selecione uma conexão API Oficial');
+
+            const name = document.getElementById('templateName').value.trim();
+            if (!name) erros.push('Informe o nome do template');
+            else if (!validarNome(name)) erros.push('Nome inválido: use apenas a-z, 0-9 e _ (sem espaços, acentos ou hífen)');
+
+            const category = getCategory();
+            if (!['MARKETING', 'UTILITY'].includes(category)) {
+                erros.push('Categoria inválida');
+            }
+
+            const bodyText = document.getElementById('bodyText').value.trim();
+            if (!bodyText) erros.push('O corpo da mensagem é obrigatório');
+            else if (textoComecaOuTerminaComVariavel(bodyText)) {
+                erros.push('O corpo não pode começar ou terminar apenas com variável');
+            }
+
+            const headerMode = getHeaderMode();
+            if (headerMode === 'text') {
+                const ht = document.getElementById('headerText').value.trim();
+                if (ht) {
+                    const errH = validarExemplosPreenchidos(ht, 'header', 'Cabeçalho');
+                    if (errH) erros.push(errH);
+                }
+            } else if (headerMode === 'media') {
+                if (headerMediaUploading) erros.push('Aguarde o envio da mídia terminar');
+                else if (!headerMediaPublicUrl) erros.push('Envie uma mídia para o cabeçalho');
+            }
+
+            const errB = validarExemplosPreenchidos(bodyText, 'body', 'Corpo');
+            if (errB) erros.push(errB);
+
+            const footer = document.getElementById('footerText').value.trim();
+            if (footer && /\{\{\d+\}\}/.test(footer)) {
+                erros.push('O rodapé não pode conter variáveis');
+            }
+
+            var btnMode = getButtonMode();
+            var c = contarBotoesDetalhado();
+            if (btnMode === 'quick_reply') {
+                if (c.quick < 1) erros.push('Adicione de 1 a 3 botões de resposta rápida');
+                if (c.quick > 3) erros.push('Máximo de 3 botões de resposta rápida');
+            } else if (btnMode === 'action') {
+                if (c.url > 2) erros.push('Máximo de 2 botões URL');
+                if (c.phone > 1) erros.push('Máximo de 1 botão de telefone');
+                if (c.total > 3) erros.push('Máximo de 3 botões de ação no total');
+            }
+
+            document.querySelectorAll('.button-item').forEach(function (item, i) {
+                const type = getTipoBotaoItem(item);
+                const text = item.querySelector('.btn-text-input').value.trim();
+                const extra = item.querySelector('.btn-extra-input')?.value?.trim();
+                if (!text) erros.push('Botão ' + (i + 1) + ': informe o texto');
+                if (type === 'URL' && !extra) erros.push('Botão ' + (i + 1) + ': informe a URL');
+                if (type === 'PHONE_NUMBER' && !extra) erros.push('Botão ' + (i + 1) + ': informe o telefone');
+            });
+
+            return erros;
+        }
+
+        function exibirErroForm(msg) {
+            const el = document.getElementById('formError');
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
+        function limparErroForm() {
+            const el = document.getElementById('formError');
+            el.style.display = 'none';
+            el.textContent = '';
+        }
+
+        async function enviarTemplate() {
+            if (modoVisualizacao) return;
+            limparErroForm();
+            const erros = validarFormulario();
+            if (erros.length) {
+                exibirErroForm(erros.join('. '));
+                erros.forEach(function (e) { showToast(e, 'error'); });
+                return;
+            }
+
+            const btn = document.getElementById('btnSubmit');
+            const btnText = document.getElementById('btnSubmitText');
+            btn.disabled = true;
+            btn.classList.add('loading');
+            btnText.innerHTML = '<span class="spinner"></span> Enviando...';
+
+            const componentsList = montarComponents();
+            const payload = {
+                conexaoId: parseInt(document.getElementById('conexaoSelect').value, 10),
+                name: document.getElementById('templateName').value.trim(),
+                language: document.getElementById('templateLanguage').value || 'pt_BR',
+                category: getCategory(),
+                components: componentsList
+            };
+            if (getHeaderMode() === 'media' && headerMediaPublicUrl) {
+                payload.headerMidia = {
+                    type: (headerMediaFormat || 'IMAGE').toLowerCase(),
+                    format: headerMediaFormat,
+                    link: headerMediaPublicUrl,
+                    fileName: headerMediaFileName || ''
+                };
+            }
+
+            try {
+                const url = getWebhookBaseUrl() + '/meta-criar-template';
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json().catch(function () { return {}; });
+
+                if (!res.ok || data.ok === false) {
+                    const msg = data.error_user_msg || data.message || data.error || 'Falha ao criar template';
+                    throw new Error(msg);
+                }
+
+                lastSuccessConexaoId = data.conexaoId || payload.conexaoId;
+                var templateId = data.templateId || data.id;
+                var variaveisCampos = coletarVariaveisCampos();
+                if (templateId) {
+                    await salvarVariaveisCamposNoTemplate(templateId, variaveisCampos, componentsList);
+                }
+                showToast('Template enviado para análise da Meta', 'success');
+                navigateToPage(getWebhookBaseUrl() + '/configuracoes?aba=templates-api-oficial');
+            } catch (err) {
+                const msg = err.message || 'Erro ao enviar template';
+                exibirErroForm(msg);
+                showToast(msg, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                btnText.textContent = 'Enviar para análise';
+            }
+        }
+
+        function mostrarSucesso(data) {
+            document.getElementById('formPanel').classList.add('hidden');
+            document.getElementById('formPanel').style.display = 'none';
+            const panel = document.getElementById('successPanel');
+            panel.classList.add('visible');
+
+            const status = (data.status || 'PENDING').toUpperCase();
+            const statusEl = document.getElementById('successStatus');
+            statusEl.textContent = status === 'PENDING' ? 'Em análise' : status;
+            statusEl.className = 'status-badge pending';
+
+            const details = [];
+            if (data.nome) details.push('Nome: ' + data.nome);
+            if (data.idioma) details.push('Idioma: ' + data.idioma);
+            if (data.metaTemplateId) details.push('ID Meta: ' + data.metaTemplateId);
+            if (data.templateId) details.push('ID local: ' + data.templateId);
+            document.getElementById('successDetails').textContent = details.join(' · ');
+        }
+
+        function resetarFormulario() {
+            document.getElementById('templateForm').reset();
+            document.getElementById('categorySelect').value = 'MARKETING';
+            document.querySelector('input[name="headerMode"][value="none"]').checked = true;
+            document.querySelector('input[name="headerMediaType"][value="IMAGE"]').checked = true;
+            document.getElementById('headerTextBlock').style.display = 'none';
+            document.getElementById('headerMediaBlock').style.display = 'none';
+            document.getElementById('headerVarsSection').style.display = 'none';
+            document.getElementById('bodyVarsSection').style.display = 'none';
+            document.querySelector('input[name="buttonMode"][value="none"]').checked = true;
+            document.getElementById('buttonsList').innerHTML = '';
+            document.getElementById('buttonsEditor').style.display = 'none';
+            document.getElementById('headerVarsGrid').innerHTML = '';
+            document.getElementById('bodyVarsGrid').innerHTML = '';
+            buttonCounter = 0;
+            exampleCache = {};
+            limparHeaderMidia(true);
+            limparErroForm();
+            ['nameFeedback', 'bodyFeedback', 'footerFeedback'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) { el.textContent = ''; el.className = 'field-feedback'; }
+            });
+            atualizarMediaTypeUI();
+            atualizarModoBotoesUI();
+            atualizarContadores();
+            atualizarPreview();
+            document.getElementById('successPanel').classList.remove('visible');
+            document.getElementById('formPanel').classList.remove('hidden', 'show-preview');
+            document.getElementById('formPanel').style.display = '';
+            document.querySelectorAll('.mobile-tab').forEach(function (t, i) {
+                t.classList.toggle('active', i === 0);
+            });
+        }
+
+        function formatStatusTemplateVisualizacao(status) {
+            var s = (status || 'PENDING').toUpperCase();
+            var labels = {
+                APPROVED: 'Aprovado',
+                PENDING: 'Em análise',
+                REJECTED: 'Rejeitado',
+                PAUSED: 'Pausado',
+                DISABLED: 'Desabilitado',
+                IN_APPEAL: 'Em recurso',
+                LIMIT_EXCEEDED: 'Limite excedido'
+            };
+            var classes = { APPROVED: 'approved', PENDING: 'pending', REJECTED: 'rejected' };
+            return { label: labels[s] || status || '—', cls: classes[s] || 'other' };
+        }
+
+        function parseJsonFieldTemplateView(value, fallback) {
+            var cur = value;
+            var guard = 0;
+            while (typeof cur === 'string' && guard < 6) {
+                try {
+                    cur = JSON.parse(cur);
+                } catch (e) {
+                    return fallback;
+                }
+                guard++;
+            }
+            return cur == null ? fallback : cur;
+        }
+
+        function extractComponentsListTemplateView(parsed) {
+            if (!parsed) return [];
+            if (Array.isArray(parsed)) return parsed;
+            if (typeof parsed !== 'object') return [];
+            if (Array.isArray(parsed.componentes)) return parsed.componentes;
+            if (typeof parsed.componentes === 'string') {
+                return extractComponentsListTemplateView(parseJsonFieldTemplateView(parsed.componentes, null));
+            }
+            if (Array.isArray(parsed.components)) return parsed.components;
+            if (typeof parsed.components === 'string') {
+                return extractComponentsListTemplateView(parseJsonFieldTemplateView(parsed.components, null));
+            }
+            return [];
+        }
+
+        function unwrapTemplateBlobView(raw) {
+            var parsed = parseJsonFieldTemplateView(raw, null);
+            var guard = 0;
+            while (parsed && typeof parsed === 'object' && guard < 8) {
+                var list = extractComponentsListTemplateView(parsed);
+                if (list.length) {
+                    var vc = parsed.variaveisCampos;
+                    if (typeof vc === 'string') {
+                        vc = parseJsonFieldTemplateView(vc, {});
+                    }
+                    return {
+                        componentsList: list,
+                        variaveisCampos: vc && typeof vc === 'object' && !Array.isArray(vc) ? vc : {}
+                    };
+                }
+                if (typeof parsed.componentes === 'string') {
+                    parsed = parseJsonFieldTemplateView(parsed.componentes, null);
+                    guard++;
+                    continue;
+                }
+                if (typeof parsed.components === 'string') {
+                    parsed = parseJsonFieldTemplateView(parsed.components, null);
+                    guard++;
+                    continue;
+                }
+                break;
+            }
+            return { componentsList: [], variaveisCampos: {} };
+        }
+
+        function normalizarRegistroTemplateView(tpl) {
+            if (!tpl) return { componentsList: [], variaveisCampos: {} };
+            var unwrapped = unwrapTemplateBlobView(tpl.componentes);
+            var vcCol = parseTemplateVariaveisCamposView(tpl.variaveisCampos);
+            var variaveisCampos = Object.keys(vcCol).length ? vcCol : unwrapped.variaveisCampos;
+            if (Object.keys(vcCol).length && Object.keys(unwrapped.variaveisCampos).length) {
+                variaveisCampos = Object.assign({}, unwrapped.variaveisCampos, vcCol);
+            }
+            return {
+                componentsList: unwrapped.componentsList,
+                variaveisCampos: variaveisCampos
+            };
+        }
+
+        function parseTemplateComponentesView(componentes) {
+            return unwrapTemplateBlobView(componentes).componentsList;
+        }
+
+        function parseTemplateVariaveisCamposView(variaveisCampos) {
+            if (!variaveisCampos) return {};
+            if (typeof variaveisCampos === 'object' && !Array.isArray(variaveisCampos)) return variaveisCampos;
+            if (typeof variaveisCampos === 'string') {
+                try {
+                    var p = JSON.parse(variaveisCampos);
+                    return p && typeof p === 'object' && !Array.isArray(p) ? p : {};
+                } catch (e) { return {}; }
+            }
+            return {};
+        }
+
+        function mergeVariaveisCamposTemplate(tpl) {
+            return normalizarRegistroTemplateView(tpl).variaveisCampos;
+        }
+
+        function getTemplateComponentByTypeView(componentsList, type) {
+            var typeUp = String(type).toUpperCase();
+            for (var i = 0; i < componentsList.length; i++) {
+                if (String(componentsList[i].type || '').toUpperCase() === typeUp) return componentsList[i];
+            }
+            return null;
+        }
+
+        function extrairExemplosVariaveisView(comp) {
+            var map = {};
+            if (!comp || !comp.example) return map;
+            var tipoUp = String(comp.type || '').toUpperCase();
+            if (tipoUp === 'BODY' && Array.isArray(comp.example.body_text) && comp.example.body_text.length) {
+                var row = comp.example.body_text[0];
+                var indices = extrairIndicesVariaveis(comp.text || '');
+                if (Array.isArray(row)) {
+                    indices.forEach(function (idx, i) {
+                        if (row[i] != null && String(row[i]).trim() !== '') map[String(idx)] = String(row[i]);
+                    });
+                }
+            }
+            if (tipoUp === 'HEADER' && Array.isArray(comp.example.header_text)) {
+                var indicesH = extrairIndicesVariaveis(comp.text || '');
+                comp.example.header_text.forEach(function (val, i) {
+                    if (indicesH[i] != null && val != null && String(val).trim() !== '') {
+                        map[String(indicesH[i])] = String(val);
+                    }
+                });
+            }
+            return map;
+        }
+
+        function extractTemplateHeaderMediaView(componentes, variaveisCampos) {
+            var vc = parseTemplateVariaveisCamposView(variaveisCampos);
+            if (vc.headerMidia && vc.headerMidia.link) return vc.headerMidia;
+            var headerComp = getTemplateComponentByTypeView(parseTemplateComponentesView(componentes), 'HEADER');
+            if (!headerComp) return null;
+            var fmt = String(headerComp.format || '').toUpperCase();
+            if (headerComp.example && Array.isArray(headerComp.example.header_url) && headerComp.example.header_url[0]) {
+                return { type: fmt.toLowerCase(), link: headerComp.example.header_url[0] };
+            }
+            if (headerComp.link) return { type: fmt.toLowerCase(), link: headerComp.link };
+            return null;
+        }
+
+        async function tentarBuscarComponentesTemplateNaMeta(tpl) {
+            if (!tpl || !tpl.conexaoId) return null;
+            try {
+                var res = await fetch(getWebhookBaseUrl() + '/meta-obter-template', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        conexaoId: tpl.conexaoId,
+                        templateId: tpl.id,
+                        nome: tpl.nome,
+                        idioma: tpl.idioma,
+                        metaTemplateId: tpl.metaTemplateId || null
+                    })
+                });
+                var data = await res.json().catch(function () { return {}; });
+                if (!res.ok || data.ok === false) return null;
+                if (Array.isArray(data.components)) return data.components;
+                if (Array.isArray(data.componentes)) return data.componentes;
+                if (data.componentes && Array.isArray(data.componentes.componentes)) return data.componentes.componentes;
+                if (data.data && Array.isArray(data.data.components)) return data.data.components;
+                return null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function renderMediaPreviewFromUrl(media) {
+            var container = document.getElementById('mediaPreviewContainer');
+            if (!container || !media || !media.link) return;
+            headerMediaFileName = media.type === 'document' ? 'Documento' : 'Mídia';
+            var type = (media.type || 'image').toLowerCase();
+            if (type === 'image') {
+                container.innerHTML = '<img class="media-preview" src="' + media.link + '" alt="Preview">';
+            } else if (type === 'video') {
+                container.innerHTML = '<video class="media-preview" src="' + media.link + '" controls></video>';
+            } else {
+                container.innerHTML = '<div class="media-preview-doc">📄 Documento</div>';
+            }
+            var box = document.getElementById('mediaUploadBox');
+            if (box) box.classList.add('has-file');
+            var status = document.getElementById('mediaUploadStatus');
+            if (status) { status.textContent = '✓ Mídia anexada'; status.className = 'media-status ok'; }
+        }
+
+        function aplicarVariaveisCamposNosSelects() {
+            document.querySelectorAll('.var-campo-select').forEach(function (sel) {
+                var prefix = sel.dataset.prefix;
+                var idx = sel.dataset.index;
+                var val = variaveisCamposCache[prefix] && variaveisCamposCache[prefix][idx];
+                if (val != null) sel.value = String(val);
+            });
+        }
+
+        function preencherBotoesTemplate(buttons, buttonsVc) {
+            document.getElementById('buttonsList').innerHTML = '';
+            buttonCounter = 0;
+            if (!buttons || !buttons.length) return;
+            var hasQuick = buttons.some(function (b) { return b.type === 'QUICK_REPLY'; });
+            if (hasQuick) {
+                document.querySelector('input[name="buttonMode"][value="quick_reply"]').checked = true;
+            } else {
+                document.querySelector('input[name="buttonMode"][value="action"]').checked = true;
+            }
+            atualizarModoBotoesUI();
+            buttons.forEach(function (btn, idx) {
+                criarBotaoItem();
+                var item = document.querySelector('.button-item[data-id="' + buttonCounter + '"]');
+                if (!item) return;
+                var textInput = item.querySelector('.btn-text-input');
+                if (textInput) textInput.value = btn.text || '';
+                var type = btn.type || 'QUICK_REPLY';
+                if (type === 'QUICK_REPLY') {
+                    var payloadInput = item.querySelector('.btn-payload-input');
+                    var vcEntry = (buttonsVc || []).find(function (b) { return b.index === idx && b.type === 'quick_reply'; });
+                    if (payloadInput && vcEntry) payloadInput.value = vcEntry.payload || '';
+                } else {
+                    var typeSel = item.querySelector('.btn-type-select');
+                    if (typeSel) {
+                        typeSel.value = type;
+                        onButtonTypeChange(buttonCounter);
+                    }
+                    var extraInput = item.querySelector('.btn-extra-input');
+                    if (extraInput) extraInput.value = btn.url || btn.phone_number || '';
+                    if (type === 'URL') atualizarBtnCampoSelect(buttonCounter);
+                    var vcUrl = (buttonsVc || []).find(function (b) { return b.index === idx && b.type === 'url'; });
+                    if (vcUrl) {
+                        var campoSel = item.querySelector('.btn-campo-select');
+                        if (campoSel) campoSel.value = vcUrl.campoPadrao || String(vcUrl.campoId || '');
+                    }
+                }
+            });
+            atualizarLimiteBotoes();
+        }
+
+        function preencherFormularioComTemplate(tpl) {
+            _suppressLimparHeaderMidia = true;
+            try {
+                var norm = normalizarRegistroTemplateView(tpl);
+                var componentsList = norm.componentsList;
+                var vc = norm.variaveisCampos;
+                variaveisCamposCache = {
+                    body: vc.body || {},
+                    header: vc.header || {}
+                };
+
+                document.getElementById('templateName').value = tpl.nome || '';
+                document.getElementById('categorySelect').value = (tpl.categoria || 'MARKETING').toUpperCase();
+                document.getElementById('templateLanguage').value = tpl.idioma || 'pt_BR';
+                if (tpl.conexaoId) document.getElementById('conexaoSelect').value = String(tpl.conexaoId);
+
+                var headerComp = getTemplateComponentByTypeView(componentsList, 'HEADER');
+                if (headerComp) {
+                    var fmt = String(headerComp.format || 'TEXT').toUpperCase();
+                    if (fmt === 'TEXT') {
+                        document.querySelector('input[name="headerMode"][value="text"]').checked = true;
+                    } else if (['IMAGE', 'VIDEO', 'DOCUMENT'].indexOf(fmt) >= 0) {
+                        document.querySelector('input[name="headerMode"][value="media"]').checked = true;
+                        headerMediaFormat = fmt;
+                        var mediaRadio = document.querySelector('input[name="headerMediaType"][value="' + fmt + '"]');
+                        if (mediaRadio) mediaRadio.checked = true;
+                    }
+                } else {
+                    document.querySelector('input[name="headerMode"][value="none"]').checked = true;
+                }
+
+                atualizarHeaderModeUI();
+                atualizarMediaTypeUI();
+
+                if (headerComp) {
+                    var headerFmt = String(headerComp.format || 'TEXT').toUpperCase();
+                    if (headerFmt === 'TEXT') {
+                        document.getElementById('headerText').value = headerComp.text || '';
+                        var headerEx = extrairExemplosVariaveisView(headerComp);
+                        Object.keys(headerEx).forEach(function (k) {
+                            setStoredExample('header', parseInt(k, 10), headerEx[k]);
+                        });
+                    } else if (['IMAGE', 'VIDEO', 'DOCUMENT'].indexOf(headerFmt) >= 0) {
+                        var media = extractTemplateHeaderMediaView(tpl.componentes, vc);
+                        if (media && media.link) {
+                            headerMediaPublicUrl = media.link;
+                            renderMediaPreviewFromUrl(media);
+                        }
+                    }
+                }
+
+                var bodyComp = getTemplateComponentByTypeView(componentsList, 'BODY');
+                if (bodyComp) {
+                    document.getElementById('bodyText').value = bodyComp.text || '';
+                    var bodyEx = extrairExemplosVariaveisView(bodyComp);
+                    Object.keys(bodyEx).forEach(function (k) {
+                        setStoredExample('body', parseInt(k, 10), bodyEx[k]);
+                    });
+                }
+
+                renderVarExamples('headerVarsGrid', document.getElementById('headerText').value, 'header');
+                renderVarExamples('bodyVarsGrid', document.getElementById('bodyText').value, 'body');
+                aplicarVariaveisCamposNosSelects();
+
+                var footerComp = getTemplateComponentByTypeView(componentsList, 'FOOTER');
+                document.getElementById('footerText').value = footerComp ? (footerComp.text || '') : '';
+
+                var buttonsComp = getTemplateComponentByTypeView(componentsList, 'BUTTONS');
+                if (buttonsComp && Array.isArray(buttonsComp.buttons) && buttonsComp.buttons.length) {
+                    preencherBotoesTemplate(buttonsComp.buttons, vc.buttons || []);
+                } else {
+                    document.querySelector('input[name="buttonMode"][value="none"]').checked = true;
+                    document.getElementById('buttonsList').innerHTML = '';
+                    buttonCounter = 0;
+                    atualizarModoBotoesUI();
+                }
+
+                atualizarEditorHeader();
+                atualizarContadores();
+                atualizarPreview();
+            } finally {
+                _suppressLimparHeaderMidia = false;
+            }
+        }
+
+        function aplicarModoVisualizacao(status) {
+            modoVisualizacao = true;
+            document.body.classList.add('view-only-mode');
+
+            var banner = document.getElementById('viewOnlyBanner');
+            if (banner) banner.style.display = 'block';
+
+            var pageTitle = document.querySelector('.page-header h1');
+            var pageDesc = document.querySelector('.page-header p');
+            if (pageTitle) pageTitle.textContent = 'Visualizar template WhatsApp';
+            if (pageDesc) pageDesc.textContent = 'Visualização somente leitura do template cadastrado.';
+
+            var st = formatStatusTemplateVisualizacao(status);
+            var statusEl = document.querySelector('.editor-status');
+            if (statusEl) {
+                statusEl.textContent = st.label;
+                statusEl.className = 'editor-status ' + st.cls;
+            }
+
+            var btnSubmit = document.getElementById('btnSubmit');
+            if (btnSubmit) btnSubmit.style.display = 'none';
+
+            var cancelBtn = document.querySelector('.form-actions .btn-secondary');
+            if (cancelBtn) cancelBtn.textContent = 'Voltar';
+
+            var editTab = document.querySelector('.mobile-tab[data-tab="form"]');
+            if (editTab) editTab.textContent = 'Detalhes';
+
+            document.querySelectorAll('#templateForm input, #templateForm textarea, #templateForm select').forEach(function (el) {
+                el.disabled = true;
+            });
+            document.querySelectorAll('.meta-panel input, .meta-panel select').forEach(function (el) {
+                el.disabled = true;
+            });
+            document.querySelectorAll('input[name="headerMode"], input[name="headerMediaType"], input[name="buttonMode"]').forEach(function (el) {
+                el.disabled = true;
+            });
+
+            var mediaBox = document.getElementById('mediaUploadBox');
+            if (mediaBox) {
+                mediaBox.style.pointerEvents = 'none';
+                mediaBox.removeAttribute('onclick');
+            }
+        }
+
+        async function carregarTemplateVisualizacao(templateId, contaId) {
+            if (!window.supabase) throw new Error('Supabase indisponível');
+            var tid = parseInt(templateId, 10);
+            if (!Number.isFinite(tid)) throw new Error('ID do template inválido');
+
+            var res = await window.supabase
+                .from('SAAS_Templates_Meta')
+                .select('id, nome, idioma, categoria, status, componentes, variaveisCampos, conexaoId, metaTemplateId')
+                .eq('id', tid)
+                .maybeSingle();
+
+            if (res.error) throw res.error;
+            if (!res.data) throw new Error('Template não encontrado');
+
+            var tplData = res.data;
+            var norm = normalizarRegistroTemplateView(tplData);
+            if (!norm.componentsList.length) {
+                var remoto = await tentarBuscarComponentesTemplateNaMeta(tplData);
+                if (remoto && remoto.length) {
+                    tplData = Object.assign({}, tplData, {
+                        componentes: {
+                            componentes: remoto,
+                            variaveisCampos: norm.variaveisCampos
+                        }
+                    });
+                }
+            }
+
+            if (res.data.conexaoId) {
+                var conexaoOk = conexoesApiOficial.some(function (c) { return String(c.id) === String(res.data.conexaoId); });
+                if (!conexaoOk) {
+                    var check = await window.supabase
+                        .from('SAAS_Conexões')
+                        .select('id, NomeConexao, Telefone, apiOficial')
+                        .eq('id', res.data.conexaoId)
+                        .eq('contaId', contaId)
+                        .maybeSingle();
+                    if (check.data) {
+                        conexoesApiOficial.push(check.data);
+                        var select = document.getElementById('conexaoSelect');
+                        if (select && !select.querySelector('option[value="' + check.data.id + '"]')) {
+                            var nome = check.data.NomeConexao || 'Conexão ' + check.data.id;
+                            var tel = check.data.Telefone ? ' · ' + check.data.Telefone : '';
+                            var opt = document.createElement('option');
+                            opt.value = check.data.id;
+                            opt.textContent = nome + tel;
+                            select.appendChild(opt);
+                        }
+                    }
+                }
+            }
+
+            preencherFormularioComTemplate(tplData);
+            aplicarModoVisualizacao(tplData.status);
+
+            if (!normalizarRegistroTemplateView(tplData).componentsList.length) {
+                showToast('Conteúdo do template não encontrado no banco. Exibindo apenas metadados.', 'error');
+            }
+
+            var loading = document.getElementById('loadingConexoes');
+            var empty = document.getElementById('emptyConexoes');
+            var formPanel = document.getElementById('formPanel');
+            if (loading) loading.style.display = 'none';
+            if (empty) empty.style.display = 'none';
+            if (formPanel) formPanel.style.display = '';
+        }
+
+        function cancelarFormulario() {
+            navigateToPage(getWebhookBaseUrl() + '/configuracoes');
+        }
+
+        function initMobileTabs() {
+            var panel = document.getElementById('formPanel');
+            var tabs = document.querySelectorAll('.mobile-tab');
+            tabs.forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    tabs.forEach(function (t) { t.classList.remove('active'); });
+                    tab.classList.add('active');
+                    if (tab.dataset.tab === 'preview') {
+                        panel.classList.add('show-preview');
+                        atualizarPreview();
+                    } else {
+                        panel.classList.remove('show-preview');
+                    }
+                });
+            });
+        }
+
+        async function carregarConexoesApiOficial(contaId) {
+            const loading = document.getElementById('loadingConexoes');
+            const empty = document.getElementById('emptyConexoes');
+            const formPanel = document.getElementById('formPanel');
+            const select = document.getElementById('conexaoSelect');
+
+            try {
+                const { data, error } = await window.supabase
+                    .from('SAAS_Conexões')
+                    .select('id, NomeConexao, Telefone, apiOficial, waba_id')
+                    .eq('contaId', contaId)
+                    .eq('apiOficial', true)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                conexoesApiOficial = (data || []).filter(function (c) {
+                    return c.apiOficial === true || c.apiOficial === 'true';
+                });
+
+                loading.style.display = 'none';
+
+                if (!conexoesApiOficial.length) {
+                    empty.style.display = 'block';
+                    return;
+                }
+
+                select.innerHTML = conexoesApiOficial.map(function (c) {
+                    const nome = c.NomeConexao || c.nome || 'Conexão ' + c.id;
+                    const tel = c.Telefone ? ' · ' + c.Telefone : '';
+                    return '<option value="' + c.id + '">' + nome + tel + '</option>';
+                }).join('');
+
+                const params = new URLSearchParams(window.location.search);
+                const pre = params.get('conexaoId');
+                if (pre && conexoesApiOficial.some(function (c) { return String(c.id) === pre; })) {
+                    select.value = pre;
+                }
+
+                formPanel.style.display = '';
+                atualizarMediaTypeUI();
+                atualizarContadores();
+            } catch (err) {
+                loading.style.display = 'none';
+                loading.className = 'alert-box alert-error';
+                loading.textContent = 'Erro ao carregar conexões: ' + (err.message || 'tente novamente');
+            }
+        }
+
+        function initEventos() {
+            initMobileTabs();
+
+            document.getElementById('templateName').addEventListener('input', function (e) {
+                processarInputNomeTemplate(e.target);
+                atualizarEditorHeader();
+            });
+
+            document.getElementById('templateLanguage').addEventListener('change', function () {
+                atualizarEditorHeader();
+                atualizarPreview();
+            });
+
+            document.querySelectorAll('input[name="headerMode"]').forEach(function (radio) {
+                radio.addEventListener('change', atualizarHeaderModeUI);
+            });
+
+            document.querySelectorAll('input[name="headerMediaType"]').forEach(function (radio) {
+                radio.addEventListener('change', atualizarMediaTypeUI);
+            });
+
+            document.getElementById('headerMediaFile').addEventListener('change', function () {
+                onHeaderMediaFileSelected(this);
+            });
+
+            document.getElementById('headerText').addEventListener('input', function () {
+                renderVarExamples('headerVarsGrid', this.value, 'header');
+                atualizarContadores();
+                atualizarPreview();
+            });
+
+            document.getElementById('bodyText').addEventListener('input', function () {
+                renderVarExamples('bodyVarsGrid', this.value, 'body');
+                validarCampoBody();
+                atualizarContadores();
+                atualizarPreview();
+            });
+
+            document.getElementById('footerText').addEventListener('input', function () {
+                validarCampoFooter();
+                atualizarContadores();
+                atualizarPreview();
+            });
+
+            document.addEventListener('input', function (e) {
+                if (e.target.classList.contains('var-example')) atualizarPreview();
+            });
+
+            document.querySelectorAll('input[name="buttonMode"]').forEach(function (radio) {
+                radio.addEventListener('change', onButtonModeChange);
+            });
+
+            document.getElementById('btnAddButton').addEventListener('click', function () {
+                criarBotaoItem();
+                atualizarPreview();
+            });
+
+            document.getElementById('templateForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                enviarTemplate();
+            });
+
+            document.getElementById('btnVerTemplates').addEventListener('click', function () {
+                const cid = lastSuccessConexaoId || document.getElementById('conexaoSelect').value;
+                navigateToPage(getWebhookBaseUrl() + '/listar-templates?conexaoId=' + cid);
+            });
+
+            document.getElementById('btnNovoTemplate').addEventListener('click', resetarFormulario);
+
+            document.getElementById('conexaoSelect').addEventListener('change', function () {
+                if (getHeaderMode() === 'media' && headerMediaPublicUrl) {
+                    limparHeaderMidia(true);
+                }
+                atualizarPreview();
+            });
+        }
+
+        function toggleMobileMenu() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (sidebar.classList.contains('mobile-open')) closeMobileMenu();
+            else {
+                sidebar.classList.add('mobile-open');
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+        function closeMobileMenu() {
+            document.querySelector('.sidebar')?.classList.remove('mobile-open');
+            document.getElementById('sidebarOverlay')?.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function initDarkMode() {
+            const isDark = getCookie('darkMode') === 'true';
+            applyTheme(isDark);
+            const toggle = document.getElementById('darkModeToggle');
+            if (toggle) {
+                toggle.checked = isDark;
+                toggle.addEventListener('change', function () {
+                    applyTheme(this.checked);
+                    setCookie('darkMode', this.checked ? 'true' : 'false', 365);
+                });
+            }
+        }
+        function applyTheme(isDark) {
+            const themeText = document.getElementById('themeToggleText');
+            if (isDark) {
+                document.body.classList.remove('light-mode');
+                document.body.classList.add('dark-mode');
+                if (themeText) themeText.textContent = 'Modo Escuro';
+            } else {
+                document.body.classList.remove('dark-mode');
+                document.body.classList.add('light-mode');
+                if (themeText) themeText.textContent = 'Modo Claro';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async function () {
+            try {
+                initDarkMode();
+                initEventos();
+                carregarVersao();
+                verificarMostrarMenuAdmin();
+
+                const contaId = await checkAuth();
+                if (!contaId) return;
+
+                const params = new URLSearchParams(window.location.search);
+                templateVisualizacaoId = params.get('templateId');
+
+                await carregarConexoesApiOficial(contaId);
+                await carregarCamposPersonalizados(contaId);
+
+                if (templateVisualizacaoId) {
+                    await carregarTemplateVisualizacao(templateVisualizacaoId, contaId);
+                } else {
+                    atualizarEditorHeader();
+                    atualizarMediaTypeUI();
+                    atualizarContadores();
+                    atualizarPreview();
+                }
+            } catch (err) {
+                console.error('Erro ao inicializar página:', err);
+                exibirErroInicial('Erro ao carregar a página: ' + (err.message || 'tente recarregar'));
+            }
+        });
+    </script>
+</body>
+</html>

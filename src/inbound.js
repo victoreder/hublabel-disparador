@@ -9,6 +9,8 @@ import { registerMetaApiRoutes, startMetaTokenRenewalCron } from './inbound/rout
 import { registerRagRoutes } from './inbound/routes/rag.js';
 import { registerGerarEmailRoutes } from './inbound/routes/gerarEmail.js';
 import { registerSyncTemplatesRoutes } from './inbound/routes/syncTemplates.js';
+import { registerAcoesRoutes } from './inbound/routes/acoes.js';
+import { registerPaginasRoutes } from './inbound/routes/paginas.js';
 import { logger } from './logger.js';
 import { getSupabaseKeyInfo, validateSupabaseConnection, fetchOpenAIApiKey } from './supabase.js';
 
@@ -43,6 +45,19 @@ async function main() {
 
   const app = express();
   app.disable('x-powered-by');
+
+  // Com o domínio inteiro apontando para este serviço, o prefixo do BACK_URL
+  // (ex.: /webhook) é removido aqui mesmo — funciona com ou sem StripPrefix no Traefik.
+  const basePath = inboundConfig.basePath;
+  if (basePath) {
+    app.use((req, _res, next) => {
+      if (req.url === basePath || req.url.startsWith(`${basePath}/`) || req.url.startsWith(`${basePath}?`)) {
+        req.url = req.url.slice(basePath.length) || '/';
+        if (req.url.startsWith('?')) req.url = `/${req.url}`;
+      }
+      next();
+    });
+  }
 
   app.use((req, res, next) => {
     const startedAt = Date.now();
@@ -94,7 +109,7 @@ async function main() {
   app.get('/health', healthHandler);
 
   app.get('/', (_req, res) => {
-    res.redirect('/health');
+    res.redirect(`${inboundConfig.backUrl}/login`);
   });
 
   registerEventsMetaRoutes(app, {
@@ -126,6 +141,9 @@ async function main() {
     path: inboundConfig.gerarEmailPath,
     parentPath: inboundConfig.evolutionWebhookPath,
   });
+
+  registerPaginasRoutes(app, { inboundConfig });
+  registerAcoesRoutes(app, { inboundConfig });
 
   logger.info('[inbound] rotas Meta registradas', inboundConfig.metaApiPaths);
   logger.info('[inbound] rota RAG registrada', {

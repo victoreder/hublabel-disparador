@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de Privacidade | __HUB_NOME__</title>
+    <meta name="description" content="Política de Privacidade da plataforma __HUB_NOME__ e integração WhatsApp Business Platform (Meta).">
+
+    <link rel="icon" type="image/png" href="__HUB_FAVICON_URL__">
+    <link rel="shortcut icon" type="image/png" href="__HUB_FAVICON_URL__">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: 'rgba(__HUB_COR_RGB__, 0.1)',
+                            100: 'rgba(__HUB_COR_RGB__, 0.16)',
+                            500: '#__HUB_COR__',
+                            600: '#1eb85a',
+                            700: '#178a45',
+                        },
+                    },
+                    boxShadow: {
+                        soft: '0 8px 32px rgba(0, 0, 0, 0.03)',
+                    },
+                },
+            },
+        };
+    </script>
+    <style>
+        body { background: #f8fafc; }
+        .legal-content h2 { scroll-margin-top: 96px; }
+        .legal-content a { color: #__HUB_COR__; font-weight: 600; }
+        .legal-content a:hover { color: #1eb85a; text-decoration: underline; }
+    </style>
+</head>
+<body class="font-sans antialiased text-slate-900 selection:bg-brand-500 selection:text-white min-h-screen flex flex-col">
+
+    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-100">
+        <div class="max-w-4xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-4">
+            <a href="login.html" class="flex items-center gap-3 shrink-0">
+                <img src="__HUB_LOGO_URL__" alt="__HUB_NOME__" class="h-9 w-auto max-w-[180px] object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="hidden items-center gap-2">
+                    <div class="w-9 h-9 rounded-xl bg-[#__HUB_COR__] text-white flex items-center justify-center text-sm font-extrabold shadow-[0_4px_14px_rgba(37,211,102,0.35)]">D</div>
+                    <span class="font-extrabold text-lg tracking-tight">__HUB_NOME__</span>
+                </div>
+            </a>
+            <nav class="flex items-center gap-2 sm:gap-4 text-sm font-bold">
+                <a href="termos-uso.html" class="text-slate-500 hover:text-[#__HUB_COR__] transition-colors hidden sm:inline">Termos de Uso</a>
+                <a href="login.html" class="inline-flex items-center gap-2 text-[#__HUB_COR__] hover:text-[#1eb85a] transition-colors">
+                    <i class="fa-solid fa-arrow-left text-xs"></i>
+                    <span>Voltar</span>
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-1 w-full">
+        <div class="max-w-4xl mx-auto px-5 sm:px-8 py-10 sm:py-14">
+            <div class="mb-8 sm:mb-10">
+                <span class="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-[#__HUB_COR__] bg-brand-50 border border-brand-100 px-3 py-1.5 rounded-full mb-4">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    Documento legal
+                </span>
+                <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-3">Política de Privacidade</h1>
+                <p class="text-sm font-medium text-slate-500">Última atualização: 08/06/2026</p>
+            </div>
+
+            <article class="legal-content bg-white border border-slate-100 rounded-3xl shadow-soft p-6 sm:p-10 text-slate-700 leading-relaxed">
+
+                <p>
+                    Esta Política de Privacidade descreve como a plataforma
+                    <strong class="text-slate-900">__HUB_NOME__</strong> coleta, utiliza, armazena, compartilha e protege os dados pessoais
+                    dos usuários que utilizam nossos serviços.
+                </p>
+                <p class="mt-4 p-4 rounded-2xl bg-brand-50 border border-brand-100 text-slate-800">
+                    Ao acessar ou utilizar a plataforma <strong>__HUB_NOME__</strong>, o usuário declara estar ciente desta Política de Privacidade.
+                </p>
+                <p class="mt-4">
+                    Esta Política foi elaborada em conformidade com a Lei Geral de Proteção de Dados Pessoais — LGPD, Lei nº 13.709/2018,
+                    e com os requisitos aplicáveis à integração com a WhatsApp Business Platform, disponibilizada pela Meta.
+                </p>
+                <p class="mt-4">Esta Política integra os <a href="termos-uso.html">Termos de Uso</a> da plataforma.</p>
+
+                <nav class="mt-8 p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-100">
+                    <h2 class="text-lg font-extrabold text-slate-900 mb-3">Sumário</h2>
+                    <ul class="space-y-2 text-sm font-semibold columns-1 sm:columns-2 gap-x-8">
+                        <li><a href="#quem-somos" class="no-underline hover:underline">1. Quem somos</a></li>
+                        <li><a href="#dados-coletados" class="no-underline hover:underline">2. Dados que coletamos</a></li>
+                        <li><a href="#como-usamos" class="no-underline hover:underline">3. Como usamos os dados</a></li>
+                        <li><a href="#dados-meta" class="no-underline hover:underline">4. Dados obtidos da Meta</a></li>
+                        <li><a href="#compartilhamento" class="no-underline hover:underline">5. Compartilhamento de dados</a></li>
+                        <li><a href="#tokens" class="no-underline hover:underline">6. Tokens e credenciais</a></li>
+                        <li><a href="#seguranca" class="no-underline hover:underline">7. Armazenamento e segurança</a></li>
+                        <li><a href="#retencao" class="no-underline hover:underline">8. Retenção dos dados</a></li>
+                        <li><a href="#direitos" class="no-underline hover:underline">9. Direitos do titular</a></li>
+                        <li><a href="#exclusao" class="no-underline hover:underline">10. Exclusão de dados</a></li>
+                        <li><a href="#exclusao-whatsapp" class="no-underline hover:underline">11. Exclusão — WhatsApp Business</a></li>
+                        <li><a href="#clientes-usuarios" class="no-underline hover:underline">12. Dados de clientes dos usuários</a></li>
+                        <li><a href="#cookies" class="no-underline hover:underline">13. Cookies</a></li>
+                        <li><a href="#integracoes" class="no-underline hover:underline">14. Integrações com terceiros</a></li>
+                        <li><a href="#transferencia" class="no-underline hover:underline">15. Transferência internacional</a></li>
+                        <li><a href="#menores" class="no-underline hover:underline">16. Privacidade de menores</a></li>
+                        <li><a href="#alteracoes" class="no-underline hover:underline">17. Alterações nesta Política</a></li>
+                        <li><a href="#contato" class="no-underline hover:underline">18. Contato</a></li>
+                    </ul>
+                </nav>
+
+                <h2 id="quem-somos" class="mt-10 text-xl font-extrabold text-slate-900">1. Quem somos</h2>
+                <p class="mt-3">
+                    A <strong class="text-slate-900">__HUB_NOME__</strong> é uma plataforma de tecnologia voltada para automação,
+                    gestão de atendimentos e comunicação empresarial por meio do WhatsApp Business Platform.
+                </p>
+                <p class="mt-3">
+                    A plataforma permite que empresas conectem sua conta oficial do WhatsApp Business, também conhecida como
+                    WABA — WhatsApp Business Account, para gerenciar atendimentos, mensagens, contatos, webhooks e automações
+                    dentro do sistema.
+                </p>
+
+                <h2 id="dados-coletados" class="mt-10 text-xl font-extrabold text-slate-900">2. Dados que coletamos</h2>
+                <p class="mt-3">Podemos coletar diferentes tipos de dados conforme o uso da plataforma.</p>
+
+                <h3 class="mt-6 text-base font-extrabold text-slate-900">2.1. Dados fornecidos pelo usuário</h3>
+                <p class="mt-3">Durante o cadastro, contratação ou utilização da plataforma, podemos coletar:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Nome;</li>
+                    <li>E-mail;</li>
+                    <li>Telefone;</li>
+                    <li>Nome da empresa;</li>
+                    <li>CNPJ ou CPF, quando necessário;</li>
+                    <li>Dados de acesso à plataforma;</li>
+                    <li>Informações de cobrança;</li>
+                    <li>Dados enviados em formulários internos;</li>
+                    <li>Informações fornecidas em atendimentos de suporte.</li>
+                </ul>
+
+                <h3 class="mt-6 text-base font-extrabold text-slate-900">2.2. Dados da integração com WhatsApp Business Platform</h3>
+                <p class="mt-3">Quando o usuário conecta sua conta oficial do WhatsApp Business à plataforma, podemos coletar e processar dados necessários para o funcionamento da integração, incluindo:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Identificador da conta do WhatsApp Business;</li>
+                    <li>Identificador do número de telefone conectado;</li>
+                    <li>Nome de exibição do número de WhatsApp;</li>
+                    <li>Status da conexão;</li>
+                    <li>Tokens de acesso autorizados;</li>
+                    <li>Eventos recebidos por webhooks da Meta;</li>
+                    <li>Informações técnicas necessárias para envio e recebimento de mensagens;</li>
+                    <li>Dados necessários para manter a conta conectada à plataforma.</li>
+                </ul>
+
+                <h3 class="mt-6 text-base font-extrabold text-slate-900">2.3. Dados de mensagens e atendimentos</h3>
+                <p class="mt-3">Para permitir o funcionamento do chat, atendimento e automações, a plataforma pode processar dados relacionados às conversas do WhatsApp, incluindo:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Nome do contato, quando disponível;</li>
+                    <li>Número de telefone do contato;</li>
+                    <li>Mensagens enviadas e recebidas;</li>
+                    <li>Arquivos, imagens, áudios, vídeos ou documentos enviados pelo usuário ou pelo contato, quando aplicável;</li>
+                    <li>Data e horário das mensagens;</li>
+                    <li>Status de envio, entrega ou leitura, quando disponível;</li>
+                    <li>Histórico de atendimento;</li>
+                    <li>Etiquetas, responsáveis, departamentos ou informações internas criadas pelo usuário dentro da plataforma.</li>
+                </ul>
+                <p class="mt-3">
+                    Esses dados são processados exclusivamente para permitir a prestação dos serviços contratados, como atendimento via WhatsApp,
+                    organização de conversas, automações e gestão operacional da comunicação.
+                </p>
+
+                <h3 class="mt-6 text-base font-extrabold text-slate-900">2.4. Dados técnicos</h3>
+                <p class="mt-3">Também podemos coletar dados técnicos relacionados ao uso da plataforma, como:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Endereço IP;</li>
+                    <li>Tipo de navegador;</li>
+                    <li>Sistema operacional;</li>
+                    <li>Dispositivo utilizado;</li>
+                    <li>Data e horário de acesso;</li>
+                    <li>Logs de uso;</li>
+                    <li>Identificadores de sessão;</li>
+                    <li>Registros de erro;</li>
+                    <li>Informações de segurança e autenticação.</li>
+                </ul>
+                <p class="mt-3">Esses dados são utilizados para segurança, prevenção de fraudes, melhoria da plataforma e resolução de problemas técnicos.</p>
+
+                <h2 id="como-usamos" class="mt-10 text-xl font-extrabold text-slate-900">3. Como usamos os dados</h2>
+                <p class="mt-3">Os dados coletados podem ser utilizados para:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Criar e gerenciar contas de usuários;</li>
+                    <li>Permitir acesso seguro à plataforma;</li>
+                    <li>Conectar a conta oficial do WhatsApp Business do usuário;</li>
+                    <li>Enviar e receber mensagens por meio do WhatsApp Business Platform;</li>
+                    <li>Receber eventos enviados pela Meta via webhook;</li>
+                    <li>Exibir conversas e contatos dentro da plataforma;</li>
+                    <li>Organizar atendimentos, etiquetas, departamentos e responsáveis;</li>
+                    <li>Executar automações configuradas pelo usuário;</li>
+                    <li>Manter o histórico de atendimento;</li>
+                    <li>Prestar suporte técnico;</li>
+                    <li>Resolver falhas e incidentes;</li>
+                    <li>Processar pagamentos e cobranças;</li>
+                    <li>Cumprir obrigações legais, regulatórias ou contratuais;</li>
+                    <li>Proteger a plataforma contra uso indevido, fraude ou acesso não autorizado.</li>
+                </ul>
+                <p class="mt-3"><strong class="text-slate-900">Não vendemos</strong> dados pessoais dos usuários ou dos contatos atendidos pela plataforma.</p>
+
+                <h2 id="dados-meta" class="mt-10 text-xl font-extrabold text-slate-900">4. Dados obtidos da Meta</h2>
+                <p class="mt-3">Os dados obtidos por meio das APIs da Meta são utilizados exclusivamente para permitir a integração com o WhatsApp Business Platform.</p>
+                <p class="mt-3">Esses dados são usados apenas para:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Autenticar a conexão do WhatsApp Business;</li>
+                    <li>Identificar a conta WABA conectada;</li>
+                    <li>Identificar o número de telefone conectado;</li>
+                    <li>Enviar mensagens autorizadas;</li>
+                    <li>Receber mensagens e eventos via webhook;</li>
+                    <li>Manter a integração ativa;</li>
+                    <li>Exibir e operar as conversas dentro da plataforma.</li>
+                </ul>
+                <p class="mt-3">
+                    A plataforma não usa dados da Meta para fins de publicidade, venda de dados, criação de perfis independentes
+                    ou compartilhamento com terceiros para marketing.
+                </p>
+
+                <h2 id="compartilhamento" class="mt-10 text-xl font-extrabold text-slate-900">5. Compartilhamento de dados</h2>
+                <p class="mt-3">Podemos compartilhar dados apenas quando necessário para a prestação dos serviços, funcionamento técnico da plataforma ou cumprimento de obrigações legais.</p>
+                <p class="mt-3">Os dados podem ser compartilhados com:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Provedores de hospedagem;</li>
+                    <li>Serviços de banco de dados;</li>
+                    <li>Serviços de armazenamento;</li>
+                    <li>Gateways de pagamento;</li>
+                    <li>Ferramentas de envio de notificações;</li>
+                    <li>Serviços de suporte técnico;</li>
+                    <li>Meta Platforms, Inc., exclusivamente para operação da integração com WhatsApp Business Platform;</li>
+                    <li>Autoridades públicas, quando houver obrigação legal ou ordem válida.</li>
+                </ul>
+                <p class="mt-3">Não compartilhamos dados pessoais com terceiros para venda, aluguel ou comercialização.</p>
+
+                <h2 id="tokens" class="mt-10 text-xl font-extrabold text-slate-900">6. Tokens e credenciais</h2>
+                <p class="mt-3">Para manter a integração com o WhatsApp Business Platform, a plataforma pode armazenar tokens de acesso e identificadores técnicos autorizados pelo usuário.</p>
+                <p class="mt-3">Essas informações são utilizadas exclusivamente para:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Manter a conexão ativa;</li>
+                    <li>Enviar e receber mensagens;</li>
+                    <li>Receber eventos via webhook;</li>
+                    <li>Executar funcionalidades autorizadas pelo usuário.</li>
+                </ul>
+                <p class="mt-3">Adotamos medidas de segurança para proteger tokens, credenciais e demais informações sensíveis contra acesso não autorizado.</p>
+
+                <h2 id="seguranca" class="mt-10 text-xl font-extrabold text-slate-900">7. Armazenamento e segurança</h2>
+                <p class="mt-3">Adotamos medidas técnicas e administrativas para proteger os dados pessoais contra:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Acesso não autorizado;</li>
+                    <li>Uso indevido;</li>
+                    <li>Perda;</li>
+                    <li>Alteração indevida;</li>
+                    <li>Divulgação não autorizada;</li>
+                    <li>Destruição indevida.</li>
+                </ul>
+                <p class="mt-3">Entre as medidas adotadas, podem estar:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Controle de acesso;</li>
+                    <li>Autenticação de usuários;</li>
+                    <li>Criptografia quando aplicável;</li>
+                    <li>Restrição de permissões internas;</li>
+                    <li>Monitoramento de logs;</li>
+                    <li>Backups;</li>
+                    <li>Separação lógica dos dados por conta;</li>
+                    <li>Uso de provedores de infraestrutura seguros.</li>
+                </ul>
+                <p class="mt-3">Apesar das medidas adotadas, nenhum sistema é totalmente imune a falhas ou ataques. Em caso de incidente relevante de segurança, adotaremos as providências cabíveis conforme a legislação aplicável.</p>
+
+                <h2 id="retencao" class="mt-10 text-xl font-extrabold text-slate-900">8. Retenção dos dados</h2>
+                <p class="mt-3">Os dados serão mantidos pelo tempo necessário para:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Prestar os serviços contratados;</li>
+                    <li>Manter a conta ativa;</li>
+                    <li>Preservar o histórico de atendimento;</li>
+                    <li>Cumprir obrigações legais, fiscais ou regulatórias;</li>
+                    <li>Resolver disputas;</li>
+                    <li>Prevenir fraudes;</li>
+                    <li>Garantir a segurança da plataforma;</li>
+                    <li>Exercer direitos em processos administrativos, judiciais ou arbitrais.</li>
+                </ul>
+                <p class="mt-3">Após o encerramento da conta ou solicitação de exclusão, os dados poderão ser excluídos ou anonimizados, salvo quando a retenção for necessária por obrigação legal ou defesa de direitos.</p>
+
+                <h2 id="direitos" class="mt-10 text-xl font-extrabold text-slate-900">9. Direitos do titular</h2>
+                <p class="mt-3">Nos termos da LGPD, o titular dos dados pode solicitar:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Confirmação do tratamento de dados;</li>
+                    <li>Acesso aos dados pessoais;</li>
+                    <li>Correção de dados incompletos, inexatos ou desatualizados;</li>
+                    <li>Anonimização, bloqueio ou eliminação de dados desnecessários ou excessivos;</li>
+                    <li>Informação sobre compartilhamento de dados;</li>
+                    <li>Portabilidade, quando aplicável;</li>
+                    <li>Revogação do consentimento;</li>
+                    <li>Exclusão de dados tratados com base em consentimento;</li>
+                    <li>Revisão de decisões automatizadas, quando aplicável.</li>
+                </ul>
+                <p class="mt-3">As solicitações devem ser enviadas pelos canais de suporte disponíveis na plataforma.</p>
+                <p class="mt-3">Poderemos solicitar informações adicionais para confirmar a identidade do solicitante.</p>
+
+                <h2 id="exclusao" class="mt-10 text-xl font-extrabold text-slate-900">10. Exclusão de dados</h2>
+                <p class="mt-3">O usuário pode solicitar a exclusão dos seus dados pessoais a qualquer momento.</p>
+                <p class="mt-3">Para solicitar a exclusão, entre em contato pelos canais de suporte disponíveis na plataforma.</p>
+                <p class="mt-3">Com o assunto:</p>
+                <p class="mt-2 font-semibold text-slate-900">Solicitação de Exclusão de Dados</p>
+                <p class="mt-3">No corpo do e-mail, informe:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Nome completo;</li>
+                    <li>E-mail cadastrado na plataforma;</li>
+                    <li>Nome da empresa ou conta vinculada;</li>
+                    <li>Número de WhatsApp conectado, se aplicável;</li>
+                    <li>Quais dados deseja excluir;</li>
+                    <li>Se deseja excluir apenas os dados da integração com WhatsApp ou encerrar completamente a conta na plataforma.</li>
+                </ul>
+                <p class="mt-3">Após o recebimento da solicitação, analisaremos o pedido e realizaremos a exclusão dos dados aplicáveis em prazo razoável, respeitando obrigações legais, fiscais, contratuais ou de segurança que possam exigir retenção temporária de determinadas informações.</p>
+
+                <h2 id="exclusao-whatsapp" class="mt-10 text-xl font-extrabold text-slate-900">11. Exclusão de dados da integração com WhatsApp Business Platform</h2>
+                <p class="mt-3">Se o usuário conectou sua conta oficial do WhatsApp Business à plataforma e deseja remover os dados relacionados a essa integração, poderá:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Acessar a plataforma <strong class="text-slate-900">__HUB_NOME__</strong>;</li>
+                    <li>Ir até a área de integrações ou conexões;</li>
+                    <li>Localizar a conexão com WhatsApp Business Platform;</li>
+                    <li>Clicar em desconectar, remover ou revogar acesso;</li>
+                    <li>Enviar solicitação pelos canais de suporte da plataforma com o assunto “Exclusão de Dados WhatsApp Business”.</li>
+                </ul>
+                <p class="mt-3">Após a solicitação, removeremos os dados aplicáveis relacionados à integração, incluindo tokens, identificadores técnicos e dados vinculados à conexão, salvo quando a retenção for necessária por obrigação legal, segurança ou defesa de direitos.</p>
+                <p class="mt-3">O usuário também pode remover permissões diretamente nas configurações da sua conta Meta Business, quando aplicável.</p>
+
+                <h2 id="clientes-usuarios" class="mt-10 text-xl font-extrabold text-slate-900">12. Dados de clientes dos nossos usuários</h2>
+                <p class="mt-3">A plataforma pode processar dados de contatos, leads ou clientes finais dos usuários, recebidos por meio do WhatsApp Business Platform.</p>
+                <p class="mt-3">Nesses casos, o usuário contratante da plataforma é responsável por garantir que possui base legal adequada para coletar, tratar e enviar mensagens para esses contatos.</p>
+                <p class="mt-3">A <strong class="text-slate-900">__HUB_NOME__</strong> atua como prestadora de serviço e processa esses dados conforme as instruções do usuário contratante e conforme necessário para funcionamento da plataforma.</p>
+
+                <h2 id="cookies" class="mt-10 text-xl font-extrabold text-slate-900">13. Cookies</h2>
+                <p class="mt-3">Podemos utilizar cookies e tecnologias semelhantes para:</p>
+                <ul class="mt-3 list-disc pl-6 space-y-2">
+                    <li>Manter o usuário autenticado;</li>
+                    <li>Salvar preferências;</li>
+                    <li>Melhorar a navegação;</li>
+                    <li>Medir desempenho;</li>
+                    <li>Identificar erros;</li>
+                    <li>Prevenir acessos não autorizados.</li>
+                </ul>
+                <p class="mt-3">O usuário pode gerenciar cookies nas configurações do navegador. A desativação de alguns cookies pode afetar o funcionamento da plataforma.</p>
+
+                <h2 id="integracoes" class="mt-10 text-xl font-extrabold text-slate-900">14. Integrações com terceiros</h2>
+                <p class="mt-3">A plataforma pode se integrar a serviços externos necessários para sua operação.</p>
+                <p class="mt-3">O uso desses serviços também pode estar sujeito às respectivas políticas de privacidade e termos de uso de cada terceiro.</p>
+                <p class="mt-3">Não somos responsáveis pelas práticas de privacidade de serviços externos que não estejam sob nosso controle.</p>
+
+                <h2 id="transferencia" class="mt-10 text-xl font-extrabold text-slate-900">15. Transferência internacional de dados</h2>
+                <p class="mt-3">Alguns fornecedores, servidores, APIs ou serviços utilizados pela plataforma podem estar localizados fora do Brasil.</p>
+                <p class="mt-3">Ao utilizar a plataforma, o usuário reconhece que seus dados poderão ser processados em outros países, sempre com medidas adequadas de segurança e observância à legislação aplicável.</p>
+
+                <h2 id="menores" class="mt-10 text-xl font-extrabold text-slate-900">16. Privacidade de menores de idade</h2>
+                <p class="mt-3">A plataforma é destinada ao uso empresarial e profissional.</p>
+                <p class="mt-3">Não coletamos intencionalmente dados de crianças ou adolescentes sem autorização adequada dos responsáveis legais. Caso seja identificado tratamento indevido de dados de menores, o responsável poderá solicitar a exclusão pelos canais de suporte da plataforma.</p>
+
+                <h2 id="alteracoes" class="mt-10 text-xl font-extrabold text-slate-900">17. Alterações nesta Política</h2>
+                <p class="mt-3">Esta Política de Privacidade poderá ser atualizada periodicamente para refletir mudanças legais, técnicas ou operacionais.</p>
+                <p class="mt-3">A versão mais recente estará sempre disponível em:</p>
+                <p class="mt-2"><a href="politica-privacidade">politica-privacidade</a></p>
+                <p class="mt-3">Quando houver alterações relevantes, poderemos notificar os usuários por e-mail, aviso na plataforma ou outro meio adequado.</p>
+
+                <h2 id="contato" class="mt-10 text-xl font-extrabold text-slate-900">18. Contato</h2>
+                <p class="mt-3">Em caso de dúvidas, solicitações ou reclamações relacionadas a esta Política de Privacidade ou ao tratamento de dados pessoais, entre em contato:</p>
+                <ul class="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2 list-none pl-4">
+                    <li><strong class="text-slate-900">CNPJ:</strong> 48.713.673/0001-15</li>
+                    <li><strong class="text-slate-900">Endereço:</strong> Rua Príncipe Humberto, 112, Conj. 44, Centro, São Bernardo do Campo/SP, CEP 09725-200</li>
+                </ul>
+
+            </article>
+        </div>
+    </main>
+
+    <footer class="border-t border-slate-100 bg-white mt-auto">
+        <div class="max-w-4xl mx-auto px-5 sm:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm font-semibold text-slate-500">
+            <p>© __HUB_NOME__ — Todos os direitos reservados.</p>
+            <div class="flex items-center gap-4">
+                <a href="termos-uso.html" class="text-[#__HUB_COR__] hover:text-[#1eb85a] transition-colors">Termos de Uso</a>
+                <a href="login.html" class="text-slate-400 hover:text-slate-600 transition-colors">Login</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
