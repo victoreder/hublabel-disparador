@@ -6,36 +6,18 @@
 <link rel="stylesheet" href="assets/motion-base.css">
 <link rel="stylesheet" href="assets/motion-app.css">
 <style>
-  .col { width: 330px; }
-  .ci { height: 108px; z-index: 2; }
-  .ci .ia { opacity: 0; }
-  .col .h .l2 b { color: var(--brand-700); }
-  .say { position: absolute; z-index: 30; max-width: 300px; padding: 10px 14px; border-radius: 14px 14px 14px 4px; background: #d9fdd3; color: #111b21; font-size: 15px; font-weight: 600; line-height: 1.35; box-shadow: 0 12px 30px rgba(15,23,42,.18); }
-  .say small { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: #15803d; margin-bottom: 3px; }
-  .say small svg { width: 13px; height: 13px; }
+  /* Anotações sobre a tela real (não fazem parte do sistema) */
+  .say { position: absolute; z-index: 30; max-width: 320px; padding: 10px 14px; border-radius: 14px 14px 14px 4px; background: #d9fdd3; color: #111b21; font-size: 16px; font-weight: 600; line-height: 1.35; box-shadow: 0 14px 34px rgba(0,0,0,.28); transform-origin: 0 100%; }
+  .say small { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 800; color: #15803d; margin-bottom: 3px; }
+  .say small svg { width: 14px; height: 14px; }
   .say.in { background: #fff; border-radius: 14px 14px 4px 14px; }
-  .wa-fly { position: absolute; z-index: 40; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 16px; background: #fff; box-shadow: 0 20px 50px rgba(15,23,42,.25); font-size: 15px; font-weight: 600; color: #111b21; white-space: nowrap; }
+  .tagia { position: absolute; z-index: 31; display: flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 999px; background: #04150a; color: #bbf7d0; border: 1px solid rgba(37,211,102,.6); font-size: 14px; font-weight: 800; white-space: nowrap; box-shadow: 0 10px 24px rgba(0,0,0,.3); }
+  .tagia svg { width: 16px; height: 16px; color: var(--brand); }
+  .wa-fly { position: absolute; z-index: 40; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 16px; background: #fff; box-shadow: 0 20px 50px rgba(0,0,0,.35); font-size: 15.5px; font-weight: 600; color: #111b21; white-space: nowrap; }
   .wa-fly .ic { width: 36px; height: 36px; border-radius: 50%; background: #25d366; color: #fff; display: grid; place-items: center; }
   .wa-fly .ic svg { width: 20px; height: 20px; }
   .wa-fly b { display: block; font-size: 13px; color: var(--muted); }
-
-  .drawer { position: absolute; right: 0; top: 74px; bottom: 0; width: 560px; z-index: 45; background: #fff; border-left: 1px solid var(--line); box-shadow: -30px 0 60px rgba(15,23,42,.14); padding: 26px 28px; }
-  .drawer .hd { display: flex; gap: 14px; align-items: center; }
-  .drawer .hd .av { width: 56px; height: 56px; font-size: 19px; }
-  .drawer .hd h3 { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
-  .drawer .hd div div { font-size: 14px; color: var(--muted); font-weight: 600; margin-top: 2px; }
-  .drawer .row { display: flex; gap: 8px; margin-top: 16px; }
-  .drawer .tabs { display: flex; gap: 6px; margin-top: 22px; border-bottom: 1px solid var(--line); }
-  .drawer .tabs span { padding: 10px 14px; font-size: 14.5px; font-weight: 700; color: var(--muted); }
-  .drawer .tabs span.on { color: var(--brand-700); border-bottom: 2px solid var(--brand); }
-  .tl { position: relative; margin-top: 18px; padding-left: 34px; }
-  .tl::before { content: ''; position: absolute; left: 13px; top: 8px; bottom: 8px; width: 2px; background: #e2e8f0; }
-  .ev { position: relative; padding: 10px 0 14px; }
-  .ev .dt { position: absolute; left: -34px; top: 10px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
-  .ev .dt svg { width: 15px; height: 15px; }
-  .ev b { font-size: 15.5px; font-weight: 800; }
-  .ev div { font-size: 14px; color: var(--muted); font-weight: 600; margin-top: 2px; }
-  .ev .tm { position: absolute; right: 0; top: 12px; font-size: 12.5px; color: var(--muted-2); font-weight: 700; }
+  .money { position: absolute; z-index: 32; font-weight: 800; font-size: 22px; color: var(--brand-700); background: #fff; border: 2px solid rgba(37,211,102,.5); padding: 8px 16px; border-radius: 999px; box-shadow: 0 12px 30px rgba(0,0,0,.25); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -52,42 +34,16 @@
     <div class="tcap cap" id="c1"><div class="num">1</div><div class="tx">Funil visual estilo Trello, integrado ao WhatsApp<small>Cada conversa do WhatsApp vira um card no funil.</small></div></div>
     <div class="tcap cap" id="c2"><div class="num">2</div><div class="tx">O agente de IA move os cards sozinho<small>Conforme a conversa avança, o card muda de etapa.</small></div></div>
     <div class="tcap cap" id="c3"><div class="num">3</div><div class="tx">Follow-up automático para quem parou de responder<small>A mensagem sai no tempo certo, sem ninguém precisar lembrar.</small></div></div>
-    <div class="tcap cap" id="c4"><div class="num">4</div><div class="tx">Histórico completo de cada lead<small>Conversa, etapas, etiquetas e notas em um só lugar.</small></div></div>
-
-    <div class="app" id="app">
-      <div class="sb">
-        <div class="logo"><i data-ic="whatsapp"></i></div>
-        <div class="it"><i data-ic="chart"></i></div><div class="it"><i data-ic="chat"></i></div><div class="it"><i data-ic="bot"></i></div>
-        <div class="it on"><i data-ic="kanban"></i></div><div class="it"><i data-ic="qr"></i></div><div class="it"><i data-ic="send"></i></div><div class="it"><i data-ic="contacts"></i></div>
-      </div>
-      <div class="main">
-        <div class="topbar"><div><div class="bc">CRM ›</div><h2>Funil de Vendas</h2></div><div class="right"><div class="btn-ghost"><i data-ic="filter"></i> Filtros</div><div class="live"><i id="ldot"></i> Atualizando em tempo real</div></div></div>
-        <div class="board" id="board">
-          <div class="col"><div class="glowc"></div><div class="h"><div class="l1"><span class="dot" style="background:#f59e0b"></span>Novo lead<span class="cnt" id="n0"></span></div><div class="l2">Entrada pelo WhatsApp</div></div><div class="cards"></div></div>
-          <div class="col"><div class="glowc"></div><div class="h"><div class="l1"><span class="dot" style="background:#3b82f6"></span>Qualificado<span class="cnt" id="n1"></span></div><div class="l2">Interesse confirmado</div></div><div class="cards"></div></div>
-          <div class="col"><div class="glowc"></div><div class="h"><div class="l1"><span class="dot" style="background:#8b5cf6"></span>Proposta<span class="cnt" id="n2"></span></div><div class="l2">Aguardando pagamento</div></div><div class="cards"></div></div>
-          <div class="col"><div class="glowc"></div><div class="h"><div class="l1"><span class="dot" style="background:#25d366"></span>Venda fechada<span class="cnt" id="n3"></span></div><div class="l2" id="v3">R$ 497,00</div></div><div class="cards"></div></div>
-          <div class="say" id="say"><small><i data-ic="whatsapp"></i> <span id="say-who"></span></small><span id="say-tx"></span></div>
-          <div class="say in" id="fu1"><small><i data-ic="history"></i> Follow-up automático</small>Carla, ainda tem interesse no Plano Anual? Consigo manter a condição até amanhã.</div>
-          <div class="say" id="fu2"><small><i data-ic="whatsapp"></i> Carla Mendes</small>Tenho sim! Pode mandar o Pix.</div>
-          <div class="wa-fly" id="wf1"><div class="ic"><i data-ic="whatsapp"></i></div><div><b>Nova conversa</b>Mariana: Oi! Vi o anúncio de vocês</div></div>
-          <div class="wa-fly" id="wf2"><div class="ic"><i data-ic="whatsapp"></i></div><div><b>Nova conversa</b>Lucas: Vocês entregam em Campinas?</div></div>
-        </div>
-        <div class="drawer" id="drawer">
-          <div class="hd"><div class="av" style="background:#f59e0b">MC</div><div><h3>Mariana Costa</h3><div>WhatsApp · Anúncio Instagram</div></div></div>
-          <div class="row"><span class="chip p">Proposta</span><span class="chip g">R$ 497,00</span><span class="chip s">Plano Anual</span><span class="chip b"><i data-ic="bot"></i> Sofia · IA</span></div>
-          <div class="tabs"><span class="on">Histórico</span><span>Conversa</span><span>Notas</span><span>Etiquetas</span></div>
-          <div class="tl">
-            <div class="ev" id="e1"><div class="dt" style="background:#25d366"><i data-ic="whatsapp"></i></div><b>Chegou pelo WhatsApp</b><div>“Oi! Vi o anúncio de vocês”</div><span class="tm">02:14</span></div>
-            <div class="ev" id="e2"><div class="dt" style="background:#3b82f6"><i data-ic="bot"></i></div><b>IA qualificou o lead</b><div>Interesse no Plano Anual</div><span class="tm">02:15</span></div>
-            <div class="ev" id="e3"><div class="dt" style="background:#8b5cf6"><i data-ic="kanban"></i></div><b>Movido para Proposta</b><div>pela IA · R$ 497,00</div><span class="tm">02:16</span></div>
-            <div class="ev" id="e4"><div class="dt" style="background:#f59e0b"><i data-ic="tag"></i></div><b>Etiqueta adicionada</b><div>Plano Anual</div><span class="tm">02:16</span></div>
-            <div class="ev" id="e5"><div class="dt" style="background:#64748b"><i data-ic="note"></i></div><b>Nota da equipe</b><div>Prefere pagar no Pix</div><span class="tm">09:03</span></div>
-          </div>
-        </div>
-      </div>
-      <div class="cursor" id="cur"><div class="ring"></div><svg viewBox="0 0 24 24" width="34" height="34"><path d="M4 2.5 19.5 12l-6.8 1.6 3.9 7.3-2.7 1.4-3.9-7.3L5 19.8z" fill="#0f172a" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
-    </div>
+    <div class="tcap cap" id="c4"><div class="num">4</div><div class="tx">Histórico completo de cada lead<small>Movimentações, dados e resumo da conversa em um só lugar.</small></div></div>
+    <div id="telas"></div>
+    <div class="say" id="say"><small><i data-ic="whatsapp"></i> <span id="say-who"></span></small><span id="say-tx"></span></div>
+    <div class="tagia" id="tagia"><i data-ic="bot"></i> Movido pela IA</div>
+    <div class="say in" id="fu1"><small><i data-ic="history"></i> Follow-up automático</small>Carla, ainda tem interesse no Plano Anual? Consigo manter a condição até amanhã.</div>
+    <div class="say" id="fu2"><small><i data-ic="whatsapp"></i> Carla Mendes</small>Tenho sim! Pode mandar o Pix.</div>
+    <div class="wa-fly" id="wf1"><div class="ic"><i data-ic="whatsapp"></i></div><div><b>Nova conversa no WhatsApp</b>Mariana: Oi! Vi o anúncio de vocês</div></div>
+    <div class="wa-fly" id="wf2"><div class="ic"><i data-ic="whatsapp"></i></div><div><b>Nova conversa no WhatsApp</b>Lucas: Vocês entregam em Campinas?</div></div>
+    <div class="money" id="money">+ R$ 497,00 em vendas</div>
+    <div class="cursor" id="cur"><div class="ring"></div><svg viewBox="0 0 24 24" width="34" height="34"><path d="M4 2.5 19.5 12l-6.8 1.6 3.9 7.3-2.7 1.4-3.9-7.3L5 19.8z" fill="#0f172a" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
   </div>
 
   <div class="scene title-scene" id="s-end">
@@ -102,8 +58,9 @@
 </div>
 
 <script src="assets/motion-lib.js"></script>
+<script src="assets/motion-tela.js"></script>
 <script>
-const { clamp, lerp, prog, eOut, eIn, eInOut, eBack, set, pop, offsetIn, scene, titleScene } = M;
+const { clamp, lerp, prog, eOut, eIn, eInOut, eBack, pop, scene, titleScene } = M;
 window.DURATION = 27;
 const $ = (id) => document.getElementById(id);
 
@@ -112,177 +69,184 @@ const T = {
   wf1: 4.8, new1: 5.6, wf2: 6.0, new2: 6.8,
   c2: 8.4, mv1: 8.9, mv2: 10.0, mv3: 11.1, mv4: 12.2,
   c3: 13.6, idle: 14.0, fu: 15.0, reply: 16.3, mv5: 17.3,
-  c4: 18.6, click: 19.1, drawer: 19.25, ev: 19.8, appOut: 23.55,
+  c4: 18.6, click: 19.1, drawer: 19.25, scroll: 19.9, appOut: 23.55,
   end: 23.8,
 };
 window.TIMELINE = T;
-const COLS = ['#f59e0b', '#3b82f6', '#8b5cf6', '#25d366'];
 
-// Cards: coluna inicial (ou momento em que nascem) e mudanças de coluna
+// Cards da tela real (data-card-id) e por onde passam. Colunas: 0 Novo lead, 1 Qualificado, 2 Proposta, 3 Venda fechada.
 const CARDS = [
-  { id: 'ana', nm: 'Ana Ribeiro', av: '#0ea5e9', sm: 'WhatsApp · ontem', tag: ['s', 'Site'], born: 0, col: 0 },
-  { id: 'ju', nm: 'Juliana Prado', av: '#8b5cf6', sm: 'WhatsApp · 01:52', tag: ['s', 'Instagram'], born: 0, col: 0 },
-  { id: 'raf', nm: 'Rafael Souza', av: '#3b82f6', sm: 'WhatsApp · ontem', tag: ['b', 'Plano Mensal'], born: 0, col: 1, moves: [[T.mv2, 2]], say: [T.mv2, 'Rafael', 'Pode mandar a proposta'] },
-  { id: 'bru', nm: 'Bruno Lima', av: '#ec4899', sm: 'WhatsApp · ontem', tag: ['b', 'Catálogo'], born: 0, col: 1 },
-  { id: 'car', nm: 'Carla Mendes', av: '#14b8a6', sm: 'WhatsApp · há 2 dias', tag: ['s', 'Plano Anual'], born: 0, col: 2, moves: [[T.mv5, 3]] },
-  { id: 'ped', nm: 'Pedro Alves', av: '#64748b', sm: 'WhatsApp · sexta', tag: ['g', 'Pago'], born: 0, col: 3 },
-  { id: 'mar', nm: 'Mariana Costa', av: '#f59e0b', sm: 'WhatsApp · agora', tag: ['s', 'Novo'], born: T.new1, col: 0, moves: [[T.mv1, 1], [T.mv4, 2]],
-    tags: [[T.mv1 + 0.4, 'b', 'Interessada'], [T.mv4 + 0.4, 'p', 'Plano Anual · R$ 497']], say: [T.mv1, 'Mariana', 'Quero saber dos planos'], say2: [T.mv4, 'Mariana', 'Fechado no anual!'] },
-  { id: 'luc', nm: 'Lucas Ferreira', av: '#22c55e', sm: 'WhatsApp · agora', tag: ['s', 'Novo'], born: T.new2, col: 0, moves: [[T.mv3, 1]], tags: [[T.mv3 + 0.4, 'b', 'Entrega Campinas']] },
+  { id: 1, col: 0 }, { id: 2, col: 0 },
+  { id: 5, col: 1, moves: [[T.mv2, 2]], say: [T.mv2, 'Rafael Souza', 'Pode mandar a proposta'] },
+  { id: 6, col: 1 },
+  { id: 7, col: 2, moves: [[T.mv5, 3]] },
+  { id: 8, col: 3 },
+  { id: 3, col: 0, born: T.new1, moves: [[T.mv1, 1], [T.mv4, 2]], say: [T.mv1, 'Mariana Costa', 'Quero saber dos planos'], say2: [T.mv4, 'Mariana Costa', 'Fechado no anual!'] },
+  { id: 4, col: 0, born: T.new2, moves: [[T.mv3, 1]], say: [T.mv3, 'Lucas Ferreira', 'Entrega em Campinas? Então quero!'] },
 ];
-// Eventos que reorganizam o quadro (nascimentos e movimentos)
-const EVENTS = [...new Set(CARDS.flatMap((c) => [c.born, ...(c.moves || []).map((m) => m[0])]).filter((x) => x > 0))].sort((a, b) => a - b);
-const CH = 108, GAP = 10;
-let colPos = [], els = {};
+const VALOR = { 3: 497, 5: 297, 7: 497, 8: 497 };
+const MARIANA_VALOR_DESDE = 2; // valor do negócio aparece quando chega em Proposta
+CARDS.forEach((c) => { c.born = c.born || 0; c.moves = c.moves || []; });
+const EVENTS = [...new Set(CARDS.flatMap((c) => [c.born, ...c.moves.map((m) => m[0])]).filter((x) => x > 0))].sort((a, b) => a - b);
 
-function colOf(c, t) { let k = c.col; (c.moves || []).forEach(([t0, to]) => { if (t >= t0) k = to; }); return k; }
-function arrivedAt(c, t) { let a = c.born; (c.moves || []).forEach(([t0]) => { if (t >= t0) a = t0; }); return a; }
-/** Layout do quadro num estado discreto: cada coluna empilha do mais recente para o mais antigo. */
-function layout(t) {
-  const L = {};
-  [0, 1, 2, 3].forEach((k) => {
-    CARDS.filter((c) => t >= c.born && colOf(c, t) === k)
-      .sort((a, b) => arrivedAt(b, t) - arrivedAt(a, t) || CARDS.indexOf(a) - CARDS.indexOf(b))
-      .forEach((c, i) => { L[c.id] = { x: colPos[k].x, y: colPos[k].y + i * (CH + GAP), k }; });
+let TL, D, board, cols, cardEls = {}, layouts = new Map(), modal, histScroll, histTarget;
+
+const colOf = (c, t) => { let k = c.col; c.moves.forEach(([t0, to]) => { if (t >= t0) k = to; }); return k; };
+const arrived = (c, t) => { let a = c.born; c.moves.forEach(([t0]) => { if (t >= t0) a = t0; }); return a; };
+const brl = (n) => 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const stateKey = (t) => { let k = 0; EVENTS.forEach((e) => { if (t >= e) k = e; }); return k; };
+
+/** Arruma os cards da tela real como no estado em t e mede onde cada um fica. */
+function measure(t) {
+  const hold = D.getElementById('motionHold');
+  const L = { cards: {}, cols: [] };
+  CARDS.forEach((c) => hold.appendChild(cardEls[c.id]));
+  cols.forEach((col, k) => {
+    const box = col.querySelector('.etapa-cards');
+    const here = CARDS.filter((c) => t >= c.born && colOf(c, t) === k)
+      .sort((a, b) => arrived(b, t) - arrived(a, t) || CARDS.indexOf(a) - CARDS.indexOf(b));
+    here.forEach((c) => {
+      const el = cardEls[c.id];
+      const v = el.querySelector('.card-valor');
+      if (c.id === 3 && v) v.style.display = colOf(c, t) >= MARIANA_VALOR_DESDE ? '' : 'none';
+      box.appendChild(el);
+    });
+    L.cols.push({ n: here.length, soma: here.reduce((s, c) => s + (c.id === 3 && k < MARIANA_VALOR_DESDE ? 0 : VALOR[c.id] || 0), 0) });
   });
+  CARDS.forEach((c) => { if (t >= c.born) L.cards[c.id] = Object.assign(MT.relTo(cardEls[c.id], board), { k: colOf(c, t) }); });
   return L;
 }
 
-function init() {
+async function init() {
   M.hydrateIcons();
   M.prepTitles();
-  const board = $('board');
-  document.querySelectorAll('#board .col').forEach((col) => {
-    const o = offsetIn(col.querySelector('.cards'), board);
-    colPos.push({ x: o.x + 12, y: o.y + 12, w: col.offsetWidth - 24 });
-  });
+  TL = await MT.tela($('telas'), 'telas/crm/quadro.html', { x: 180, y: 180, w: 1560, vw: 1600, vh: 900 });
+  D = TL.doc;
+  board = D.getElementById('kanbanBoard');
+  cols = [...board.querySelectorAll('.etapa-column')];
+  CARDS.forEach((c) => { cardEls[c.id] = board.querySelector(`.card-item[data-card-id="${c.id}"]`); });
+  const hold = D.createElement('div'); hold.id = 'motionHold'; hold.style.display = 'none'; D.body.appendChild(hold);
+  [0, ...EVENTS].forEach((e) => layouts.set(e, measure(e)));
+  // Daqui em diante os cards ficam soltos sobre o quadro e o vídeo posiciona cada um
+  board.style.position = 'relative';
   CARDS.forEach((c) => {
-    const el = document.createElement('div');
-    el.className = 'ci';
-    el.style.left = '0'; el.style.top = '0'; el.style.width = colPos[0].w + 'px';
-    el.innerHTML = `<div class="nm"><span class="av" style="width:26px;height:26px;font-size:11px;background:${c.av}">${c.nm.split(' ').map((w) => w[0]).join('')}</span>${c.nm}<span class="ia">${M.icon('bot')} IA</span></div>
-      <div class="sm">${M.icon('whatsapp')} <span class="smt">${c.sm}</span></div><div class="tgs"><span class="chip ${c.tag[0]} tg">${c.tag[1]}</span><span class="chip y fu" style="display:none"></span></div>`;
+    const el = cardEls[c.id];
+    el.style.position = 'absolute'; el.style.left = '0'; el.style.top = '0'; el.style.margin = '0';
+    el.style.width = Object.values(layouts.get(0).cards)[0].w + 'px';
     board.appendChild(el);
-    els[c.id] = el;
   });
-}
-
-function setTag(el, cls, tx) {
-  const tg = el.querySelector('.tg');
-  const k = cls + tx;
-  if (tg.__k !== k) { tg.className = `chip ${cls} tg`; tg.textContent = tx; tg.__k = k; }
+  // Modal real "Detalhes do negócio" e a seção HISTÓRICO
+  modal = D.getElementById('modalDetalhesCard');
+  const hist = D.querySelector('.crm-historico-section');
+  modal.classList.add('show'); modal.style.opacity = '0';
+  histScroll = hist;
+  while (histScroll && histScroll !== D.body && !(histScroll.scrollHeight > histScroll.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(histScroll).overflowY))) histScroll = histScroll.parentElement;
+  if (histScroll === D.body) histScroll = null;
+  histTarget = histScroll ? Math.max(0, MT.relTo(hist, histScroll).y - 24) : 0;
+  modal.classList.remove('show'); modal.style.opacity = '';
 }
 
 function renderBoard(t) {
-  // estado anterior/posterior ao último evento → interpolação
-  let ev = -1; EVENTS.forEach((e) => { if (t >= e) ev = e; });
-  const A = layout(ev > 0 ? ev - 0.001 : 0), B = layout(t);
+  const ev = stateKey(t);
+  const prevEv = EVENTS.filter((e) => e < ev).slice(-1)[0] || 0;
+  const A = layouts.get(ev > 0 ? prevEv : 0), B = layouts.get(ev);
   const p = ev > 0 ? eInOut(prog(t, ev, ev + 0.7)) : 1;
   const lift = ev > 0 ? Math.sin(prog(t, ev, ev + 0.7) * Math.PI) : 0;
   CARDS.forEach((c, i) => {
-    const el = els[c.id];
-    const b = B[c.id];
-    if (!b) { el.style.opacity = 0; return; }
-    const a = A[c.id] || b;
+    const el = cardEls[c.id];
+    const b = B.cards[c.id];
+    if (!b) { el.style.visibility = 'hidden'; return; }
+    el.style.visibility = 'visible';
+    const a = A.cards[c.id] || b;
     const moving = a.k !== b.k;
-    const x = lerp(a.x, b.x, p), y = lerp(a.y, b.y, p) - (moving ? lift * 50 : 0);
-    // entrada: cascata inicial ou nascimento
-    const tIn = c.born > 0 ? c.born : T.cascade + (b.k * 0.12 + i * 0.05);
+    const x = lerp(a.x, b.x, p), y = lerp(a.y, b.y, p) - (moving ? lift * 60 : 0);
+    const tIn = c.born > 0 ? c.born : T.cascade + b.k * 0.12 + i * 0.04;
     const ap = eBack(prog(t, tIn, tIn + 0.45));
-    el.style.opacity = eOut(prog(t, tIn, tIn + 0.25));
-    el.style.transform = `translate(${x}px, ${y}px) scale(${lerp(0.7, 1, ap) * (1 + (moving ? lift * 0.06 : 0))}) rotate(${moving ? lift * -3 : 0}deg)`;
+    el.style.opacity = eOut(prog(t, tIn, tIn + 0.25)).toFixed(3);
+    el.style.transform = `translate(${x}px, ${y}px) scale(${lerp(0.7, 1, ap) * (1 + (moving ? lift * 0.05 : 0))}) rotate(${moving ? lift * -2.5 : 0}deg)`;
     el.style.zIndex = moving ? 20 : 2;
-    el.style.boxShadow = moving ? `0 ${10 + lift * 24}px ${20 + lift * 30}px rgba(15,23,42,${0.1 + lift * 0.15})` : '';
-    el.style.borderLeftColor = COLS[p > 0.5 ? b.k : a.k];
-    // selo IA pisca a cada movimento
-    const iaP = Math.max(0, ...(c.moves || []).map(([t0]) => Math.sin(prog(t, t0, t0 + 1.2) * Math.PI)));
-    const ia = el.querySelector('.ia');
-    ia.style.opacity = iaP > 0.01 || (c.moves || []).some(([t0]) => t >= t0) ? 1 : 0;
-    ia.style.transform = `scale(${1 + iaP * 0.3})`;
-    ia.style.background = `rgba(37,211,102,${0.12 + iaP * 0.45})`;
-    // etiquetas
-    let tg = c.tag; (c.tags || []).forEach(([t0, cls, tx]) => { if (t >= t0) tg = [cls, tx]; });
-    if (c.id === 'car' && t >= T.mv5 + 0.4) tg = ['g', 'Pago · R$ 497'];
-    setTag(el, tg[0], tg[1]);
-    if (c.id === 'car') {
-      const fu = el.querySelector('.fu');
-      const st = t >= T.mv5 ? '' : t >= T.fu ? 'Follow-up enviado' : t >= T.idle ? 'Sem resposta há 2 dias' : '';
-      fu.style.display = st ? '' : 'none';
-      if (fu.textContent !== st) fu.textContent = st;
-      fu.className = 'chip fu ' + (t >= T.fu ? 'b' : 'y');
-      const pulse = t >= T.idle && t < T.fu ? 0.5 + 0.5 * Math.sin(t * 8) : 0;
-      fu.style.boxShadow = `0 0 0 ${(pulse * 4).toFixed(1)}px rgba(234,179,8,.3)`;
-      fu.style.transform = `scale(${lerp(0.6, 1, eBack(prog(t, t < T.fu ? T.idle : T.fu, (t < T.fu ? T.idle : T.fu) + 0.35)))})`;
-      el.querySelector('.smt').textContent = t >= T.reply ? 'WhatsApp · agora' : c.sm;
-    }
+    el.style.boxShadow = moving ? `0 ${10 + lift * 26}px ${24 + lift * 34}px rgba(15,23,42,${(0.1 + lift * 0.18).toFixed(2)})` : '';
+    if (c.id === 3) { const v = el.querySelector('.card-valor'); if (v) v.style.display = (p > 0.5 ? b.k : a.k) >= MARIANA_VALOR_DESDE ? '' : 'none'; }
   });
-  // contadores e total da coluna "Venda fechada"
-  [0, 1, 2, 3].forEach((k) => {
-    const n = Object.values(t >= T.cascade ? B : {}).filter((v) => v.k === k).length;
-    $('n' + k).textContent = n;
-    const g = document.querySelectorAll('#board .col .glowc')[k];
-    const hit = EVENTS.filter((e) => CARDS.some((c) => (c.moves || []).some(([t0, to]) => t0 === e && to === k) || (c.born === e && c.col === k)));
-    g.style.opacity = Math.max(0, ...hit.map((e) => Math.sin(prog(t, e + 0.3, e + 1.3) * Math.PI))).toFixed(3);
+  // cabeçalhos das etapas (quantidade e soma), como a própria tela calcula
+  const S = p > 0.5 ? B : A;
+  cols.forEach((col, k) => {
+    MT.setText(col.querySelector('.etapa-count'), String(S.cols[k].n));
+    MT.setText(col.querySelector('.etapa-valor-line'), brl(S.cols[k].soma));
+    const chegou = CARDS.some((c) => c.moves.some(([t0, to]) => to === k && t >= t0 + 0.35 && t < t0 + 1.2) || (c.born > 0 && c.col === k && t >= c.born && t < c.born + 0.8));
+    col.classList.toggle('drag-over', chegou);
   });
-  $('v3').innerHTML = t >= T.mv5 + 0.4 ? '<b>R$ 994,00</b>' : 'R$ 497,00';
+  MT.setText(D.getElementById('pipelineValorTopo'), brl(S.cols[3].soma));
+}
 
-  // falas do lead que disparam a IA
-  const says = CARDS.flatMap((c) => [c.say, c.say2].filter(Boolean).map((s) => ({ c, s })));
-  let cur = null; says.forEach((o) => { if (t >= o.s[0] - 0.55 && t < o.s[0] + 1.1) cur = o; });
-  const say = $('say');
-  if (cur) {
-    const L = layout(cur.s[0]);
-    const pos = L[cur.c.id];
-    const o = Math.min(eOut(prog(t, cur.s[0] - 0.55, cur.s[0] - 0.3)), 1 - eIn(prog(t, cur.s[0] + 0.8, cur.s[0] + 1.1)));
-    $('say-who').textContent = cur.s[1]; $('say-tx').textContent = '“' + cur.s[2] + '”';
-    say.style.left = (pos.x + 170) + 'px'; say.style.top = (pos.y - 46) + 'px';
-    say.style.opacity = o; say.style.transform = `scale(${lerp(0.8, 1, o)})`;
-    say.style.transformOrigin = '0% 100%';
-  } else say.style.opacity = 0;
-
-  // follow-up (conversa sobre o card da Carla)
-  const cp = layout(T.fu)['car'];
-  ['fu1', 'fu2'].forEach((id, i) => {
-    const el = $(id);
-    pop(el, t, i ? T.reply : T.fu + 0.15, { tOut: T.mv5 - 0.2, from: 0.8, y: 14 });
-    el.style.left = (cp.x + (i ? 40 : -10)) + 'px';
-    el.style.top = (cp.y + CH + 24 + i * 112) + 'px';
-  });
-  // notificações do WhatsApp chegando
-  [['wf1', T.wf1, T.new1], ['wf2', T.wf2, T.new2]].forEach(([id, t0, t1]) => {
-    const el = $(id);
-    const p1 = eOut(prog(t, t0, t0 + 0.4)), p2 = eInOut(prog(t, t1 - 0.35, t1));
-    el.style.opacity = p1 * (1 - p2);
-    el.style.left = lerp(colPos[0].x + 120, colPos[0].x, p2) + 'px';
-    el.style.top = lerp(-90, colPos[0].y, p2) + (1 - p1) * -40 + 'px';
-    el.style.transform = `scale(${lerp(1, 0.6, p2)})`;
-  });
+function cardStage(id, t) {
+  const L = layouts.get(stateKey(t)).cards[id];
+  const br = MT.rectOn(TL, board);
+  return { x: br.x + L.x * TL.scale, y: br.y + L.y * TL.scale, w: L.w * TL.scale, h: L.h * TL.scale };
 }
 
 function renderCrm(t) {
   if (!scene($('s-crm'), t, T.appIn, T.appOut)) return;
-  const app = $('app');
   const a = eOut(prog(t, T.appIn, T.appIn + 0.7));
-  app.style.transform = `translateY(${(1 - a) * 120}px) scale(${lerp(0.92, 1, a)}) perspective(1600px) rotateX(${(1 - a) * 10}deg)`;
+  TL.box.style.transform = `translateY(${(1 - a) * 120}px) scale(${lerp(0.92, 1, a)}) perspective(1600px) rotateX(${(1 - a) * 10}deg)`;
   pop($('c1'), t, T.appIn + 0.15, { tOut: T.c2 - 0.25, from: 0.96, y: 16 });
   pop($('c2'), t, T.c2, { tOut: T.c3 - 0.25, from: 0.96, y: 16 });
   pop($('c3'), t, T.c3, { tOut: T.c4 - 0.25, from: 0.96, y: 16 });
   pop($('c4'), t, T.c4, { from: 0.96, y: 16 });
-  $('ldot').style.opacity = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 6));
   renderBoard(t);
 
-  // gaveta de histórico
-  const dp = eOut(prog(t, T.drawer, T.drawer + 0.5));
-  const dr = $('drawer');
-  dr.style.transform = `translateX(${(1 - dp) * 600}px)`;
-  dr.style.visibility = dp > 0 ? 'visible' : 'hidden';
-  ['e1', 'e2', 'e3', 'e4', 'e5'].forEach((id, i) => pop($(id), t, T.ev + i * 0.35, { from: 0.95, x: 30, y: 0 }));
-  // cursor até o card da Mariana
-  const mp = layout(T.click)['mar'];
-  const board = offsetIn($('board'), app);
-  const tx = board.x + mp.x + 120, ty = board.y + mp.y + 40;
-  M.renderCursor($('cur'), [[T.c4 - 0.1, 900, 760], [T.click, tx, ty, true], [T.click + 1, tx, ty]], t,
-    eOut(prog(t, T.c4 - 0.1, T.c4 + 0.2)) * (1 - prog(t, T.drawer + 0.3, T.drawer + 0.6)));
+  // conversas chegando pelo WhatsApp viram cards em "Novo lead"
+  const col0 = MT.rectOn(TL, cols[0].querySelector('.etapa-cards'));
+  [['wf1', T.wf1, T.new1], ['wf2', T.wf2, T.new2]].forEach(([id, t0, t1]) => {
+    const el = $(id);
+    const p1 = eOut(prog(t, t0, t0 + 0.4)), p2 = eInOut(prog(t, t1 - 0.35, t1));
+    el.style.opacity = (p1 * (1 - p2)).toFixed(3);
+    el.style.left = lerp(col0.x + 260, col0.x + 10, p2) + 'px';
+    el.style.top = (lerp(col0.y - 70, col0.y + 10, p2) + (1 - p1) * -40) + 'px';
+    el.style.transform = `scale(${lerp(1, 0.6, p2)})`;
+  });
+
+  // fala do lead → IA move o card
+  const says = CARDS.flatMap((c) => [c.say, c.say2].filter(Boolean).map((s) => ({ c, s })));
+  let cur = null; says.forEach((o) => { if (t >= o.s[0] - 0.6 && t < o.s[0] + 1.15) cur = o; });
+  const say = $('say'), tag = $('tagia');
+  if (cur) {
+    const t0 = cur.s[0];
+    const r = cardStage(cur.c.id, t0 - 0.001);
+    const o = Math.min(eOut(prog(t, t0 - 0.6, t0 - 0.35)), 1 - eIn(prog(t, t0 + 0.85, t0 + 1.15)));
+    MT.setText($('say-who'), cur.s[1]); MT.setText($('say-tx'), '“' + cur.s[2] + '”');
+    say.style.left = (r.x + r.w * 0.45) + 'px'; say.style.top = (r.y - 58) + 'px';
+    say.style.opacity = o.toFixed(3); say.style.transform = `scale(${lerp(0.8, 1, o)})`;
+    const rb = cardStage(cur.c.id, t0 + 0.8);
+    const ot = Math.min(eOut(prog(t, t0 + 0.25, t0 + 0.5)), 1 - eIn(prog(t, t0 + 1.0, t0 + 1.25)));
+    tag.style.left = (rb.x + rb.w - 150) + 'px'; tag.style.top = (rb.y - 18) + 'px';
+    tag.style.opacity = ot.toFixed(3); tag.style.transform = `scale(${lerp(0.7, 1, eBack(prog(t, t0 + 0.25, t0 + 0.55)))})`;
+  } else { say.style.opacity = 0; tag.style.opacity = 0; }
+
+  // follow-up automático no card da Carla
+  const cr = cardStage(7, T.fu);
+  ['fu1', 'fu2'].forEach((id, i) => {
+    const el = $(id);
+    pop(el, t, i ? T.reply : T.fu + 0.1, { tOut: T.mv5 - 0.15, from: 0.8, y: 14 });
+    el.style.left = (cr.x + (i ? 60 : 0)) + 'px';
+    el.style.top = (cr.y + cr.h + 18 + i * 120) + 'px';
+  });
+  const vr = cardStage(7, T.mv5 + 0.8);
+  const mp = prog(t, T.mv5 + 0.5, T.mv5 + 1.9);
+  const money = $('money');
+  money.style.left = (vr.x + 20) + 'px'; money.style.top = (vr.y + vr.h + 20 - eOut(mp) * 40) + 'px';
+  money.style.opacity = (mp > 0 ? Math.sin(mp * Math.PI) : 0).toFixed(3);
+
+  // histórico: clique no card da Mariana abre o modal real e rola até HISTÓRICO
+  const open = t >= T.drawer;
+  modal.classList.toggle('show', open);
+  modal.style.opacity = open ? eOut(prog(t, T.drawer, T.drawer + 0.3)).toFixed(3) : '';
+  const box = modal.querySelector('.modal-content, .modal, [class*="modal-content"]');
+  if (box) box.style.transform = open ? `translateY(${(1 - eOut(prog(t, T.drawer, T.drawer + 0.35))) * 24}px)` : '';
+  if (histScroll) histScroll.scrollTop = histTarget * eInOut(prog(t, T.scroll, T.scroll + 1.2));
+  const mr = cardStage(3, T.click);
+  M.renderCursor($('cur'), [[T.c4 - 0.1, 1100, 900], [T.click, mr.x + mr.w * 0.5, mr.y + 30, true], [T.click + 3, mr.x + mr.w * 0.5, mr.y + 30]], t,
+    eOut(prog(t, T.c4 - 0.1, T.c4 + 0.2)) * (1 - prog(t, T.drawer + 0.2, T.drawer + 0.5)));
 }
 
 window.render = (t) => {
@@ -291,7 +255,7 @@ window.render = (t) => {
   titleScene($('s-end'), t, T.end);
   document.querySelector('.grid-bg').style.transform = `translate(${Math.sin(t * 0.3) * 30}px, ${t * -6}px)`;
 };
-window.__ready = document.fonts.ready.then(() => { init(); window.render(0); });
+window.__ready = document.fonts.ready.then(init).then(() => window.render(0));
 </script>
 </body>
 </html>

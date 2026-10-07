@@ -1,0 +1,2 @@
+(async () => { const espera = (ms) => new Promise((r) => setTimeout(r, ms)); await selectConversation('101', 'Paulo Henrique'); await espera(600);
+  const i = document.getElementById('messageInput'); i.value = '/'; i.focus(); i.dispatchEvent(new Event('input', { bubbles: true })); await espera(700); if (!document.querySelector('#quickRepliesMenu.show')) document.getElementById('quickRepliesButton').click(); await espera(700); })();

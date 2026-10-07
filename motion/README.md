@@ -18,6 +18,23 @@ anuncio-atendimento.html / sons_atendimento.py  → hublabel-atendimento.mp4
 hublabel-agente-ia.mp4  # saída
 ```
 
+## Telas reais do sistema
+
+Os vídeos de Disparos, CRM e Multiatendimento mostram as **telas reais** de `public/pages`, não recriações.
+`telas/capturar.mjs` abre cada página com os scripts dela, troca o Supabase por um falso
+(`telas/fake-supabase.js`) que responde com os dados de exemplo de `telas/dados/*.js`, executa um preparo
+(`telas/preparo/*.js`: abrir conversa, modal, aba…) e salva o HTML resultante, sem scripts, com fontes locais
+(`telas/vendor`) e sem transições. O vídeo carrega essas telas em `<iframe>` (`assets/motion-tela.js`) e anima o
+DOM delas: move os cards reais, troca de estado no clique, preenche selects, rola modais.
+
+Quando o front mudar, recapture tudo:
+
+```bash
+bash telas/capturar.sh ../public/pages
+```
+
+Para descobrir o que uma tela consulta, rode `node telas/capturar.mjs <pasta> <pagina> <dados.js> <preparo.js> <saida.html> --log`.
+
 ## Renderizar
 
 Requisitos: Node 18+, Python 3 com numpy, ffmpeg e Chromium do Playwright.

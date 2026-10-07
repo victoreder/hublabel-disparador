@@ -7,9 +7,9 @@
 //                   [--from 0] [--to <dur>] [--frames 2,5.5,10]  (só PNGs de conferência)
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
-import { resolve, dirname, basename } from 'node:path';
-import { mkdirSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { resolve, dirname, basename, join, extname } from 'node:path';
+import { mkdirSync, readFileSync, existsSync } from 'node:fs';
+import http from 'node:http';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -28,11 +28,24 @@ const framesOpt = opt('frames');
 
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
-  args: ['--font-render-hinting=none', '--disable-lcd-text'],
+  args: ['--font-render-hinting=none', '--disable-lcd-text', '--lang=pt-BR'],
 });
-const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
 page.on('pageerror', (e) => console.error('[página]', e.message));
-await page.goto(pathToFileURL(resolve(htmlPath)).href, { waitUntil: 'load' });
+// Servidor HTTP local: as telas capturadas entram em <iframe> e precisam da mesma origem
+// para o vídeo animar o DOM delas (file:// não permite).
+const ROOT = dirname(resolve(htmlPath));
+const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'application/javascript', '.woff2': 'font/woff2', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json' };
+const server = http.createServer((req, res) => {
+  const p = join(ROOT, decodeURIComponent(req.url.split('?')[0]));
+  if (!p.startsWith(ROOT) || !existsSync(p)) { res.writeHead(404); return res.end(); }
+  res.writeHead(200, { 'content-type': TYPES[extname(p)] || 'application/octet-stream' });
+  res.end(readFileSync(p));
+}).listen(0, '127.0.0.1');
+await new Promise((r) => server.once('listening', r));
+// Sem rede externa no render: tudo precisa ser local
+await page.route('**/*', (route) => (route.request().url().startsWith('http://127.0.0.1:') || route.request().url().startsWith('data:') ? route.continue() : route.abort()));
+await page.goto(`http://127.0.0.1:${server.address().port}/${basename(htmlPath)}`, { waitUntil: 'load' });
 const { width, height, duration } = await page.evaluate(async () => {
   await window.__ready;
   return { width: window.WIDTH || 1920, height: window.HEIGHT || 1080, duration: window.DURATION };
@@ -54,6 +67,7 @@ if (framesOpt) {
     writeFileSync(`${dir}/${basename(htmlPath, '.html')}-${t.toFixed(2)}s.png`, buf);
   }
   await browser.close();
+  server.close();
   process.exit(0);
 }
 
@@ -79,4 +93,5 @@ for (let i = 0; i < total; i++) {
 ff.stdin.end();
 await done;
 await browser.close();
+server.close();
 console.log(`\nok → ${outPath}`);
