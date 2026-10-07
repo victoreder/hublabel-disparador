@@ -15,12 +15,13 @@ ROTEIRO-agente-ia.md    # roteiro, tabela de tempos e cuidados de copy
 anuncio-disparos.html / sons_disparos.py        → hublabel-disparos.mp4
 anuncio-crm.html / sons_crm.py                  → hublabel-crm.mp4
 anuncio-atendimento.html / sons_atendimento.py  → hublabel-atendimento.mp4
+anuncio-admin.html / sons_admin.py              → hublabel-admin.mp4
 hublabel-agente-ia.mp4  # saída
 ```
 
 ## Telas reais do sistema
 
-Os vídeos de Disparos, CRM e Multiatendimento mostram as **telas reais** de `public/pages`, não recriações.
+Os vídeos de Disparos, CRM, Multiatendimento e Painel administrativo mostram as **telas reais** de `public/pages`, não recriações.
 `telas/capturar.mjs` abre cada página com os scripts dela, troca o Supabase por um falso
 (`telas/fake-supabase.js`) que responde com os dados de exemplo de `telas/dados/*.js`, executa um preparo
 (`telas/preparo/*.js`: abrir conversa, modal, aba…) e salva o HTML resultante, sem scripts, com fontes locais
@@ -32,6 +33,9 @@ Quando o front mudar, recapture tudo:
 ```bash
 bash telas/capturar.sh ../public/pages
 ```
+
+Páginas com Tailwind (Play CDN) são compiladas automaticamente com o `tailwind.config` da própria página.
+Para capturar com a marca de um revendedor (white-label), use `HUB_COR=7C3AED HUB_NOME="Aurora CRM"`.
 
 Para descobrir o que uma tela consulta, rode `node telas/capturar.mjs <pasta> <pagina> <dados.js> <preparo.js> <saida.html> --log`.
 

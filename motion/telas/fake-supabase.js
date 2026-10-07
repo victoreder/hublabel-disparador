@@ -83,9 +83,9 @@ export function createClient() {
     rpc: (name, args) => { LOG.push({ rpc: name, args }); const r = (fix().rpc || {})[name]; return Promise.resolve({ data: typeof r === 'function' ? r(args) : r ?? null, error: null }); },
     channel, removeChannel: () => Promise.resolve(), removeAllChannels: () => Promise.resolve(), getChannels: () => [],
     auth: {
-      getSession: async () => ({ data: { session: session() }, error: null }),
-      getUser: async () => ({ data: { user: u() }, error: null }),
-      onAuthStateChange: (cb) => { setTimeout(() => cb && cb('SIGNED_IN', session()), 0); return { data: { subscription: { unsubscribe() {} } } }; },
+      getSession: async () => ({ data: { session: fix().semSessao ? null : session() }, error: null }),
+      getUser: async () => ({ data: { user: fix().semSessao ? null : u() }, error: null }),
+      onAuthStateChange: (cb) => { if (!fix().semSessao) setTimeout(() => cb && cb('SIGNED_IN', session()), 0); return { data: { subscription: { unsubscribe() {} } } }; },
       refreshSession: async () => ({ data: { session: session() }, error: null }),
       signOut: async () => ({ error: null }),
     },

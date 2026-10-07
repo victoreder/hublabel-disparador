@@ -6,10 +6,8 @@ SRC=$(cd "${1:?informe a pasta public/pages}" && pwd)
 cd "$(dirname "$0")/.."
 TAM=""
 cap() { node telas/capturar.mjs "$SRC" "$1" "$2" "$3" "$4" $TAM; }
-# Tailwind das telas que usam o Play CDN: compila com a mesma configuração da página
-tw() { TW_CONTENT="$SRC/$1" npx -y tailwindcss@3.4.17 -c telas/libs/tailwind.config.js -i telas/libs/tailwind.in.css -o "telas/libs/tw-${1%.html}.css" >/dev/null 2>&1; }
 B=telas/dados/base.js
-mkdir -p telas/crm telas/chat telas/disparos
+mkdir -p telas/crm telas/chat telas/disparos telas/admin
 
 # CRM (1600×900)
 cap "crm-etapas.html?quadroId=1" $B,telas/dados/crm.js telas/preparo/crm-quadro.js telas/crm/quadro.html
@@ -32,5 +30,13 @@ cap contatos.html $K telas/preparo/nada.js telas/disparos/contatos.html
 cap disparos-apioficial.html $K,telas/dados/disparo-api.js telas/preparo/api-destino.js telas/disparos/api-destino.html
 cap disparos-apioficial.html $K,telas/dados/disparo-api.js telas/preparo/api-template.js telas/disparos/api-template.html
 cap disparos.html $K,telas/dados/disparos-lista.js telas/preparo/disparos-editar.js telas/disparos/editar.html
-tw detalhes-disparo.html
-TW_CSS=telas/libs/tw-detalhes-disparo.css cap "detalhes-disparo.html?id=1" $B,telas/dados/disparo-detalhes.js telas/preparo/nada.js telas/disparos/detalhes.html
+cap "detalhes-disparo.html?id=1" $B,telas/dados/disparo-detalhes.js telas/preparo/nada.js telas/disparos/detalhes.html
+
+# Painel administrativo (1366×768)
+A=$B,telas/dados/admin.js
+for s in dashboard clientes clientes-menu mudar-plano planos plano-novo personalizacao emails; do cap adminpannel.html $A telas/preparo/admin-$s.js telas/admin/$s.html; done
+# Resultado do white-label: a marca do revendedor no sistema do cliente
+export HUB_COR=7C3AED HUB_NOME="Aurora CRM"
+cap login.html telas/dados/sem-sessao.js telas/preparo/nada.js telas/admin/marca-login.html
+cap "crm-etapas.html?quadroId=1" $B,telas/dados/crm.js telas/preparo/nada.js telas/admin/marca-crm.html
+unset HUB_COR HUB_NOME

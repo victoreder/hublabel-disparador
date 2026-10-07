@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Painel administrativo — motion</title>
+<link rel="stylesheet" href="assets/motion-base.css">
+<link rel="stylesheet" href="assets/motion-app.css">
+<style>
+  /* Anotações sobre a tela real (não fazem parte do sistema) */
+  #cur { z-index: 70; }
+  .hl-ring { position: absolute; z-index: 55; border: 3px solid var(--brand); border-radius: 16px; box-shadow: 0 0 0 6px rgba(37,211,102,.18), 0 0 30px rgba(37,211,102,.35); pointer-events: none; opacity: 0; }
+  /* Janela de navegador para o resultado do white-label */
+  .browser { position: absolute; left: 220px; top: 176px; width: 1480px; height: 62px; z-index: 5; border-radius: 22px 22px 0 0; background: #e9edf2; display: flex; align-items: center; gap: 16px; padding: 0 22px; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+  .browser .dots { display: flex; gap: 8px; }
+  .browser .dots i { width: 13px; height: 13px; border-radius: 50%; display: block; }
+  .browser .url { flex: 1; max-width: 760px; margin: 0 auto; height: 38px; border-radius: 12px; background: #fff; display: flex; align-items: center; gap: 10px; padding: 0 16px; font-size: 18px; font-weight: 600; color: #0f172a; }
+  .browser .url svg { width: 16px; height: 16px; color: #16a34a; }
+  .browser .url .dim { color: #94a3b8; font-weight: 500; }
+  .browser .tab { position: absolute; left: 110px; top: -2px; height: 0; }
+  .sem-marca { position: absolute; z-index: 60; display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 999px; background: #04150a; color: #fff; border: 1px solid rgba(37,211,102,.6); font-size: 19px; font-weight: 800; white-space: nowrap; box-shadow: 0 14px 34px rgba(0,0,0,.35); opacity: 0; }
+  .sem-marca svg { width: 20px; height: 20px; color: var(--brand); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="grid-bg"></div>
+
+  <div class="scene title-scene" id="s-hook">
+    <div class="pill"><i data-ic="gear"></i> Painel administrativo completo</div>
+    <div class="headline">Gerencie todo o seu <span class="hl">SaaS</span> de um só lugar</div>
+    <div class="sub">Clientes, planos, limites e receita recorrente na mesma tela.</div>
+  </div>
+
+  <div class="scene" id="s-app">
+    <div class="tcap cap" id="c1"><div class="num">1</div><div class="tx">Dashboard completo<small>Faturamento do mês, ticket médio, total de clientes e clientes ativos.</small></div></div>
+    <div class="tcap cap" id="c2"><div class="num">2</div><div class="tx">Controle total de cada cliente<small>Ativos, bloqueados e expirados. Bloqueie, exclua ou mude o plano em 1 clique.</small></div></div>
+    <div class="tcap cap" id="c3"><div class="num">3</div><div class="tx">Planos ilimitados, com o preço que você quiser<small>R$ 97, R$ 197, R$ 497 e um plano de teste grátis.</small></div></div>
+    <div class="tcap cap" id="c4"><div class="num">4</div><div class="tx">Você define os limites de cada plano<small>Conexões, contatos, disparos, usuários, quadros, agentes e créditos de IA.</small></div></div>
+    <div class="tcap cap" id="c5"><div class="num">5</div><div class="tx">Personalização total<small>Nome, cor, logotipo, favicon e telefone de suporte.</small></div></div>
+    <div class="tcap cap" id="c6"><div class="num">6</div><div class="tx">E-mails com a sua marca<small>Boas-vindas e redefinição de senha personalizadas.</small></div></div>
+    <div class="tcap cap" id="c7"><div class="num">7</div><div class="tx">Domínio próprio: app.suaempresa.com<small>Seus clientes veem só a sua marca.</small></div></div>
+    <div class="browser" id="browser">
+      <div class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+      <div class="url"><i data-ic="lock" data-sw="2.4"></i><span id="url-tx"></span></div>
+    </div>
+    <div id="telas"></div>
+    <div class="hl-ring" id="ring"></div>
+    <div class="sem-marca" id="semmarca"><i data-ic="shield"></i> Sua marca, seu domínio</div>
+    <div class="cursor" id="cur"><div class="ring"></div><svg viewBox="0 0 24 24" width="34" height="34"><path d="M4 2.5 19.5 12l-6.8 1.6 3.9 7.3-2.7 1.4-3.9-7.3L5 19.8z" fill="#0f172a" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+  </div>
+
+  <div class="scene title-scene" id="s-end">
+    <div class="pill"><i data-ic="gear"></i> Painel administrativo</div>
+    <div class="headline">O SaaS é seu. <span class="hl">A marca também.</span></div>
+    <div class="pills">
+      <div class="pill light"><i data-ic="users"></i> Gestão de clientes</div>
+      <div class="pill light"><i data-ic="grid"></i> Planos e limites</div>
+      <div class="pill light"><i data-ic="sparkles"></i> White-label completo</div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/motion-lib.js"></script>
+<script src="assets/motion-tela.js"></script>
+<script>
+const { clamp, lerp, prog, eOut, eIn, eInOut, eBack, pop, scene, titleScene } = M;
+window.DURATION = 35;
+const $ = (id) => document.getElementById(id);
+
+const T = {
+  hookOut: 2.8, app: 3.05, count: 3.6, countEnd: 5.4,
+  c2: 7.4, cli: 7.4, menu: 9.0, mudar: 10.3, aplicar: 11.5,
+  c3: 12.8, planos: 12.8, novo: 15.2, c4: 16.6, limites: 17.0,
+  c5: 20.2, pers: 20.2, nome: 20.8, cor: 21.9, logo: 22.8, suporte: 23.6,
+  c6: 24.9, emails: 24.9, assunto: 25.5,
+  c7: 27.4, url: 27.6, login: 28.6, crm: 30.0, appOut: 31.6,
+  end: 31.85,
+};
+window.TIMELINE = T;
+const ESTADOS = [['dashboard', 0], ['clientes', T.cli], ['clientes-menu', T.menu], ['mudar-plano', T.mudar], ['clientes', T.aplicar],
+  ['planos', T.planos], ['plano-novo', T.novo], ['personalizacao', T.pers], ['emails', T.emails], ['marca-login', T.login], ['marca-crm', T.crm]];
+const NOMES = [...new Set(ESTADOS.map(([n]) => n))];
+const BROWSER = new Set(['marca-login', 'marca-crm']);
+const LOGO_NOVA = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="11" fill="#7C3AED"/><path d="M12 28l1.6-4.4A9 9 0 1 1 17 27.7z" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg>');
+let S = {}, BOX = [], idxOf = [];
+
+async function init() {
+  M.hydrateIcons();
+  M.prepTitles();
+  for (const nome of NOMES) {
+    const b = BROWSER.has(nome);
+    S[nome] = await MT.tela($('telas'), `telas/admin/${nome}.html`, b ? { x: 220, y: 238, w: 1480, vw: 1366, vh: 768 } : { x: 180, y: 180, w: 1560, vw: 1366, vh: 768 });
+    if (b) S[nome].box.style.borderRadius = '0 0 22px 22px';
+  }
+  BOX = ESTADOS.map(([n]) => S[n]);
+  const D = S.dashboard.doc;
+  S.kpi = [['faturamento-amount', 13656, (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })], ['total-clientes', 54, (v) => String(Math.round(v))], ['clientes-ativos', 49, (v) => String(Math.round(v))]]
+    .map(([id, v, f]) => [D.getElementById(id), v, f]);
+  // linha do cliente que muda de plano
+  const C = S.clientes.doc;
+  S.cliRow = [...C.querySelectorAll('#clientes-table-body tr')].find((r) => /Studio Bella/.test(r.textContent));
+  S.cliPlano = S.cliRow && S.cliRow.querySelector('.clientes-plan-badge, [class*="plan-badge"]');
+  S.cliPlanoTx = S.cliPlano && S.cliPlano.innerHTML;
+  const P = S['plano-novo'].doc;
+  S.pn = { nome: P.getElementById('criar-plano-nome'), preco: P.getElementById('criar-plano-preco'), sc: null,
+    lim: ['conexoes', 'contatos', 'disparos', 'usuarios', 'quadros-crm', 'agentes', 'creditos'].map((k) => P.getElementById('criar-plano-' + k)),
+    ilim: P.getElementById('criar-plano-contatos-ilimitado') };
+  let sc = S.pn.lim[0]; while (sc && sc !== P.body && !(sc.scrollHeight > sc.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+  S.pn.sc = sc === P.body ? null : sc;
+  S.pn.y = S.pn.sc ? Math.max(0, MT.relTo(S.pn.lim[0], S.pn.sc).y - 90) : 0;
+  const Q = S.personalizacao.doc;
+  S.ps = { nome: Q.getElementById('personalizacao-nome-sistema'), cor: Q.getElementById('personalizacao-cor-principal'), pick: Q.getElementById('personalizacao-cor-principal-picker'),
+    logo: Q.querySelector('#personalizacao-logo-box img'), fav: Q.querySelector('#personalizacao-favicon-box img'), zap: Q.getElementById('personalizacao-whatsapp') };
+  S.ps.logoSrc = S.ps.logo && S.ps.logo.getAttribute('src');
+  S.ps.favSrc = S.ps.fav && S.ps.fav.getAttribute('src');
+  S.ps.pickBox = S.ps.pick && (S.ps.pick.closest('label, div') || S.ps.pick);
+  S.em = S.emails.doc.getElementById('email-confirmation-subject');
+  // login com a marca do revendedor: a inicial do logo vira a da marca
+  const L = S['marca-login'].doc;
+  [...L.querySelectorAll('div, span')].filter((e) => e.children.length === 0 && e.textContent.trim() === 'D').forEach((e) => { e.textContent = 'A'; });
+}
+
+function ringOn(tl, el, t, t0, d = 1.4, pad = 8) {
+  const ring = $('ring');
+  if (!el) return false;
+  const p = prog(t, t0, t0 + d);
+  if (p <= 0 || p >= 1) return false;
+  const r = MT.rectOn(tl, el);
+  ring.style.left = (r.x - pad) + 'px'; ring.style.top = (r.y - pad) + 'px'; ring.style.width = (r.w + pad * 2) + 'px'; ring.style.height = (r.h + pad * 2) + 'px';
+  ring.style.opacity = Math.sin(p * Math.PI).toFixed(3);
+  return true;
+}
+const typeVal = (el, text, t, t0, cps = 22) => { if (el) el.value = text.slice(0, Math.floor(clamp((t - t0) * cps, 0, text.length))); };
+
+function renderApp(t) {
+  if (!scene($('s-app'), t, T.app, T.appOut)) return;
+  const a = eOut(prog(t, T.app, T.app + 0.7));
+  [['c1', T.app + 0.15, T.c2], ['c2', T.c2, T.c3], ['c3', T.c3, T.c4], ['c4', T.c4, T.c5], ['c5', T.c5, T.c6], ['c6', T.c6, T.c7], ['c7', T.c7, Infinity]]
+    .forEach(([id, t0, t1]) => pop($(id), t, t0, { tOut: t1 - 0.25, from: 0.96, y: 16 }));
+
+  let idx = 0; ESTADOS.forEach(([, t0], i) => { if (t >= t0) idx = i; });
+  // cada estado é uma tela; a mesma tela pode voltar mais tarde (clientes)
+  const atual = S[ESTADOS[idx][0]], anterior = idx > 0 ? S[ESTADOS[idx - 1][0]] : null;
+  const p = eOut(prog(t, ESTADOS[idx][1], ESTADOS[idx][1] + 0.18));
+  NOMES.forEach((n) => { const tl = S[n]; tl.box.style.visibility = 'hidden'; tl.box.style.zIndex = 1; });
+  if (anterior && anterior !== atual && p < 1) { anterior.box.style.visibility = 'visible'; anterior.box.style.opacity = '1'; }
+  atual.box.style.visibility = 'visible'; atual.box.style.zIndex = 2; atual.box.style.opacity = (idx === 0 ? 1 : p).toFixed(3);
+  const naJanela = BROWSER.has(ESTADOS[idx][0]);
+  NOMES.forEach((n) => { if (!BROWSER.has(n)) S[n].box.style.transform = `translateY(${(1 - a) * 120}px) scale(${lerp(0.92, 1, a)}) perspective(1600px) rotateX(${(1 - a) * 10}deg)`; });
+
+  // navegador com o domínio do cliente
+  const bw = $('browser');
+  const bp = eOut(prog(t, T.url - 0.3, T.url + 0.3));
+  bw.style.visibility = t >= T.url - 0.3 ? 'visible' : 'hidden';
+  bw.style.opacity = bp.toFixed(3);
+  ['marca-login', 'marca-crm'].forEach((n) => { S[n].box.style.transform = `translateY(${(1 - bp) * 60}px)`; });
+  bw.style.transform = `translateY(${(1 - bp) * 60}px)`;
+  const url = 'app.suaempresa.com';
+  const n = Math.floor(clamp((t - T.url) * 22, 0, url.length));
+  const caret = t < T.url + url.length / 22 + 0.3 && Math.floor(t * 2.2) % 2 === 0 ? '|' : '';
+  MT.setText($('url-tx'), url.slice(0, n) + (t >= T.crm ? '/crm' : '') + caret);
+  if (t >= T.url - 0.3 && t < T.login) { S.dashboard.box.style.visibility = 'hidden'; S.emails.box.style.visibility = t < T.url ? 'visible' : 'hidden'; }
+
+  // 1. números do dashboard sobem até o valor real
+  S.kpi.forEach(([el, v, f]) => { if (el) MT.setText(el, f(v * eOut(prog(t, T.count, T.countEnd)))); });
+
+  // 2. mudar plano: a linha da Studio Bella passa a Premium
+  if (S.cliPlano) {
+    const novo = t >= T.aplicar;
+    const html = novo ? S.cliPlanoTx.replace('Teste grátis', 'Premium') : S.cliPlanoTx;
+    if (S.cliPlano.innerHTML !== html) S.cliPlano.innerHTML = html;
+  }
+
+  // 3–4. novo plano: nome, preço e limites
+  typeVal(S.pn.nome, 'Agência', t, T.novo + 0.3);
+  typeVal(S.pn.preco, '297', t, T.novo + 0.75, 10);
+  if (S.pn.sc) S.pn.sc.scrollTop = S.pn.y * eInOut(prog(t, T.limites - 0.4, T.limites + 0.4));
+  const LIM = ['5', '', '20000', '5', '10', '3', '3000'];
+  S.pn.lim.forEach((el, i) => typeVal(el, LIM[i], t, T.limites + 0.5 + i * 0.25, 18));
+  if (S.pn.ilim) { const on = t >= T.limites + 0.75; S.pn.ilim.checked = on; if (S.pn.lim[1]) S.pn.lim[1].disabled = on; }
+
+  // 5. personalização
+  if (S.ps.nome) S.ps.nome.value = t < T.nome ? 'HubLabel' : 'Aurora CRM'.slice(0, Math.floor(clamp((t - T.nome) * 16, 0, 10)));
+  const corTx = '#7C3AED';
+  if (S.ps.cor) S.ps.cor.value = t < T.cor ? '#25D366' : corTx.slice(0, Math.max(1, Math.floor(clamp((t - T.cor) * 14, 0, 7))));
+  if (S.ps.pick) S.ps.pick.value = t >= T.cor + 0.5 ? '#7c3aed' : '#25d366';
+  if (S.ps.logo) S.ps.logo.setAttribute('src', t >= T.logo ? LOGO_NOVA : S.ps.logoSrc);
+  if (S.ps.fav) S.ps.fav.setAttribute('src', t >= T.logo + 0.3 ? LOGO_NOVA : S.ps.favSrc);
+  if (S.ps.zap) S.ps.zap.value = t >= T.suporte ? '5511987654321'.slice(0, Math.floor(clamp((t - T.suporte) * 26, 0, 13))) : '5500000000000';
+
+  // 6. e-mails
+  if (S.em) S.em.value = t < T.assunto ? 'Bem-vindo ao HubLabel' : 'Bem-vindo à Aurora CRM, [Nome]!'.slice(0, Math.floor(clamp((t - T.assunto) * 24, 0, 31)));
+
+  // destaques
+  $('ring').style.opacity = 0;
+  const Dd = S.dashboard.doc;
+  (t < T.c2 && ringOn(S.dashboard, Dd.getElementById('faturamento-amount')?.closest('.stat-card, [class*="stat"]'), t, T.countEnd - 0.2, 1.4)) ||
+  (t >= T.aplicar && t < T.c3 && ringOn(S.clientes, S.cliRow, t, T.aplicar + 0.05, 1.2, 4)) ||
+  (t >= T.planos && t < T.novo && ringOn(S.planos, [...S.planos.doc.querySelectorAll('#planos-table-body tr')].find((r) => /Teste grátis/.test(r.textContent)), t, T.planos + 0.5, 1.6, 4)) ||
+  (t >= T.pers && t < T.c6 && ringOn(S.personalizacao, S.ps.nome?.closest('[class*="card"], section') || S.ps.nome, t, T.cor + 0.6, 1.6)) ||
+  (t >= T.emails && t < T.c7 && ringOn(S.emails, S.em, t, T.assunto + 0.2, 1.4, 6));
+  pop($('semmarca'), t, T.crm + 0.3, { from: 0.7, y: 12 });
+  const br = MT.rectOn(S['marca-crm'], S['marca-crm'].doc.body);
+  $('semmarca').style.left = (br.x + br.w - 360) + 'px'; $('semmarca').style.top = (br.y + br.h - 90) + 'px';
+
+  // cursor
+  const at = (n, el, fx = 0.5, fy = 0.5) => (el ? MT.pointOn(S[n], el, fx, fy) : [1200, 820]);
+  const C = S.clientes.doc, M2 = S['clientes-menu'].doc, MP = S['mudar-plano'].doc, PL = S.planos.doc;
+  const keys = [
+    [T.cli + 0.3, 1300, 900],
+    [T.menu - 0.5, ...at('clientes', S.cliRow?.querySelector('.actions-trigger'))], [T.menu, ...at('clientes', S.cliRow?.querySelector('.actions-trigger')), true],
+    [T.mudar - 0.4, ...at('clientes-menu', [...M2.querySelectorAll('.actions-item')].find((b) => /Mudar Plano/.test(b.textContent)), 0.3)],
+    [T.mudar, ...at('clientes-menu', [...M2.querySelectorAll('.actions-item')].find((b) => /Mudar Plano/.test(b.textContent)), 0.3), true],
+    [T.aplicar - 0.4, ...at('mudar-plano', [...MP.querySelectorAll('#mudar-plano-modal button')].find((b) => /Aplicar/.test(b.textContent)))],
+    [T.aplicar, ...at('mudar-plano', [...MP.querySelectorAll('#mudar-plano-modal button')].find((b) => /Aplicar/.test(b.textContent))), true],
+    [T.novo - 0.5, ...at('planos', PL.getElementById('criar-plano-btn'))], [T.novo, ...at('planos', PL.getElementById('criar-plano-btn')), true],
+    [T.novo + 0.25, ...at('plano-novo', S.pn.nome, 0.3)],
+  ];
+  M.renderCursor($('cur'), keys, t, eOut(prog(t, T.cli + 0.3, T.cli + 0.6)) * (1 - prog(t, T.novo + 0.4, T.novo + 0.7)));
+}
+
+window.render = (t) => {
+  titleScene($('s-hook'), t, 0.05, T.hookOut);
+  renderApp(t);
+  titleScene($('s-end'), t, T.end);
+  document.querySelector('.grid-bg').style.transform = `translate(${Math.sin(t * 0.3) * 30}px, ${t * -6}px)`;
+};
+window.__ready = document.fonts.ready.then(init).then(() => window.render(0));
+</script>
+</body>
+</html>
