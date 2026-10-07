@@ -240,3 +240,59 @@ class Mix:
             w.setsampwidth(2)
             w.setframerate(SR)
             w.writeframes((y * 32767).astype('<i2').tobytes())
+
+
+CHORDS_AM = [  # Am – F – C – G
+    (45, [57, 60, 64, 69]),
+    (41, [53, 57, 60, 65]),
+    (48, [55, 60, 64, 67]),
+    (43, [55, 59, 62, 67]),
+]
+
+
+def groove(dur, groove_from, end_at, bpm=112, chords=CHORDS_AM, final_chord=True):
+    """Trilha padrão dos vídeos: pad + arpejo desde o início, bateria e baixo a partir
+    de groove_from, e um acorde longo em end_at (fechamento)."""
+    music = Mix(dur)
+    beat = 60 / bpm
+    bar_d = beat * 4
+    t, bar = 0.0, 0
+    while t < end_at:
+        root, ch = chords[bar % len(chords)]
+        music.add(pad(ch, bar_d + 0.5, gain=0.10, bright=1500 if t < groove_from else 2200), t)
+        grooving = t >= groove_from - 0.01
+        for i in range(8):
+            m = ch[[0, 1, 2, 3, 2, 1, 2, 3][i]] + 12
+            music.add(pluck(m, 0.35, gain=0.07 if grooving else 0.05), t + i * beat / 2, pan=(-0.35 if i % 2 else 0.35))
+        if grooving:
+            for b in range(4):
+                bt = t + b * beat
+                if bt >= end_at - 0.05:
+                    break
+                music.add(kick(0.3, 0.55), bt)
+                music.add(hat(0.05, 0.10, seed=b), bt + beat / 2, pan=0.25)
+                if b in (1, 3):
+                    music.add(clap(0.15, 0.13, seed=b), bt, pan=-0.1)
+            music.add(bass(root, beat * 1.5, 0.22), t)
+            music.add(bass(root, beat * 0.9, 0.18), t + beat * 2)
+            music.add(bass(root + 12 if bar % 2 else root, beat * 0.9, 0.16), t + beat * 3)
+        t += bar_d
+        bar += 1
+    if final_chord:
+        music.add(pad([57, 60, 64, 69, 72], dur - end_at + 0.5, gain=0.13, bright=2600), end_at)
+        music.add(bass(45, min(4.5, dur - end_at), 0.22), end_at)
+    return music
+
+
+def standard_open_close(fx, hook_out, first_in, end_in, n_pills=3):
+    """Efeitos comuns: impacto inicial, riser até o gancho sair, whoosh de entrada e fechamento."""
+    fx.add(impact(0.5), 0.0)
+    fx.add(pop(0.25, 600, 1200), 0.05)
+    fx.add(whoosh(0.7, 0.18, up=True, seed=11), 0.15)
+    fx.add(riser(1.0, 0.16), hook_out - 0.8)
+    fx.add(whoosh(0.55, 0.3, up=True, seed=12), first_in - 0.1)
+    fx.add(impact(0.7), end_in)
+    fx.add(bell(81, 2.5, 0.12), end_in + 0.15)
+    fx.add(bell(88, 2.5, 0.08), end_in + 0.25)
+    for i in range(n_pills):
+        fx.add(pop(0.14, 900 + i * 150, 1400 + i * 150), end_in + 1.0 + i * 0.15)

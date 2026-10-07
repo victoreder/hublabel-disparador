@@ -172,6 +172,20 @@
     plus: '<path d="M12 5v14M5 12h14"/>',
     whatsapp: '<path d="M3 21l1.6-4.6A9 9 0 1 1 8 19.7z"/><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.6-2-1-1 1c-1.2-.5-2.4-1.7-2.9-2.9l1-1-1-2z" fill="currentColor" stroke="none"/>',
     receipt: '<path d="M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+    upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5M12 3v12"/>',
+    sheet: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8M12 11v8"/>',
+    shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/>',
+    shuffle: '<path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>',
+    timer: '<path d="M10 2h4M12 14l3-3"/><circle cx="12" cy="14" r="8"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12"/><circle cx="12" cy="12" r="3"/>',
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    filter: '<path d="M22 3H2l8 9.5V19l4 2v-8.5z"/>',
+    swap: '<path d="M16 3l4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/>',
+    zap: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+    lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    note: '<path d="M4 4h16v12l-4 4H4z"/><path d="M16 20v-4h4M8 9h8M8 13h5"/>',
+    x: '<path d="M18 6 6 18M6 6l12 12"/>',
     pix: '<path d="M12 2.5 21.5 12 12 21.5 2.5 12z"/><path d="M7.5 12 12 7.5 16.5 12 12 16.5z"/>',
   };
   function icon(name, cls = '', sw = 2) {
@@ -199,6 +213,46 @@
     for (let i = 0; i < bars.length; i++) bars[i].classList.toggle('on', i < on);
   }
 
+
+  /** Mostra/esconde uma cena inteira: entra com subida e sai com zoom e desfoque. */
+  function scene(el, t, tIn, tOut = Infinity, { dIn = 0.5, dOut = 0.45, rise = 0, zoom = 0.06 } = {}) {
+    const a = eOut(prog(t, tIn, tIn + dIn)), b = eIn(prog(t, tOut, tOut + dOut));
+    const v = a * (1 - b);
+    el.style.display = t >= tIn && b < 1 ? '' : 'none';
+    el.style.opacity = v.toFixed(3);
+    el.style.transform = `translateY(${(1 - a) * rise}px) scale(${1 + b * zoom})`;
+    el.style.filter = b > 0 ? `blur(${(b * 10).toFixed(1)}px)` : '';
+    return v;
+  }
+  /** Cena de título (gancho/fechamento): .pill, .headline (palavras), .sub, .pills > .pill */
+  function titleScene(root, t, tIn, tOut = Infinity) {
+    scene(root, t, tIn - 0.05, tOut, { dIn: 0.05, zoom: 0.25 });
+    let k = tIn;
+    root.querySelectorAll(':scope > .pill').forEach((p) => { pop(p, t, k, { from: 0.8 }); k += 0.15; });
+    root.querySelectorAll(':scope > .headline').forEach((h) => { headline(h, t, k, { stagger: 0.06 }); k += 0.06 * h.querySelectorAll('.word').length + 0.2; });
+    root.querySelectorAll(':scope > .sub').forEach((s) => { pop(s, t, k, { from: 1, y: 20 }); k += 0.3; });
+    root.querySelectorAll('.pills > .pill').forEach((p, i) => pop(p, t, k + i * 0.15, { from: 0.7, y: 20 }));
+  }
+  /** Prepara títulos: quebra palavras e aproxima vírgula/ponto (a Jakarta afasta em corpo grande). */
+  function prepTitles(root = document) {
+    root.querySelectorAll('.headline, .cap .tx').forEach((el) => {
+      const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (w.nextNode()) if (!w.currentNode.parentElement.closest('small') && /[,.]/.test(w.currentNode.nodeValue)) nodes.push(w.currentNode);
+      nodes.forEach((n) => { const sp = document.createElement('span'); sp.innerHTML = n.nodeValue.replace(/([,.])/g, '<span class="cm">$1</span>'); n.replaceWith(...sp.childNodes); });
+    });
+    root.querySelectorAll('.headline').forEach(splitWords);
+  }
+  const fmt = (n) => Math.round(n).toLocaleString('pt-BR');
+  /** Contador numérico de a até b entre t0 e t1. */
+  function count(el, a, b, t, t0, t1, suffix = '') {
+    const v = lerp(a, b, eOut(prog(t, t0, t1)));
+    const s = fmt(v) + suffix;
+    if (el.textContent !== s) el.textContent = s;
+    return v;
+  }
+
   window.M = { clamp, lerp, prog, eOut, eIn, eInOut, eBack, win, set, pop, headline, splitWords, type, offsetIn,
-    cursorAt, renderCursor, buildPhone, showItems, icon, hydrateIcons, buildWave, renderWave };
+    cursorAt, renderCursor, buildPhone, showItems, icon, hydrateIcons, buildWave, renderWave,
+    scene, titleScene, prepTitles, fmt, count };
 })();

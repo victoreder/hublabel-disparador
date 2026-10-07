@@ -5,12 +5,16 @@ Os vídeos institucionais e de anúncio são feitos só com código. Cada vídeo
 ```
 render.mjs              # renderizador genérico (Playwright + ffmpeg)
 assets/motion-base.css  # tokens, tipografia, pílulas, legendas, celular estilo WhatsApp
-assets/motion-lib.js    # easing, pop/headline, digitação, cursor, buildPhone/showItems, ícones
+assets/motion-lib.js    # easing, pop/headline, digitação, cursor, buildPhone/showItems, cenas, contador, ícones
+assets/motion-app.css   # peças do sistema (janela, sidebar, cards, kanban) para os vídeos de funcionalidade
 assets/plus-jakarta-sans.woff2  # fonte do sistema (OFL), local para não depender de rede
-sfx.py                  # instrumentos/efeitos sintetizados + Mix
+sfx.py                  # instrumentos/efeitos sintetizados + Mix + groove() (trilha padrão)
 anuncio-agente-ia.html  # vídeo do Agente de IA (cenas + render(t))
 sons_agente-ia.py       # trilha do vídeo, com os tempos espelhando o HTML
 ROTEIRO-agente-ia.md    # roteiro, tabela de tempos e cuidados de copy
+anuncio-disparos.html / sons_disparos.py        → hublabel-disparos.mp4
+anuncio-crm.html / sons_crm.py                  → hublabel-crm.mp4
+anuncio-atendimento.html / sons_atendimento.py  → hublabel-atendimento.mp4
 hublabel-agente-ia.mp4  # saída
 ```
 
@@ -27,5 +31,7 @@ node render.mjs anuncio-agente-ia.html hublabel-agente-ia.mp4 --audio sons_agent
 # Para conferir quadros estáticos sem renderizar tudo:
 node render.mjs anuncio-agente-ia.html quadros --frames 4.4,10.9,25.3,33.4
 ```
+
+Os outros vídeos seguem o mesmo padrão: `python3 sons_<nome>.py && node render.mjs anuncio-<nome>.html hublabel-<nome>.mp4 --audio sons_<nome>.wav`.
 
 Para mudar o tempo de uma cena, altere o objeto `T` no HTML **e** o dicionário `T` em `sons_agente-ia.py`.

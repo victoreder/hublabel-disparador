@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Disparos em massa — motion</title>
+<link rel="stylesheet" href="assets/motion-base.css">
+<link rel="stylesheet" href="assets/motion-app.css">
+<style>
+  /* Assistente de campanha */
+  .wz-top { height: 74px; flex: none; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 28px; }
+  .wz-top h2 { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+  .wz-top .bc { font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--muted-2); }
+  .wz-top .et { margin-left: auto; font-size: 14px; font-weight: 700; color: var(--muted); }
+  .stepper { display: flex; justify-content: center; gap: 0; padding: 22px 0 10px; }
+  .st { width: 260px; display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; }
+  .st .c { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 15px; background: #fff; border: 2px solid var(--line); color: var(--muted-2); position: relative; z-index: 1; }
+  .st .c svg { width: 18px; height: 18px; }
+  .st .n { font-size: 12px; font-weight: 800; letter-spacing: .1em; color: var(--muted-2); }
+  .st .ln { position: absolute; top: 19px; left: 50%; width: 260px; height: 3px; background: var(--line); }
+  .st .ln b { display: block; height: 100%; width: 0; background: var(--brand); }
+  .panel { position: absolute; left: 0; right: 0; top: 178px; bottom: 0; padding: 0 60px 30px; }
+
+  .up-card { display: flex; gap: 24px; }
+  .drop { position: relative; width: 470px; height: 300px; border: 2.5px dashed #cbd5e1; border-radius: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); font-weight: 600; font-size: 16px; background: #fafbfc; }
+  .drop .ico { width: 64px; height: 64px; border-radius: 18px; background: rgba(37,211,102,.12); color: var(--brand-700); display: grid; place-items: center; }
+  .drop .ico svg { width: 30px; height: 30px; }
+  .drop b { color: var(--ink); font-size: 18px; }
+  .file { position: absolute; z-index: 20; display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: 16px; background: #fff; border: 1px solid var(--line); box-shadow: 0 20px 50px rgba(15,23,42,.18); font-weight: 700; font-size: 16px; }
+  .file .fi { width: 42px; height: 42px; border-radius: 12px; background: #16a34a; color: #fff; display: grid; place-items: center; }
+  .file .fi svg { width: 22px; height: 22px; }
+  .file small { display: block; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .tbl { flex: 1; }
+  .tbl .hd, .tbl .rw { display: grid; grid-template-columns: 1.3fr 1.4fr 1.3fr 1fr 110px; align-items: center; gap: 10px; padding: 0 18px; }
+  .tbl .hd { height: 44px; font-size: 12px; font-weight: 800; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+  .tbl .rw { height: 52px; border-top: 1px solid #f1f5f9; font-size: 15px; font-weight: 600; color: var(--ink-2); }
+  .tbl .rw .ok, .tbl .rw .no { justify-self: end; }
+  .tot { display: flex; align-items: center; gap: 18px; margin-top: 22px; }
+  .tot .big { font-size: 40px; font-weight: 800; letter-spacing: -.03em; }
+  .tot .big small { font-size: 16px; color: var(--muted); font-weight: 600; letter-spacing: 0; margin-left: 6px; }
+  .ver { flex: 1; }
+  .ver .bar { height: 12px; border-radius: 6px; background: #eef2f6; overflow: hidden; }
+  .ver .bar b { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #1ead54, #25d366); border-radius: 6px; }
+  .ver .lb { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
+  .ver .lb .g { color: var(--brand-700); } .ver .lb .r { color: #dc2626; }
+
+  /* Template */
+  .tp { display: flex; gap: 28px; height: 100%; }
+  .tp .ed { flex: 1; }
+  .tp .ed .head { height: 150px; border-radius: 14px; overflow: hidden; position: relative; background: linear-gradient(135deg, #0f3d26, #127a48 55%, #25d366); color: #fff; padding: 18px 20px; margin-top: 12px; }
+  .tp .ed .head .k { font-size: 12px; font-weight: 800; letter-spacing: .14em; opacity: .85; }
+  .tp .ed .head .n { font-size: 34px; font-weight: 800; letter-spacing: -.03em; margin-top: 6px; }
+  .tp .ed .head .tg { position: absolute; right: 16px; top: 14px; font-size: 12px; font-weight: 700; background: rgba(255,255,255,.2); padding: 5px 10px; border-radius: 8px; display: flex; gap: 6px; align-items: center; }
+  .tp .ed .head .tg svg { width: 14px; height: 14px; }
+  .txt { margin-top: 14px; min-height: 120px; border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; font-size: 19px; line-height: 1.75; font-weight: 500; color: var(--ink-2); }
+  .var { display: inline-flex; align-items: center; height: 30px; padding: 0 10px; border-radius: 8px; font-size: 16px; font-weight: 800; color: #0369a1; background: #e0f2fe; border: 1px solid rgba(56,189,248,.5); vertical-align: 1px; margin: 0 2px; }
+  .vars { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+  .vars span.l { font-size: 13px; font-weight: 700; color: var(--muted); margin-right: 4px; }
+  .btns { display: flex; gap: 10px; margin-top: 16px; }
+  .btns .bt { display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; border-radius: 12px; border: 1px dashed rgba(37,211,102,.6); color: var(--brand-700); font-weight: 700; font-size: 15px; background: #f3fdf6; }
+  .btns .bt svg { width: 16px; height: 16px; }
+  .pv { width: 380px; flex: none; position: relative; }
+  .pv .phone { transform: scale(.72); transform-origin: top left; left: 0; top: 0; }
+  .rv { display: inline-grid; vertical-align: bottom; }
+  .rv > * { grid-area: 1 / 1; }
+  .rv .v1 { color: #0369a1; font-weight: 700; }
+  .rv .v2 { font-weight: 700; }
+
+  /* Envio em massa */
+  .hub { position: absolute; left: 230px; top: 330px; width: 300px; height: 300px; border-radius: 50%; display: grid; place-items: center; text-align: center; background: radial-gradient(circle at 50% 40%, rgba(37,211,102,.35), rgba(37,211,102,.08) 60%, transparent 70%); }
+  .hub .core { width: 190px; height: 190px; border-radius: 50%; background: #06190d; border: 2px solid rgba(37,211,102,.6); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 0 60px rgba(37,211,102,.35); }
+  .hub .core svg { width: 46px; height: 46px; color: var(--brand); }
+  .hub .core b { font-size: 16px; font-weight: 800; }
+  .hub .ring { position: absolute; inset: 40px; border-radius: 50%; border: 2px solid rgba(37,211,102,.5); }
+  .api { position: absolute; left: 600px; top: 455px; }
+  .counter { position: absolute; left: 180px; top: 655px; width: 400px; text-align: center; }
+  .counter .n { font-size: 64px; font-weight: 800; letter-spacing: -.04em; color: #fff; }
+  .counter .l { font-size: 20px; color: rgba(255,255,255,.65); font-weight: 600; }
+  .grid { position: absolute; left: 1010px; top: 230px; width: 730px; height: 470px; }
+  .ct { position: absolute; width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,255,255,.14); display: grid; place-items: center; color: #04150a; }
+  .ct svg { width: 22px; height: 22px; opacity: 0; }
+  .pt { position: absolute; left: 0; top: 0; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 14px rgba(37,211,102,.9); }
+  .ab { position: absolute; left: 180px; top: 790px; width: 1560px; display: flex; gap: 20px; align-items: stretch; }
+  .ab .lead { width: 340px; padding: 22px 24px; border-radius: 22px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); }
+  .ab .lead b { display: block; font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+  .ab .lead span { font-size: 16px; color: rgba(255,255,255,.65); font-weight: 600; }
+  .ab .it { flex: 1; padding: 20px 22px; border-radius: 22px; background: rgba(37,211,102,.08); border: 1px solid rgba(37,211,102,.28); display: flex; gap: 16px; align-items: center; }
+  .ab .it .ic { width: 52px; height: 52px; border-radius: 16px; background: var(--brand); color: #04150a; display: grid; place-items: center; flex: none; }
+  .ab .it .ic svg { width: 26px; height: 26px; }
+  .ab .it b { display: block; font-size: 20px; font-weight: 800; }
+  .ab .it .dm { margin-top: 6px; font-size: 15px; font-weight: 600; color: #bbf7d0; height: 22px; white-space: nowrap; }
+
+  /* Relatório */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; padding: 24px 28px 0; }
+  .kpi { background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 20px 22px; }
+  .kpi .t { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 800; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+  .kpi .t i, .kpi .t svg { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; padding: 7px; }
+  .kpi .n { font-size: 44px; font-weight: 800; letter-spacing: -.04em; margin-top: 12px; }
+  .kpi .pc { font-size: 14px; font-weight: 700; color: var(--muted); margin-top: 2px; }
+  .rep { flex: 1; display: flex; gap: 18px; padding: 18px 28px 28px; }
+  .fun { flex: 1.4; }
+  .fun .row { display: flex; align-items: center; gap: 16px; margin-top: 40px; }
+  .fun .row:first-of-type { margin-top: 30px; }
+  .fun .row .k { width: 120px; font-size: 15px; font-weight: 700; color: #475569; }
+  .fun .row .b { flex: 1; height: 44px; border-radius: 10px; background: #f1f5f9; overflow: hidden; }
+  .fun .row .b b { display: block; height: 100%; border-radius: 10px; width: 0; }
+  .fun .row .v { width: 80px; text-align: right; font-size: 15px; font-weight: 800; }
+  .feed2 { flex: 1; }
+  .rp { display: flex; gap: 12px; align-items: center; padding: 18px 0; border-top: 1px solid #f1f5f9; }
+  .rp:first-of-type { border-top: 0; }
+  .rp .tx { flex: 1; }
+  .rp .tx b { font-size: 15px; }
+  .rp .tx div { font-size: 14px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+  .rp .tm { font-size: 12.5px; color: var(--muted-2); font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="grid-bg"></div>
+
+  <div class="scene title-scene" id="s-hook">
+    <div class="pill"><i data-ic="zap"></i> Gera venda na hora</div>
+    <div class="headline">Disparos em massa com <span class="hl">API oficial</span>, sem bloqueio</div>
+    <div class="sub">Toda empresa tem uma base de contatos parada que não recebe oferta.</div>
+  </div>
+
+  <!-- Importação + template (mesma janela) -->
+  <div class="scene" id="s-wz">
+    <div class="tcap cap" id="c1"><div class="num">1</div><div class="tx">Importe sua lista em CSV ou Excel<small>Os números são verificados antes do envio: só vai para quem tem WhatsApp.</small></div></div>
+    <div class="tcap cap" id="c2"><div class="num">2</div><div class="tx">Mensagens com botões, imagens e variáveis<small>{nome}, {empresa} e {cidade} preenchidos para cada contato.</small></div></div>
+    <div class="app" id="app1">
+      <div class="sb">
+        <div class="logo"><i data-ic="whatsapp"></i></div>
+        <div class="it"><i data-ic="chart"></i></div><div class="it"><i data-ic="chat"></i></div><div class="it"><i data-ic="bot"></i></div><div class="it"><i data-ic="kanban"></i></div><div class="it"><i data-ic="qr"></i></div>
+        <div class="it on"><i data-ic="send"></i></div><div class="it"><i data-ic="contacts"></i></div>
+      </div>
+      <div class="main">
+        <div class="wz-top"><div><h2>Nova Campanha</h2><div class="bc">PASSO A PASSO</div></div><div class="et" id="etapa">Etapa 1 de 3</div></div>
+        <div class="stepper">
+          <div class="st" id="st1"><div class="c">1</div><div class="n">DESTINO</div><div class="ln"><b id="ln1"></b></div></div>
+          <div class="st" id="st2"><div class="c">2</div><div class="n">TEMPLATE</div><div class="ln"><b id="ln2"></b></div></div>
+          <div class="st" id="st3"><div class="c">3</div><div class="n">AGENDAMENTO</div></div>
+        </div>
+
+        <div class="panel" id="p1">
+          <div class="card" style="padding:24px 26px">
+            <div style="font-size:21px;font-weight:800">Para quem vamos enviar?</div>
+            <div style="font-size:15px;color:var(--muted);margin-top:4px">Importe uma planilha ou escolha etiquetas e etapas do CRM.</div>
+            <div class="up-card" style="margin-top:20px">
+              <div class="drop" id="drop"><div class="ico"><i data-ic="upload"></i></div><b>Arraste sua planilha</b>CSV ou Excel (.xlsx)</div>
+              <div class="tbl" id="tbl">
+                <div class="hd"><span>Nome</span><span>Telefone</span><span>Empresa</span><span>Cidade</span><span></span></div>
+                <div class="rw"><span>Mariana Costa</span><span>(11) 9 8•••-4821</span><span>Studio MC</span><span>São Paulo</span><span class="ok chip g"><i data-ic="check"></i> Válido</span></div>
+                <div class="rw"><span>Rafael Souza</span><span>(21) 9 9•••-1037</span><span>RS Motos</span><span>Rio de Janeiro</span><span class="ok chip g"><i data-ic="check"></i> Válido</span></div>
+                <div class="rw"><span>Juliana Prado</span><span>(31) 9 8•••-5512</span><span>Prado Doces</span><span>Belo Horizonte</span><span class="ok chip g"><i data-ic="check"></i> Válido</span></div>
+                <div class="rw"><span>Carlos Lima</span><span>(41) 3 3•••-0090</span><span>Lima Obras</span><span>Curitiba</span><span class="no chip r"><i data-ic="x"></i> Sem WhatsApp</span></div>
+              </div>
+            </div>
+            <div class="tot">
+              <div class="big"><span id="nct">0</span><small>contatos</small></div>
+              <div class="ver">
+                <div class="lb"><span id="vlb">Verificando números…</span><span><span class="g"><span id="nval">0</span> válidos</span> · <span class="r"><span id="ninv">0</span> inválidos</span></span></div>
+                <div class="bar"><b id="vbar"></b></div>
+              </div>
+            </div>
+          </div>
+          <div class="file" id="file"><div class="fi"><i data-ic="sheet"></i></div><div>clientes-2026.csv<small>12.480 linhas</small></div></div>
+        </div>
+
+        <div class="panel" id="p2">
+          <div class="tp">
+            <div class="card ed">
+              <div style="display:flex;align-items:center;gap:10px"><div style="font-size:21px;font-weight:800">Mensagem</div><span class="chip g" style="margin-left:auto"><i data-ic="shield"></i> Template aprovado</span></div>
+              <div class="head" id="hd"><div class="k">LOJA AURORA</div><div class="n">20% OFF hoje</div><div class="tg"><i data-ic="image"></i> Imagem</div></div>
+              <div class="txt" id="txt"><span id="s1"></span><span class="var" id="v1">{nome}</span><span id="s2"></span><span class="var" id="v2">{empresa}</span><span id="s3"></span><span class="var" id="v3">{cidade}</span><span id="s4"></span></div>
+              <div class="vars"><span class="l">Variáveis:</span><span class="var" id="pv1">{nome}</span><span class="var" id="pv2">{empresa}</span><span class="var" id="pv3">{cidade}</span><span class="var" style="opacity:.6">{telefone}</span></div>
+              <div class="btns"><div class="bt" id="b1"><i data-ic="reply"></i> Quero aproveitar</div><div class="bt" id="b2"><i data-ic="reply"></i> Ver catálogo</div></div>
+            </div>
+            <div class="pv">
+              <div class="lbl" style="color:var(--muted);margin-bottom:6px">Pré-visualização</div>
+              <div class="phone" id="ph">
+                <div class="screen">
+                  <div class="island"></div>
+                  <div class="status"><span>10:02</span><span class="ic">5G <i></i></span></div>
+                  <div class="wa-head"><i data-ic="arrowLeft"></i><div class="av" style="background:#fff;color:var(--wa-header)">LA</div><div><div class="nm">Loja Aurora</div><div class="st">Conta comercial</div></div></div>
+                  <div class="feed" style="padding:14px 12px">
+                    <div class="qr-wrap" id="pmsg">
+                      <div class="bubble in media" style="border-bottom-left-radius:4px;border-bottom-right-radius:4px">
+                        <div class="img" style="height:150px;background:linear-gradient(135deg,#0f3d26,#127a48 55%,#25d366);color:#fff;padding:14px"><div style="font-size:11px;font-weight:800;letter-spacing:.14em;opacity:.85">LOJA AURORA</div><div style="font-size:28px;font-weight:800;letter-spacing:-.03em;margin-top:4px">20% OFF hoje</div></div>
+                        <div class="cap-tx">Oi <span class="rv"><span class="v1" id="r1a">{nome}</span><span class="v2" id="r1b">Mariana</span></span>! A <span class="rv"><span class="v1" id="r2a">{empresa}</span><span class="v2" id="r2b">Loja Aurora</span></span> liberou 20% OFF para clientes de <span class="rv"><span class="v1" id="r3a">{cidade}</span><span class="v2" id="r3b">São Paulo</span></span>. Válido só hoje.<span class="meta">10:02</span></div>
+                      </div>
+                      <div class="qr-btn" id="q1"><i data-ic="reply"></i> Quero aproveitar</div>
+                      <div class="qr-btn" id="q2"><i data-ic="reply"></i> Ver catálogo</div>
+                    </div>
+                  </div>
+                  <div class="inbar"><div class="field"><i data-ic="smile"></i>Mensagem</div><div class="mic"><i data-ic="mic"></i></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Envio em massa -->
+  <div class="scene" id="s-send">
+    <div class="tcap cap" id="c3"><div class="num">3</div><div class="tx">Milhares de contatos pela API oficial da Meta<small>Sem risco de banimento. Ou por QR code, com anti-bloqueio em 3 camadas.</small></div></div>
+    <div class="hub" id="hub"><div class="ring" id="ring"></div><div class="core"><i data-ic="send"></i><b>Reativação de clientes</b></div></div>
+    <div class="pill api" id="api"><i data-ic="shield"></i> API oficial</div>
+    <div class="counter" id="cnt"><div class="n" id="nsent">0</div><div class="l">mensagens enviadas</div></div>
+    <div class="grid" id="grid"></div>
+    <div class="ab" id="ab">
+      <div class="lead" id="ab0"><b>Também por QR code</b><span>com anti-bloqueio em 3 camadas</span></div>
+      <div class="it" id="ab1"><div class="ic"><i data-ic="swap"></i></div><div><b>Alterna números</b><div class="dm" id="dm1"></div></div></div>
+      <div class="it" id="ab2"><div class="ic"><i data-ic="shuffle"></i></div><div><b>Varia as mensagens</b><div class="dm" id="dm2"></div></div></div>
+      <div class="it" id="ab3"><div class="ic"><i data-ic="timer"></i></div><div><b>Intervalos humanos</b><div class="dm" id="dm3"></div></div></div>
+    </div>
+  </div>
+
+  <!-- Relatório -->
+  <div class="scene" id="s-rep">
+    <div class="tcap cap" id="c4"><div class="num">4</div><div class="tx">Relatório de cada disparo<small>Enviadas, entregues, lidas e respondidas, em tempo real.</small></div></div>
+    <div class="app" id="app2">
+      <div class="sb">
+        <div class="logo"><i data-ic="whatsapp"></i></div>
+        <div class="it"><i data-ic="chart"></i></div><div class="it"><i data-ic="chat"></i></div><div class="it"><i data-ic="bot"></i></div><div class="it"><i data-ic="kanban"></i></div><div class="it"><i data-ic="qr"></i></div>
+        <div class="it on"><i data-ic="send"></i></div><div class="it"><i data-ic="contacts"></i></div>
+      </div>
+      <div class="main">
+        <div class="topbar"><div><div class="bc">Disparos › Detalhes da Campanha</div><h2>Reativação de clientes</h2></div><div class="right"><div class="live"><i id="ldot"></i> <span id="lst">Enviando</span></div></div></div>
+        <div class="kpis">
+          <div class="kpi" id="k1"><div class="t"><i data-ic="send" style="background:#f1f5f9;color:#475569"></i> Enviadas</div><div class="n" id="kn1">0</div><div class="pc">de 11.932 contatos válidos</div></div>
+          <div class="kpi" id="k2"><div class="t"><i data-ic="checks" style="background:#dbeafe;color:#1d4ed8"></i> Entregues</div><div class="n" id="kn2">0</div><div class="pc">97,6% das enviadas</div></div>
+          <div class="kpi" id="k3"><div class="t"><i data-ic="eye" style="background:#ede9fe;color:#6d28d9"></i> Lidas</div><div class="n" id="kn3">0</div><div class="pc">74,7% das enviadas</div></div>
+          <div class="kpi" id="k4"><div class="t"><i data-ic="reply" style="background:#dcfce7;color:#15803d"></i> Respondidas</div><div class="n" id="kn4">0</div><div class="pc">10,7% das enviadas</div></div>
+        </div>
+        <div class="rep">
+          <div class="card fun">
+            <div style="font-size:18px;font-weight:800">Progresso do disparo</div>
+            <div class="row"><div class="k">Enviadas</div><div class="b"><b id="fb1" style="background:#94a3b8"></b></div><div class="v">100%</div></div>
+            <div class="row"><div class="k">Entregues</div><div class="b"><b id="fb2" style="background:#3b82f6"></b></div><div class="v">97,6%</div></div>
+            <div class="row"><div class="k">Lidas</div><div class="b"><b id="fb3" style="background:#8b5cf6"></b></div><div class="v">74,7%</div></div>
+            <div class="row"><div class="k">Respondidas</div><div class="b"><b id="fb4" style="background:#25d366"></b></div><div class="v">10,7%</div></div>
+          </div>
+          <div class="card feed2">
+            <div style="font-size:18px;font-weight:800;margin-bottom:6px">Respostas chegando</div>
+            <div class="rp" id="r1"><div class="av" style="background:#f59e0b">MC</div><div class="tx"><b>Mariana Costa</b><div>Quero aproveitar</div></div><div class="tm">agora</div></div>
+            <div class="rp" id="r2"><div class="av" style="background:#3b82f6">RS</div><div class="tx"><b>Rafael Souza</b><div>Ver catálogo</div></div><div class="tm">agora</div></div>
+            <div class="rp" id="r3"><div class="av" style="background:#8b5cf6">JP</div><div class="tx"><b>Juliana Prado</b><div>Tem para entrega hoje?</div></div><div class="tm">1 min</div></div>
+            <div class="rp" id="r4"><div class="av" style="background:#ec4899">BL</div><div class="tx"><b>Bruno Lima</b><div>Quero aproveitar</div></div><div class="tm">1 min</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scene title-scene" id="s-end">
+    <div class="pill"><i data-ic="zap"></i> Disparos em massa</div>
+    <div class="headline">Sua base parada <span class="hl">vira venda.</span></div>
+    <div class="pills">
+      <div class="pill light"><i data-ic="shield"></i> API oficial da Meta</div>
+      <div class="pill light"><i data-ic="grid"></i> Botões, imagens e variáveis</div>
+      <div class="pill light"><i data-ic="chart"></i> Relatório de cada disparo</div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/motion-lib.js"></script>
+<script>
+const { clamp, lerp, prog, eOut, eIn, eInOut, eBack, win, set, pop, type, offsetIn, scene, titleScene, count } = M;
+window.DURATION = 27;
+const $ = (id) => document.getElementById(id);
+
+const T = {
+  hookOut: 2.7,
+  wzIn: 2.95, fileIn: 3.5, drop: 4.3, rows: 4.6, verify: 5.6, verifyEnd: 7.3, next1: 7.9,
+  tpl: 8.2, s1: 8.6, v1: 8.95, s2: 9.05, v2: 9.4, s3: 9.5, v3: 10.55, s4: 10.65, btn1: 11.15, btn2: 11.35, resolve: 11.8, wzOut: 13.0,
+  send: 13.25, burst: 13.9, burstEnd: 17.2, abIn: 15.5, sendOut: 18.45,
+  rep: 18.6, kpi: 19.1, kpiEnd: 21.0, replies: 20.3, repOut: 23.55,
+  end: 23.8,
+};
+window.TIMELINE = T;
+
+const TX = { s1: 'Oi ', s2: '! A ', s3: ' liberou 20% OFF para clientes de ', s4: '. Válido só hoje.' };
+const N = { total: 12480, valid: 11932, invalid: 548, sent: 11932, deliv: 11640, read: 8915, resp: 1274 };
+let fileFrom, fileTo, cells = [], parts = [];
+
+function init() {
+  M.hydrateIcons();
+  M.prepTitles();
+  ['s1', 's2', 's3', 's4'].forEach((k) => { $(k).textContent = TX[k]; });
+  // arquivo: de fora do card até o centro da área de upload
+  const p1 = $('p1'), d = offsetIn($('drop'), p1), f = $('file');
+  fileTo = { x: d.x + d.w / 2 - f.offsetWidth / 2, y: d.y + d.h / 2 - f.offsetHeight / 2 };
+  fileFrom = { x: fileTo.x - 420, y: fileTo.y + 260 };
+  // grade de contatos + partículas
+  const g = $('grid'), cols = 13, rows = 8;
+  let k = 0;
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const el = document.createElement('div'); el.className = 'ct'; el.innerHTML = M.icon('check', '', 3);
+    const x = c * 56 + (r % 2) * 28, y = r * 58;
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    g.appendChild(el);
+    // ordem pseudoaleatória estável
+    const ord = (k * 37) % (rows * cols);
+    cells.push({ el, x: 1010 + x + 22, y: 230 + y + 22, t: T.burst + (ord / (rows * cols)) * (T.burstEnd - T.burst - 0.6) });
+    k++;
+  }
+  cells.forEach((c) => {
+    const p = document.createElement('div'); p.className = 'pt'; $('s-send').appendChild(p);
+    parts.push({ el: p, c });
+  });
+}
+
+function stepState(st, state) { // 0 futuro, 1 atual, 2 feito
+  const c = st.querySelector('.c'), n = st.querySelector('.n');
+  c.style.background = state ? 'var(--brand)' : '#fff';
+  c.style.borderColor = state ? 'var(--brand)' : 'var(--line)';
+  c.style.color = state ? '#fff' : 'var(--muted-2)';
+  c.style.boxShadow = state === 1 ? '0 0 0 6px rgba(37,211,102,.18)' : 'none';
+  n.style.color = state ? 'var(--ink)' : 'var(--muted-2)';
+  const num = st.id.slice(2);
+  const html = state === 2 ? M.icon('check', '', 3) : num;
+  if (c.__h !== html) { c.innerHTML = html; c.__h = html; }
+}
+
+function renderWz(t) {
+  if (!scene($('s-wz'), t, T.wzIn, T.wzOut)) return;
+  const app = $('app1');
+  const a = eOut(prog(t, T.wzIn, T.wzIn + 0.7));
+  app.style.transform = `translateY(${(1 - a) * 120}px) scale(${lerp(0.92, 1, a)}) perspective(1600px) rotateX(${(1 - a) * 10}deg)`;
+  pop($('c1'), t, T.wzIn + 0.15, { tOut: T.tpl - 0.25, from: 0.96, y: 16 });
+  pop($('c2'), t, T.tpl, { from: 0.96, y: 16 });
+
+  const s2 = t >= T.tpl;
+  stepState($('st1'), s2 ? 2 : 1); stepState($('st2'), s2 ? 1 : 0); stepState($('st3'), 0);
+  $('ln1').style.width = eInOut(prog(t, T.next1, T.tpl + 0.2)) * 100 + '%';
+  $('etapa').textContent = s2 ? 'Etapa 2 de 3' : 'Etapa 1 de 3';
+  const sw = eInOut(prog(t, T.tpl - 0.1, T.tpl + 0.45));
+  set($('p1'), 1 - sw, `translateX(${-60 * sw}px)`);
+  set($('p2'), sw, `translateX(${60 * (1 - sw)}px)`);
+
+  // arquivo arrastado
+  const fp = eInOut(prog(t, T.fileIn, T.drop));
+  const lift = Math.sin(prog(t, T.fileIn, T.drop) * Math.PI);
+  const f = $('file');
+  const fo = eOut(prog(t, T.fileIn, T.fileIn + 0.2)) * (1 - eIn(prog(t, T.drop, T.drop + 0.25)));
+  f.style.left = lerp(fileFrom.x, fileTo.x, fp) + 'px'; f.style.top = (lerp(fileFrom.y, fileTo.y, fp) - lift * 60) + 'px';
+  f.style.opacity = fo; f.style.transform = `rotate(${(1 - fp) * -8}deg) scale(${1 + lift * 0.05 - prog(t, T.drop, T.drop + 0.25) * 0.4})`;
+  const over = t > T.drop - 0.5 && t < T.drop + 0.4;
+  $('drop').style.borderColor = over ? 'var(--brand)' : '';
+  $('drop').style.background = over ? '#f0fdf4' : '';
+  // tabela e contagem
+  $('tbl').querySelectorAll('.rw').forEach((r, i) => {
+    const p = eOut(prog(t, T.rows + i * 0.12, T.rows + i * 0.12 + 0.35));
+    r.style.opacity = p; r.style.transform = `translateY(${(1 - p) * 14}px)`;
+    const st = r.lastElementChild, sp = eBack(prog(t, T.verify + 0.3 + i * 0.3, T.verify + 0.6 + i * 0.3));
+    st.style.opacity = clamp(sp); st.style.transform = `scale(${lerp(0.5, 1, sp)})`;
+  });
+  count($('nct'), 0, N.total, t, T.rows, T.rows + 1.0);
+  const vp = prog(t, T.verify, T.verifyEnd);
+  $('vbar').style.width = vp * 100 + '%';
+  count($('nval'), 0, N.valid, t, T.verify, T.verifyEnd);
+  count($('ninv'), 0, N.invalid, t, T.verify, T.verifyEnd);
+  $('vlb').textContent = vp >= 1 ? 'Verificação concluída' : 'Verificando números…';
+
+  // template: texto com variáveis
+  const segs = [['s1', T.s1], ['s2', T.s2], ['s3', T.s3], ['s4', T.s4]];
+  let act = -1; segs.forEach(([, t0], i) => { if (t >= t0) act = i; });
+  segs.forEach(([k, t0], i) => type($(k), TX[k], t, t0, 48, { caret: i === act && t < T.resolve, keepCaret: i === act }));
+  [['v1', 'pv1'], ['v2', 'pv2'], ['v3', 'pv3']].forEach(([v, pv]) => {
+    const t0 = T[v], p = eBack(prog(t, t0, t0 + 0.3));
+    $(v).style.display = t >= t0 ? '' : 'none';
+    $(v).style.transform = `scale(${lerp(0.4, 1, p)})`;
+    const hl = Math.sin(prog(t, t0 - 0.25, t0 + 0.2) * Math.PI);
+    $(pv).style.boxShadow = `0 0 0 ${(hl * 5).toFixed(1)}px rgba(56,189,248,.35)`;
+    $(pv).style.transform = `scale(${1 - hl * 0.08})`;
+  });
+  ['b1', 'b2'].forEach((b, i) => pop($(b), t, T['btn' + (i + 1)], { from: 0.6, y: 8 }));
+  // pré-visualização: as variáveis viram os dados do contato
+  const ph = $('ph');
+  pop(ph, t, T.tpl + 0.2, { from: 0.9, y: 30, extra: 'scale(.72)' });
+  ph.style.transformOrigin = 'top left';
+  [1, 2, 3].forEach((i) => {
+    const r = eInOut(prog(t, T.resolve + (i - 1) * 0.15, T.resolve + (i - 1) * 0.15 + 0.35));
+    $('r' + i + 'a').style.opacity = 1 - r; $('r' + i + 'a').style.transform = `translateY(${-r * 10}px)`;
+    $('r' + i + 'b').style.opacity = r; $('r' + i + 'b').style.transform = `translateY(${(1 - r) * 10}px)`;
+  });
+  ['q1', 'q2'].forEach((q, i) => { $(q).style.opacity = t >= T['btn' + (i + 1)] ? 1 : 0.15; });
+}
+
+function renderSend(t) {
+  if (!scene($('s-send'), t, T.send, T.sendOut)) return;
+  pop($('c3'), t, T.send + 0.1, { from: 0.96, y: 16 });
+  pop($('hub'), t, T.send + 0.15, { from: 0.5, y: 0 });
+  pop($('api'), t, T.send + 0.45, { from: 0.7, y: 0 });
+  pop($('cnt'), t, T.send + 0.5, { from: 0.9, y: 20 });
+  const ring = $('ring');
+  const rp = ((t - T.burst) * 1.6) % 1;
+  ring.style.transform = `scale(${t > T.burst ? 1 + rp * 0.9 : 1})`;
+  ring.style.opacity = t > T.burst && t < T.burstEnd + 0.4 ? (1 - rp) * 0.8 : 0;
+  cells.forEach((c, i) => {
+    const show = eOut(prog(t, T.send + 0.3 + (i % 13) * 0.02, T.send + 0.6 + (i % 13) * 0.02));
+    const hit = eBack(prog(t, c.t + 0.45, c.t + 0.75));
+    c.el.style.opacity = show;
+    c.el.style.background = t >= c.t + 0.45 ? 'var(--brand)' : '';
+    c.el.style.borderColor = t >= c.t + 0.45 ? 'var(--brand)' : '';
+    c.el.style.transform = `scale(${t >= c.t + 0.45 ? lerp(0.6, 1, hit) : 1})`;
+    c.el.firstChild.style.opacity = t >= c.t + 0.45 ? 1 : 0;
+  });
+  const hx = 380, hy = 480;
+  parts.forEach(({ el, c }) => {
+    const p = prog(t, c.t, c.t + 0.45);
+    const on = p > 0 && p < 1;
+    const e = eInOut(p);
+    el.style.opacity = on ? 1 : 0;
+    el.style.transform = `translate(${lerp(hx, c.x, e)}px, ${lerp(hy, c.y, e) - Math.sin(p * Math.PI) * 120}px)`;
+  });
+  count($('nsent'), 0, N.sent, t, T.burst, T.burstEnd + 0.4);
+  // anti-bloqueio
+  pop($('ab0'), t, T.abIn, { from: 0.95, y: 30 });
+  ['ab1', 'ab2', 'ab3'].forEach((id, i) => pop($(id), t, T.abIn + 0.2 + i * 0.15, { from: 0.9, y: 30 }));
+  const k = Math.floor(Math.max(0, t - T.abIn) * 1.6);
+  const nums = ['Número 1 → 2 → 3', 'Número 2 → 3 → 1', 'Número 3 → 1 → 2'];
+  const vars = ['“Oi, Mariana!”', '“Olá, Mariana, tudo bem?”', '“Mariana, boa tarde!”'];
+  const secs = [23, 41, 17, 35, 28];
+  const setTx = (el, s) => { if (el.textContent !== s) el.textContent = s; };
+  setTx($('dm1'), nums[k % 3]);
+  setTx($('dm2'), vars[k % 3]);
+  setTx($('dm3'), `próximo envio em ${secs[k % 5] - Math.floor(((t - T.abIn) * 1.6 % 1) * 5)}s`);
+}
+
+function renderRep(t) {
+  if (!scene($('s-rep'), t, T.rep, T.repOut)) return;
+  const app = $('app2');
+  const a = eOut(prog(t, T.rep, T.rep + 0.7));
+  app.style.transform = `translateY(${(1 - a) * 120}px) scale(${lerp(0.92, 1, a)})`;
+  pop($('c4'), t, T.rep + 0.15, { from: 0.96, y: 16 });
+  const vals = [N.sent, N.deliv, N.read, N.resp];
+  vals.forEach((v, i) => {
+    pop($('k' + (i + 1)), t, T.rep + 0.4 + i * 0.1, { from: 0.9, y: 20 });
+    count($('kn' + (i + 1)), 0, v, t, T.kpi + i * 0.2, T.kpiEnd + i * 0.2);
+    $('fb' + (i + 1)).style.width = (v / N.sent) * 100 * eOut(prog(t, T.kpi + i * 0.2, T.kpiEnd + i * 0.2)) + '%';
+  });
+  const done = t >= T.kpiEnd + 0.6;
+  $('lst').textContent = done ? 'Concluído' : 'Enviando';
+  $('ldot').style.opacity = done ? 1 : 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 8));
+  ['r1', 'r2', 'r3', 'r4'].forEach((id, i) => pop($(id), t, T.replies + i * 0.45, { from: 0.9, x: 40, y: 0 }));
+}
+
+window.render = (t) => {
+  titleScene($('s-hook'), t, 0.05, T.hookOut);
+  renderWz(t);
+  renderSend(t);
+  renderRep(t);
+  titleScene($('s-end'), t, T.end);
+  document.querySelector('.grid-bg').style.transform = `translate(${Math.sin(t * 0.3) * 30}px, ${t * -6}px)`;
+};
+window.__ready = document.fonts.ready.then(() => { init(); window.render(0); });
+</script>
+</body>
+</html>
