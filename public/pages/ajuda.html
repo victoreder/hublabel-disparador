@@ -1,0 +1,4075 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ajuda - __HUB_NOME__</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="__HUB_FAVICON_URL__">
+    <link rel="shortcut icon" type="image/png" href="__HUB_FAVICON_URL__">
+    <link rel="apple-touch-icon" href="__HUB_FAVICON_URL__">
+    <!-- Google Fonts: Plus Jakarta Sans (igual dashboard.html) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+    <style>
+        .main-content,
+        .admin-main-content,
+        .main-content-wrapper {
+            max-width: none !important;
+            width: 100% !important;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --brand-50: rgba(__HUB_COR_RGB__, 0.1);
+            --brand-500: #__HUB_COR__;
+            --brand-600: color-mix(in srgb, var(--brand-500) 82%, #000000);
+            --brand-sidebar-bg: color-mix(in srgb, var(--brand-500) 10%, #000000);
+            --brand-sidebar-active: color-mix(in srgb, var(--brand-500) 18%, #000000);
+            --brand-sidebar-hover: color-mix(in srgb, var(--brand-500) 16%, var(--brand-sidebar-bg));
+            --brand-sidebar-divider: color-mix(in srgb, var(--brand-500) 20%, var(--brand-sidebar-bg));
+            --brand-sidebar-muted: color-mix(in srgb, var(--brand-500) 45%, #ffffff);
+            --surface: #fbfcfd;
+            --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.03);
+            --shadow-softer: 0 4px 20px rgba(0, 0, 0, 0.02);
+        }
+
+        body {
+            background: #f4f4f5;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: #18181b;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            transition: background 0.3s ease, color 0.3s ease;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body.dark-mode {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            color: #e2e8f0;
+        }
+
+        body.dark-mode .main-content {
+            background: transparent;
+        }
+
+        body.dark-mode .header-info h1 {
+            color: #f8fafc;
+        }
+
+        body.dark-mode .header-info p {
+            color: #94a3b8;
+        }
+
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar — igual dashboard.html */
+        .sidebar {
+            width: 72px;
+            overflow: hidden;
+            background: #1A202C;
+            border-right: none;
+            transition: width 0.3s ease;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .sidebar.sidebar-expanded {
+            width: 250px;
+            overflow: visible;
+            transition-duration: 0s;
+        }
+
+        .sidebar-header {
+            padding: 24px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            min-height: 96px;
+        }
+
+        .sidebar-logo-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 40px;
+            min-width: 32px;
+            flex-shrink: 0;
+            transition: width 0.3s ease, min-width 0.3s ease;
+        }
+
+        .sidebar:hover .sidebar-logo-link,
+        .sidebar.sidebar-expanded .sidebar-logo-link,
+        .sidebar.mobile-open .sidebar-logo-link {
+            width: 100%;
+            min-width: 180px;
+            justify-content: center;
+            padding: 0 16px;
+        }
+
+        .sidebar-logo-img {
+            width: 32px;
+            height: 32px;
+            min-width: 32px;
+            object-fit: contain;
+            transition: width 0.3s ease, height 0.3s ease, opacity 0.2s ease;
+        }
+
+        .sidebar-logo-full {
+            display: none;
+        }
+
+        .sidebar:hover .sidebar-logo-favicon,
+        .sidebar.sidebar-expanded .sidebar-logo-favicon,
+        .sidebar.mobile-open .sidebar-logo-favicon {
+            display: none;
+        }
+
+        .sidebar:hover .sidebar-logo-full,
+        .sidebar.sidebar-expanded .sidebar-logo-full,
+        .sidebar.mobile-open .sidebar-logo-full {
+            display: block;
+            width: auto;
+            max-width: 100%;
+            height: 45px;
+            min-width: 0;
+        }
+
+        .sidebar-menu {
+            padding: 4px 0;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .sidebar-nav-divider {
+            height: 1px;
+            background: rgba(255,255,255,0.1);
+            margin: 4px 16px;
+            flex-shrink: 0;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 0;
+            margin: 2px 10px;
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            position: relative;
+            white-space: nowrap;
+            border-radius: 16px;
+            text-align: left;
+        }
+
+        .sidebar:hover .menu-item,
+        .sidebar.sidebar-expanded .menu-item,
+        .sidebar.mobile-open .menu-item {
+            justify-content: flex-start;
+            padding: 10px 12px;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+        }
+
+        .menu-item.active {
+            background: #2D3748;
+            color: white;
+            border-right: none;
+        }
+        .menu-item-admin { font-weight: 700 !important; }
+        .menu-badge-admin {
+            display: none;
+            margin-left: auto;
+            font-size: 0.6rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #__HUB_COR__;
+            color: #fff;
+        }
+        .sidebar:hover .menu-badge-admin,
+        .sidebar.sidebar-expanded .menu-badge-admin,
+        .sidebar.mobile-open .menu-badge-admin { display: inline-block; }
+
+        .menu-icon {
+            width: 25px;
+            text-align: center;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .menu-icon svg {
+            width: 16px;
+            height: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .menu-item:hover .menu-icon svg {
+            transform: scale(1.1);
+        }
+
+
+        .menu-icon .material-symbols-rounded {
+            font-family: 'Material Symbols Rounded', sans-serif;
+            font-size: 16px;
+            line-height: 1;
+            font-weight: normal;
+            font-style: normal;
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-feature-settings: 'liga';
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .menu-item:hover .menu-icon .material-symbols-rounded {
+            transform: scale(1.1);
+        }
+
+        .menu-text {
+            margin-left: 0;
+            opacity: 0;
+            width: 0;
+            overflow: hidden;
+            flex: 0;
+            transition: opacity 0.3s ease, margin-left 0.3s ease, width 0.3s ease;
+        }
+
+        .sidebar:hover .menu-text,
+        .sidebar.sidebar-expanded .menu-text,
+        .sidebar.mobile-open .menu-text {
+            margin-left: 16px;
+            opacity: 1;
+            width: auto;
+            flex: 1;
+        }
+
+        .menu-badge-novidade {
+            display: none;
+            margin-left: auto;
+            font-size: 0.6rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #__HUB_COR__;
+            color: #fff;
+        }
+
+        .sidebar:hover .menu-badge-novidade,
+        .sidebar.sidebar-expanded .menu-badge-novidade,
+        .sidebar.mobile-open .menu-badge-novidade {
+            display: inline-block;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 10px 0;
+            flex-shrink: 0;
+        }
+
+        .version-text {
+            color: #666;
+            font-size: 0.6rem;
+            text-align: center;
+            padding: 8px 20px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .sidebar:hover .version-text,
+        .sidebar.sidebar-expanded .version-text {
+            opacity: 1;
+        }
+
+        .logout-item {
+            color: #ff6b6b !important;
+        }
+
+        .logout-item:hover {
+            background: rgba(255, 107, 107, 0.1) !important;
+            color: #ff6b6b !important;
+        }
+
+        @media (max-height: 800px) {
+            .sidebar-header { padding: 12px 20px; }
+            .sidebar-logo-favicon { width: 40px; height: 40px; min-width: 40px; }
+            .sidebar-logo-full { height: 40px; }
+            .sidebar-menu { padding: 12px 0; }
+            .menu-item { padding: 10px 20px; }
+            .menu-icon { width: 26px; }
+            .menu-icon svg { width: 18px; height: 18px; }
+            .menu-icon .material-symbols-rounded { font-size: 18px; }
+            .version-text { padding: 6px 20px; font-size: 0.55rem; }
+            .sidebar-footer { padding: 8px 0; }
+        }
+        @media (max-height: 700px) {
+            .sidebar-header { padding: 8px 20px; }
+            .sidebar-logo-favicon { width: 36px; height: 36px; min-width: 36px; }
+            .sidebar-logo-full { height: 36px; }
+            .sidebar-menu { padding: 8px 0; }
+            .menu-item { padding: 8px 20px; }
+            .menu-icon { width: 22px; }
+            .menu-icon svg { width: 16px; height: 16px; }
+            .menu-icon .material-symbols-rounded { font-size: 16px; }
+            .menu-text { font-size: 0.85rem; }
+            .version-text { padding: 4px 20px; font-size: 0.5rem; }
+            .sidebar-footer { padding: 6px 0; }
+            .theme-switch { width: 38px; height: 20px; }
+        }
+        @media (max-height: 600px) {
+            .sidebar-header { padding: 6px 20px; }
+            .sidebar-logo-favicon { width: 32px; height: 32px; min-width: 32px; }
+            .sidebar-logo-full { height: 32px; }
+            .sidebar-menu { padding: 4px 0; }
+            .menu-item { padding: 6px 20px; }
+            .menu-icon { width: 20px; }
+            .menu-icon svg { width: 14px; height: 14px; }
+            .menu-icon .material-symbols-rounded { font-size: 14px; }
+            .menu-text { font-size: 0.8rem; margin-left: 10px; }
+            .version-text { padding: 2px 20px; font-size: 0.45rem; }
+            .sidebar-footer { padding: 4px 0; }
+            .theme-switch { width: 34px; height: 18px; }
+        }
+
+        .theme-toggle-item {
+            cursor: default;
+        }
+
+        .theme-toggle-item:hover {
+            background: transparent !important;
+            color: rgba(255, 255, 255, 0.72) !important;
+        }
+
+        .theme-switch {
+            display: none;
+            position: relative;
+            width: 44px;
+            height: 24px;
+            margin-left: auto;
+        }
+
+        .sidebar:hover .theme-switch,
+        .sidebar.sidebar-expanded .theme-switch,
+        .sidebar.mobile-open .theme-switch {
+            display: inline-block;
+        }
+
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .theme-switch .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #444;
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+
+        .theme-switch .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .theme-switch input:checked + .slider {
+            background-color: #__HUB_COR__;
+        }
+
+        .theme-switch input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Main content — padrao dashboard */
+        .main-content {
+            flex: 1;
+            padding: 32px 48px;
+            overflow-x: auto;
+            margin-left: 72px;
+            background: #f4f4f5;
+            min-height: 100vh;
+            max-width: 1400px;
+            position: relative;
+        }
+
+        .header {
+            margin-bottom: 48px;
+            display: flex;
+            flex-wrap: wrap;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        @media (min-width: 1024px) {
+            .header { flex-direction: row; align-items: flex-end; justify-content: space-between; }
+        }
+
+        .header-info {
+            text-align: left;
+        }
+
+        .header-info h1 {
+            font-size: 2.25rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            margin-bottom: 8px;
+            color: #18181b;
+        }
+
+        .header-info p {
+            color: #64748b;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .btn-refresh {
+            padding: 12px 20px;
+            background: #__HUB_COR__;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+
+        .btn-refresh:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(__HUB_COR_RGB__, 0.3);
+        }
+
+        .btn-refresh:disabled {
+            background: #444;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Loading state - blocos piscando (shimmer igual outras paginas) */
+        @keyframes skeleton-shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .loading-container {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            min-height: 400px;
+            overflow: hidden;
+            padding: 0;
+        }
+
+        .loading-skeleton-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .loading-skeleton-table thead th {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px 16px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-weight: 600;
+            color: #fff;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .loading-skeleton-disparo-row td {
+            padding: 20px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            vertical-align: middle;
+        }
+
+        .loading-skeleton-disparo-row .skeleton-cell {
+            height: 14px;
+            border-radius: 6px;
+            background: linear-gradient(90deg, #2a2a2a 0%, #3d3d3d 35%, #2a2a2a 70%, #353535 100%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.8s ease-in-out infinite;
+        }
+
+        .loading-skeleton-disparo-row td:nth-child(1) .skeleton-cell { width: 120px; animation-delay: 0s; }
+        .loading-skeleton-disparo-row td:nth-child(2) .skeleton-cell { width: 90px; animation-delay: 0.1s; }
+        .loading-skeleton-disparo-row td:nth-child(3) .skeleton-cell { width: 50px; animation-delay: 0.2s; }
+        .loading-skeleton-disparo-row td:nth-child(4) .skeleton-cell { width: 50px; animation-delay: 0.3s; }
+        .loading-skeleton-disparo-row td:nth-child(5) .skeleton-cell { width: 100px; height: 8px; animation-delay: 0.4s; }
+        .loading-skeleton-disparo-row td:nth-child(6) .skeleton-cell { width: 80px; height: 24px; border-radius: 20px; animation-delay: 0.5s; }
+        .loading-skeleton-disparo-row td:nth-child(7) .skeleton-cell { width: 40px; height: 32px; border-radius: 8px; animation-delay: 0.6s; }
+
+        body.light-mode .loading-skeleton-disparo-row .skeleton-cell {
+            background: linear-gradient(90deg, #e0e0e0 0%, #f0f0f0 35%, #e0e0e0 70%, #e8e8e8 100%);
+            background-size: 200% 100%;
+        }
+
+        body.light-mode .loading-container {
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .loading-skeleton-table thead th {
+            background: rgba(0, 0, 0, 0.03);
+            color: #__HUB_COR__;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .loading-skeleton-disparo-row td {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        /* Table styles */
+        .table-container {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            overflow: visible;
+            min-height: 400px;
+            position: relative;
+        }
+
+        /* Indicador de scroll horizontal */
+        .scroll-indicator {
+            display: none;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(__HUB_COR_RGB__, 0.1);
+            border: 1px solid rgba(__HUB_COR_RGB__, 0.3);
+            border-radius: 20px;
+            padding: 8px 12px;
+            color: #__HUB_COR__;
+            font-size: 0.75rem;
+            font-weight: 500;
+            z-index: 20;
+            backdrop-filter: blur(10px);
+            animation: pulse 2s infinite;
+            pointer-events: none;
+            gap: 6px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .scroll-indicator svg {
+            animation: bounce 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-3px); }
+            60% { transform: translateY(-2px); }
+        }
+
+
+
+        .disparos-table {
+            width: 100%;
+            border-collapse: collapse;
+            position: relative;
+        }
+
+        .disparos-table th {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .disparos-table td {
+            padding: 20px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            vertical-align: middle;
+        }
+
+        .disparos-table tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .disparos-table tr:last-child td {
+            border-bottom: none;
+            padding-bottom: 30px;
+        }
+
+        /* Pills */
+        .pill {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-block;
+            white-space: nowrap;
+        }
+
+        .pill-individual {
+            background: rgba(__HUB_COR_RGB__, 0.2);
+            color: #__HUB_COR__;
+            border: 1px solid rgba(__HUB_COR_RGB__, 0.3);
+        }
+
+        .pill-grupos {
+            background: rgba(0, 122, 255, 0.2);
+            color: #007aff;
+            border: 1px solid rgba(0, 122, 255, 0.3);
+        }
+
+        .pill-em-andamento {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+
+        .pill-agendado {
+            background: rgba(175, 82, 222, 0.2);
+            color: #af52de;
+            border: 1px solid rgba(175, 82, 222, 0.3);
+        }
+
+        .pill-enviado {
+            background: rgba(__HUB_COR_RGB__, 0.2);
+            color: #__HUB_COR__;
+            border: 1px solid rgba(__HUB_COR_RGB__, 0.3);
+        }
+
+        .pill-finalizado {
+            background: rgba(__HUB_COR_RGB__, 0.2);
+            color: #__HUB_COR__;
+            border: 1px solid rgba(__HUB_COR_RGB__, 0.3);
+        }
+
+        .pill-cancelado {
+            background: rgba(255, 59, 48, 0.2);
+            color: #ff3b30;
+            border: 1px solid rgba(255, 59, 48, 0.3);
+        }
+
+        .pill-pausado {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+
+        /* Progress bar */
+        .progress-container {
+            width: 120px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #__HUB_COR__;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        /* Date formatting */
+        .date-cell {
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+
+        .date-time {
+            display: block;
+            color: #888;
+            font-size: 0.8rem;
+            margin-top: 2px;
+        }
+
+        /* Count formatting */
+        .count-cell {
+            text-align: center;
+            color: #__HUB_COR__;
+            font-weight: 600;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+
+        .empty-icon {
+            margin-bottom: 20px;
+            opacity: 0.5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #ccc;
+        }
+
+        .empty-state p {
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        /* Error/Success messages */
+        .error-message, .success-message {
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .error-message {
+            background: rgba(255, 59, 48, 0.1);
+            border: 1px solid rgba(255, 59, 48, 0.3);
+            color: #ff3b30;
+        }
+
+        .success-message {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #__HUB_COR__;
+        }
+
+        /* Action button */
+        .btn-pausar {
+            padding: 6px 12px;
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 6px;
+            color: #ffc107;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .btn-pausar:hover {
+            background: rgba(255, 193, 7, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn-pausar:disabled {
+            background: #444;
+            color: #888;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-excluir {
+            padding: 6px 12px;
+            background: rgba(255, 59, 48, 0.1);
+            border: 1px solid rgba(255, 59, 48, 0.3);
+            border-radius: 6px;
+            color: #ff3b30;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .btn-excluir:hover {
+            background: rgba(255, 59, 48, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn-excluir:disabled {
+            background: #444;
+            color: #888;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-retomar {
+            padding: 6px 12px;
+            background: rgba(__HUB_COR_RGB__, 0.1);
+            border: 1px solid rgba(__HUB_COR_RGB__, 0.3);
+            border-radius: 6px;
+            color: #__HUB_COR__;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .btn-retomar:hover {
+            background: rgba(__HUB_COR_RGB__, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn-retomar:disabled {
+            background: #444;
+            color: #888;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Menu dropdown de ações */
+        .actions-menu {
+            position: relative;
+            display: inline-block;
+            z-index: 10;
+        }
+
+        .actions-trigger {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .actions-trigger:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #__HUB_COR__;
+        }
+
+        .actions-dropdown {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: rgba(26, 26, 26, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            min-width: 150px;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            margin-top: 5px;
+        }
+
+        .actions-dropdown.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        /* Correção específica para dropdown da última linha */
+        .disparos-table tr:last-child .actions-dropdown {
+            top: auto;
+            bottom: 100%;
+            transform: translateY(10px);
+            margin-top: 0;
+            margin-bottom: 5px;
+        }
+
+        .disparos-table tr:last-child .actions-dropdown.show {
+            transform: translateY(0);
+        }
+
+        .actions-item {
+            display: block;
+            width: 100%;
+            padding: 12px 16px;
+            color: #ccc;
+            text-decoration: none;
+            border: none;
+            background: none;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .actions-item:last-child {
+            border-bottom: none;
+        }
+
+        .actions-item:hover {
+            background: rgba(__HUB_COR_RGB__, 0.1);
+            color: #__HUB_COR__;
+        }
+
+        .actions-item.danger {
+            color: #ff3b30;
+        }
+
+        .actions-item.danger:hover {
+            background: rgba(255, 59, 48, 0.1);
+            color: #ff3b30;
+        }
+
+        .actions-item.warning {
+            color: #ffc107;
+        }
+
+        .actions-item.warning:hover {
+            background: rgba(255, 193, 7, 0.1);
+            color: #ffc107;
+        }
+
+        .actions-item.success {
+            color: #__HUB_COR__;
+        }
+
+        .actions-item.success:hover {
+            background: rgba(34, 197, 94, 0.1);
+            color: #__HUB_COR__;
+        }
+
+        /* Filters */
+        .filters-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-label {
+            font-size: 0.9rem;
+            color: #888;
+            font-weight: 500;
+        }
+
+        .filter-select {
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: white;
+            font-size: 0.9rem;
+            min-width: 150px;
+            transition: all 0.3s ease;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: rgba(__HUB_COR_RGB__, 0.5);
+            box-shadow: 0 0 0 3px rgba(__HUB_COR_RGB__, 0.1);
+        }
+
+        .filter-select option {
+            background: rgba(26, 26, 26, 0.95);
+            color: white;
+        }
+
+        .btn-limpar-filtros {
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #888;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            align-self: flex-end;
+        }
+
+        /* Animations */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .table-container {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        /* Mobile Menu Toggle */
+        .mobile-menu-toggle {
+            display: none;
+            position: fixed;
+            top: 5px;
+            left: 20px;
+            z-index: 10001;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .mobile-menu-toggle.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .mobile-menu-toggle:hover {
+            background: transparent;
+        }
+
+        .mobile-menu-toggle svg {
+            width: 20px;
+            height: 20px;
+            color: #__HUB_COR__;
+        }
+
+        /* Botao fechar sidebar (mobile) — dashboard */
+        .mobile-close-btn {
+            display: none;
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 10001;
+            background: rgba(0, 0, 0, 0.5);
+            border: none;
+            border-radius: 50%;
+            width: 35px;
+            height: 35px;
+            color: #__HUB_COR__;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mobile-close-btn:hover {
+            background: rgba(__HUB_COR_RGB__, 0.2);
+            color: #__HUB_COR__;
+        }
+
+        .mobile-close-btn svg {
+            transition: all 0.3s ease;
+        }
+
+        /* Mobile Sidebar Overlay */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9998;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            /* Mobile Menu Toggle - Sempre visível no mobile */
+            .mobile-menu-toggle {
+                display: block !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+
+            /* Sidebar Mobile - Desabilitar hover completamente */
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -250px;
+                width: 250px;
+                height: 100vh;
+                z-index: 9999;
+                transition: left 0.3s ease;
+                box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+                /* IMPORTANTE: Desabilitar hover no mobile */
+                pointer-events: none;
+            }
+
+            .sidebar.mobile-open {
+                left: 0;
+                width: 250px;
+                pointer-events: auto; /* Reabilitar quando aberto */
+            }
+
+            .sidebar.mobile-open .menu-text {
+                opacity: 1 !important;
+            }
+
+            .sidebar.mobile-open .sidebar-logo-link {
+                width: 100% !important;
+                min-width: 180px !important;
+            }
+
+            .sidebar.mobile-open .version-text {
+                opacity: 1 !important;
+            }
+
+            /* DESABILITAR TODOS OS HOVER NO MOBILE */
+            .sidebar:hover {
+                width: 250px !important;
+                left: -250px !important; /* Manter fora da tela */
+            }
+
+            .menu-item:hover {
+                background: transparent !important;
+                color: #ccc !important;
+            }
+
+            .menu-item:hover .menu-icon svg {
+                transform: none !important;
+            }
+
+            .menu-item:hover .menu-icon .material-symbols-rounded {
+                transform: none !important;
+            }
+
+
+            /* Main Content Mobile */
+            .main-content {
+                padding: 15px;
+                margin-left: 0;
+                overflow-x: hidden;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: center;
+                gap: 15px;
+                margin-bottom: 25px;
+                justify-content: center;
+            }
+
+            .header-info {
+                text-align: center;
+            }
+
+            .header-actions {
+                position: static;
+                transform: none;
+                margin-top: 10px;
+            }
+
+            .header-info h1 {
+                font-size: 1.8rem;
+            }
+
+            .header-info p {
+                font-size: 1rem;
+            }
+
+            .mobile-menu-toggle {
+                top: 15px;
+                left: 15px;
+                padding: 10px;
+                background: rgba(0, 0, 0, 0.8);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 8px;
+                backdrop-filter: blur(10px);
+            }
+
+            .mobile-menu-toggle:hover {
+                background: rgba(__HUB_COR_RGB__, 0.2);
+                border-color: rgba(__HUB_COR_RGB__, 0.3);
+            }
+
+            .mobile-close-btn {
+                display: flex;
+            }
+
+            .mobile-close-btn:hover {
+                background: rgba(__HUB_COR_RGB__, 0.2);
+            }
+
+            /* Table Container Mobile - Scroll Horizontal */
+            .table-container {
+                min-height: 400px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                border-radius: 12px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            }
+
+            /* Tabela Mobile - Largura mínima para scroll horizontal */
+            .disparos-table {
+                font-size: 0.75rem;
+                min-width: 750px; /* Força scroll horizontal */
+                width: 100%;
+            }
+
+            .disparos-table th,
+            .disparos-table td {
+                padding: 10px 6px;
+                white-space: nowrap;
+                min-width: 80px;
+            }
+
+            /* Colunas específicas para mobile */
+            .disparos-table th:nth-child(1),
+            .disparos-table td:nth-child(1) {
+                min-width: 100px; /* Data/Hora */
+            }
+
+            .disparos-table th:nth-child(2),
+            .disparos-table td:nth-child(2) {
+                min-width: 90px; /* Tipo */
+            }
+
+            .disparos-table th:nth-child(3),
+            .disparos-table td:nth-child(3) {
+                min-width: 70px; /* Total */
+                text-align: center;
+            }
+
+            .disparos-table th:nth-child(4),
+            .disparos-table td:nth-child(4) {
+                min-width: 80px; /* Enviados */
+                text-align: center;
+            }
+
+            .disparos-table th:nth-child(5),
+            .disparos-table td:nth-child(5) {
+                min-width: 100px; /* Progresso */
+            }
+
+            .disparos-table th:nth-child(6),
+            .disparos-table td:nth-child(6) {
+                min-width: 90px; /* Status */
+            }
+
+            .disparos-table th:nth-child(7),
+            .disparos-table td:nth-child(7) {
+                min-width: 60px; /* Ações */
+                position: sticky;
+                right: 0;
+                background: rgba(26, 26, 26, 0.95);
+                backdrop-filter: blur(10px);
+                z-index: 10;
+                border-left: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            /* Progress bar mobile */
+            .progress-container {
+                width: 60px;
+                height: 6px;
+            }
+
+            .progress-text {
+                font-size: 0.6rem;
+                margin-top: 2px;
+            }
+
+            /* Pills mobile */
+            .pill {
+                padding: 4px 8px;
+                font-size: 0.6rem;
+            }
+
+            /* Actions menu mobile */
+            .actions-trigger {
+                padding: 6px;
+                font-size: 1rem;
+            }
+
+            .actions-dropdown {
+                min-width: 120px;
+                right: 0;
+                left: auto;
+            }
+
+            .actions-item {
+                padding: 10px 12px;
+                font-size: 0.8rem;
+            }
+
+            /* Filters mobile */
+            .filters-container {
+                flex-direction: column;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+
+            .filter-group {
+                width: 100%;
+            }
+
+            .filter-select {
+                min-width: 100%;
+                width: 100%;
+            }
+
+            .btn-limpar-filtros {
+                align-self: stretch;
+                width: 100%;
+                justify-content: center;
+            }
+
+            /* Mobile menu toggle */
+            .mobile-menu-toggle {
+                top: 3px;
+                left: 15px;
+                padding: 8px;
+            }
+
+            .mobile-menu-toggle svg {
+                width: 18px;
+                height: 18px;
+            }
+
+            /* Scrollbar personalizada para mobile */
+            .table-container::-webkit-scrollbar {
+                height: 8px;
+            }
+
+            .table-container::-webkit-scrollbar-track {
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 4px;
+            }
+
+            .table-container::-webkit-scrollbar-thumb {
+                background: rgba(__HUB_COR_RGB__, 0.5);
+                border-radius: 4px;
+            }
+
+            .table-container::-webkit-scrollbar-thumb:hover {
+                background: rgba(__HUB_COR_RGB__, 0.7);
+            }
+
+            /* Mostrar indicador de scroll em mobile */
+            .scroll-indicator {
+                display: flex;
+            }
+        }
+
+        /* Mobile muito pequeno (ate 480px) */
+        @media (max-width: 480px) {
+            .main-content {
+                padding: 10px;
+            }
+
+            .header-info h1 {
+                font-size: 1.5rem;
+            }
+
+            .disparos-table {
+                font-size: 0.6rem;
+                min-width: 650px;
+            }
+
+            .disparos-table th,
+            .disparos-table td {
+                padding: 8px 4px;
+                min-width: 70px;
+            }
+
+            .disparos-table th:nth-child(1),
+            .disparos-table td:nth-child(1) {
+                min-width: 85px;
+            }
+
+            .progress-container {
+                width: 50px;
+                height: 5px;
+            }
+
+            .pill {
+                padding: 3px 6px;
+                font-size: 0.65rem;
+            }
+
+            .actions-trigger {
+                padding: 4px;
+                font-size: 0.9rem;
+            }
+        }
+
+
+        /* Toast Notification System */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            pointer-events: none;
+        }
+
+        .toast-notification {
+            background: rgba(__HUB_COR_RGB__, 0.1);
+            border: 1px solid rgba(__HUB_COR_RGB__, 0.3);
+            color: #__HUB_COR__;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            font-weight: 500;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 350px;
+            transform: translateX(400px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            pointer-events: auto;
+        }
+
+        .toast-notification.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .toast-notification.success {
+            background: rgba(34, 197, 94, 0.1);
+            border-color: rgba(34, 197, 94, 0.3);
+            color: #__HUB_COR__;
+        }
+
+        .toast-notification.error {
+            background: rgba(255, 68, 68, 0.1);
+            border-color: rgba(255, 68, 68, 0.3);
+            color: #ff4444;
+        }
+
+        .toast-notification.info {
+            background: rgba(255, 193, 7, 0.1);
+            border-color: rgba(255, 193, 7, 0.3);
+            color: #ffc107;
+        }
+.toast-message {
+            flex: 1;
+        }
+
+        /* Responsive para toast */
+/* Custom Dropdown Styles */
+        .custom-dropdown {
+            position: relative;
+            width: 100%;
+        }
+
+        .dropdown-header {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+
+        .dropdown-header:hover {
+            border-color: rgba(__HUB_COR_RGB__, 0.5);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .dropdown-header.active {
+            border-color: #__HUB_COR__;
+            box-shadow: 0 0 0 2px rgba(__HUB_COR_RGB__, 0.2);
+        }
+
+        .dropdown-selected {
+            color: white;
+        }
+
+        .dropdown-arrow {
+            color: #888;
+            transition: transform 0.3s ease;
+        }
+
+        .dropdown-header.active .dropdown-arrow {
+            transform: rotate(180deg);
+            color: #__HUB_COR__;
+        }
+
+        .dropdown-options {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: rgba(20, 20, 20, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            z-index: 9999;
+            max-height: 200px;
+            overflow-y: auto;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+        }
+
+        .dropdown-options.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .dropdown-option {
+            padding: 12px 15px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .dropdown-option:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-option:hover {
+            background: rgba(__HUB_COR_RGB__, 0.1);
+            color: #__HUB_COR__;
+        }
+
+        .dropdown-option.selected {
+            background: rgba(__HUB_COR_RGB__, 0.2);
+            color: #__HUB_COR__;
+        }
+
+        /* Scrollbar para o dropdown */
+        .dropdown-options::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .dropdown-options::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .dropdown-options::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .dropdown-options::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Light Mode Styles */
+        body.light-mode {
+            background: #f4f4f5;
+            color: #18181b;
+        }
+
+        body.light-mode .sidebar {
+            background: var(--brand-sidebar-bg);
+            border-right: none;
+            box-shadow: none;
+        }
+
+        body.light-mode .menu-item {
+            color: rgba(255, 255, 255, 0.72);
+        }
+
+        body.light-mode .menu-item:hover {
+            background: var(--brand-sidebar-hover);
+            color: #fff;
+        }
+
+        body.light-mode .menu-item.active {
+            background: var(--brand-sidebar-active);
+            color: #fff;
+        }
+        body.menu-oculta-chat [data-menu-id="chat"] { display: none !important; }
+        body.menu-oculta-agentes-ia [data-menu-id="agentes-ia"] { display: none !important; }
+        body.menu-oculta-crm [data-menu-id="crm"] { display: none !important; }
+        body.menu-oculta-conexoes [data-menu-id="conexoes"] { display: none !important; }
+        body.menu-oculta-disparos [data-menu-id="disparos"] { display: none !important; }
+        body.menu-oculta-contatos [data-menu-id="contatos"] { display: none !important; }
+        body.menu-oculta-listas [data-menu-id="listas"] { display: none !important; }
+        body.menu-oculta-ajuda [data-menu-id="ajuda"] { display: none !important; }
+        body.menu-oculta-configuracoes [data-menu-id="configuracoes"] { display: none !important; }
+
+        body.light-mode .menu-badge-admin {
+            background: #__HUB_COR__;
+            color: #fff;
+        }
+        body.light-mode .version-text {
+            color: var(--brand-sidebar-muted);
+        }
+
+        body.light-mode .menu-badge-novidade {
+            background: #__HUB_COR__;
+            color: #fff;
+        }
+
+        body.light-mode .sidebar-footer {
+            border-top: 1px solid var(--brand-sidebar-divider);
+        }
+
+        body.light-mode .sidebar-nav-divider {
+            background: var(--brand-sidebar-divider);
+        }
+
+        body.light-mode .logout-item {
+            color: #ff6b6b !important;
+        }
+
+        body.light-mode .logout-item:hover {
+            background: rgba(255, 107, 107, 0.15) !important;
+            color: #ff6b6b !important;
+        }
+
+        body.light-mode .theme-switch .slider {
+            background-color: color-mix(in srgb, var(--brand-500) 35%, var(--brand-sidebar-bg));
+        }
+
+        body.light-mode .theme-switch input:checked + .slider {
+            background-color: #__HUB_COR__;
+        }
+
+        body.light-mode .theme-switch .slider:before {
+            background-color: white;
+        }
+
+        body.light-mode .header-info h1 {
+            color: #222;
+        }
+
+        body.light-mode .header-info p {
+            color: #666;
+        }
+
+        body.light-mode .disparo-card,
+        body.light-mode .disparo-item {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        body.light-mode .disparo-card:hover,
+        body.light-mode .disparo-item:hover {
+            border-color: rgba(__HUB_COR_RGB__, 0.3);
+            box-shadow: 0 8px 25px rgba(__HUB_COR_RGB__, 0.15);
+        }
+
+        body.light-mode .empty-state {
+            color: #666;
+        }
+
+        body.light-mode .empty-state h3 {
+            color: #333;
+        }
+
+        body.light-mode .toast-notification {
+            background: rgba(__HUB_COR_RGB__, 0.15);
+            border: 1px solid rgba(__HUB_COR_RGB__, 0.3);
+            color: #__HUB_COR__;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        body.light-mode .toast-notification.success {
+            background: rgba(34, 197, 94, 0.15);
+            border-color: rgba(34, 197, 94, 0.3);
+            color: #__HUB_COR__;
+        }
+
+        body.light-mode .toast-notification.error {
+            background: rgba(255, 68, 68, 0.15);
+            border-color: rgba(255, 68, 68, 0.3);
+            color: #ff4444;
+        }
+
+        body.light-mode .toast-notification.info {
+            background: rgba(255, 193, 7, 0.15);
+            border-color: rgba(255, 193, 7, 0.3);
+            color: #ffc107;
+        }
+
+        body.light-mode .custom-dropdown {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .dropdown-header {
+            color: #333;
+        }
+
+        body.light-mode .dropdown-options {
+            background: rgba(255, 255, 255, 0.98);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .dropdown-option {
+            color: #333;
+        }
+
+        body.light-mode .dropdown-option:hover {
+            background: rgba(__HUB_COR_RGB__, 0.1);
+            color: #__HUB_COR__;
+        }
+
+        body.light-mode .table-container {
+            background: #ffffff !important;
+            border: 1px solid rgba(0, 0, 0, 0.1) !important;
+            border-radius: 16px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        body.light-mode .disparos-table {
+            color: #333;
+        }
+
+        body.light-mode .disparos-table th {
+            background: rgba(0, 0, 0, 0.03) !important;
+            color: #__HUB_COR__ !important;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+        }
+
+        body.light-mode .disparos-table td {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+            color: #333 !important;
+            background: #ffffff !important;
+        }
+
+        body.light-mode .disparos-table tbody tr:hover {
+            background: rgba(__HUB_COR_RGB__, 0.05) !important;
+        }
+
+        body.light-mode .disparos-table tbody tr:hover td {
+            background: rgba(__HUB_COR_RGB__, 0.05) !important;
+        }
+
+        body.light-mode .table th,
+        body.light-mode .table td {
+            color: #333;
+            border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .table thead {
+            background: rgba(0, 0, 0, 0.03);
+        }
+
+        body.light-mode .table tbody tr:hover {
+            background: rgba(__HUB_COR_RGB__, 0.05);
+        }
+
+        /* Filtros e inputs no Light Mode */
+        body.light-mode .filter-input,
+        body.light-mode .filter-select,
+        body.light-mode .form-input,
+        body.light-mode .form-select {
+            background: #ffffff !important;
+            border: 1px solid rgba(0, 0, 0, 0.2) !important;
+            border-radius: 8px !important;
+            color: #333 !important;
+            outline: none !important;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+
+        body.light-mode .filter-input:focus,
+        body.light-mode .filter-select:focus,
+        body.light-mode .form-input:focus,
+        body.light-mode .form-select:focus {
+            border-color: #__HUB_COR__ !important;
+            box-shadow: 0 0 0 3px rgba(__HUB_COR_RGB__, 0.2) !important;
+            outline: none !important;
+        }
+
+        body.light-mode .filter-input::placeholder,
+        body.light-mode .form-input::placeholder {
+            color: #999;
+        }
+
+        /* Barra de progresso no Light Mode */
+        body.light-mode .progress-container {
+            background: rgba(0, 0, 0, 0.1) !important;
+            border: 1px solid rgba(0, 0, 0, 0.15) !important;
+            border-radius: 4px !important;
+        }
+
+        body.light-mode .progress-bar {
+            background: #__HUB_COR__ !important;
+            border-radius: 4px !important;
+            min-width: 2px !important; /* Garantir visibilidade mínima mesmo em 0% */
+        }
+
+        body.light-mode .progress-text {
+            color: #666 !important;
+        }
+
+        /* Filtros e dropdowns no Light Mode - Correção bordas duplas */
+        body.light-mode .filter-group {
+            background: transparent !important;
+            border: none !important;
+            border-bottom: none !important;
+            border-top: none !important;
+            box-shadow: none !important;
+        }
+
+        body.light-mode .filters-container {
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
+
+        body.light-mode .filter-select {
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        body.light-mode .filter-select:focus {
+            box-shadow: 0 0 0 3px rgba(__HUB_COR_RGB__, 0.2) !important;
+            outline: none !important;
+        }
+
+        body.light-mode .custom-dropdown {
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        body.light-mode .dropdown-header {
+            background: #ffffff !important;
+            border: 1px solid rgba(0, 0, 0, 0.2) !important;
+            border-radius: 8px !important;
+            color: #333 !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        body.light-mode .dropdown-header:hover {
+            border-color: rgba(0, 0, 0, 0.3) !important;
+            background: rgba(0, 0, 0, 0.02) !important;
+            box-shadow: none !important;
+        }
+
+        body.light-mode .dropdown-header.active {
+            border-color: #__HUB_COR__ !important;
+            box-shadow: 0 0 0 3px rgba(__HUB_COR_RGB__, 0.2) !important;
+            outline: none !important;
+        }
+
+        body.light-mode .dropdown-selected {
+            color: #333 !important;
+        }
+
+        body.light-mode .dropdown-arrow {
+            color: #666 !important;
+        }
+
+        body.light-mode .dropdown-header.active .dropdown-arrow {
+            color: #__HUB_COR__ !important;
+        }
+
+        /* Dropdown de ações no Light Mode */
+        body.light-mode .actions-dropdown {
+            background: #ffffff !important;
+            border: 1px solid rgba(0, 0, 0, 0.15) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        }
+
+        body.light-mode .actions-item {
+            color: #333 !important;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+        }
+
+        body.light-mode .actions-item:last-child {
+            border-bottom: none !important;
+        }
+
+        body.light-mode .actions-item:hover {
+            background: rgba(__HUB_COR_RGB__, 0.1) !important;
+            color: #__HUB_COR__ !important;
+        }
+
+        body.light-mode .actions-item.danger {
+            color: #ff3b30 !important;
+        }
+
+        body.light-mode .actions-item.danger:hover {
+            background: rgba(255, 59, 48, 0.1) !important;
+            color: #ff3b30 !important;
+        }
+
+        body.light-mode .actions-item.warning {
+            color: #ffc107 !important;
+        }
+
+        body.light-mode .actions-item.warning:hover {
+            background: rgba(255, 193, 7, 0.1) !important;
+            color: #ffc107 !important;
+        }
+
+        body.light-mode .actions-item.success {
+            color: #__HUB_COR__ !important;
+        }
+
+        body.light-mode .actions-item.success:hover {
+            background: rgba(34, 197, 94, 0.1) !important;
+            color: #__HUB_COR__ !important;
+        }
+
+        body.light-mode .actions-trigger {
+            color: #666 !important;
+        }
+
+        body.light-mode .actions-trigger:hover {
+            background: rgba(0, 0, 0, 0.05) !important;
+            color: #__HUB_COR__ !important;
+        }
+
+        /* Grid de tutoriais */
+        .tutoriais-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 28px;
+            margin-top: 24px;
+        }
+
+        .tutorial-card {
+            background: #fff;
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            border: 1px solid #e2e8f0;
+            box-shadow: var(--shadow-softer);
+        }
+
+        .tutorial-card:hover {
+            border-color: rgba(__HUB_COR_RGB__, 0.35);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .tutorial-card-content {
+            padding: 20px;
+            text-align: left;
+        }
+
+        .tutorial-category {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .tutorial-category-ia {
+            background: rgba(124, 58, 237, 0.2);
+            color: #7c3aed;
+        }
+
+        .tutorial-category-disparos {
+            background: rgba(37, 99, 235, 0.2);
+            color: #2563eb;
+        }
+
+        .tutorial-category-crm {
+            background: rgba(234, 88, 12, 0.2);
+            color: #ea580c;
+        }
+
+        .tutorial-category-chat {
+            background: rgba(13, 148, 136, 0.2);
+            color: #0d9488;
+        }
+
+        .tutorial-category-config {
+            background: rgba(100, 116, 139, 0.2);
+            color: #64748b;
+        }
+
+        .tutorial-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin: 0 0 10px 0;
+            line-height: 1.3;
+        }
+
+        .tutorial-description {
+            font-size: 0.9rem;
+            color: #6b7280;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .video-placeholder {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            background: #0f172a;
+            overflow: hidden;
+        }
+
+        .video-placeholder iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .video-placeholder-text,
+        .video-play-btn {
+            position: absolute;
+        }
+
+        .video-play-btn {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease;
+        }
+
+        .video-play-btn:hover {
+            transform: translate(-50%, -50%) scale(1.05);
+        }
+
+        .video-play-btn svg {
+            width: 28px;
+            height: 28px;
+            margin-left: 4px;
+            fill: #__HUB_COR__;
+        }
+
+        .video-duration {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            padding: 4px 10px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 6px;
+            color: #fff;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .video-placeholder-text {
+            display: none;
+        }
+
+        body.light-mode .tutorial-card {
+            background: #fff;
+        }
+
+        body.light-mode .tutorial-title {
+            color: #1f2937;
+        }
+
+        body.light-mode .tutorial-description {
+            color: #6b7280;
+        }
+
+        body.dark-mode .tutorial-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(71, 85, 105, 0.4);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        body.dark-mode .tutorial-card:hover {
+            border-color: rgba(__HUB_COR_RGB__, 0.25);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+        }
+
+        body.dark-mode .tutorial-title {
+            color: #f8fafc;
+        }
+
+        body.dark-mode .tutorial-description {
+            color: #94a3b8;
+        }
+
+        body.dark-mode .tutorial-category-ia {
+            background: rgba(124, 58, 237, 0.25);
+            color: #c4b5fd;
+        }
+        body.dark-mode .tutorial-category-disparos {
+            background: rgba(37, 99, 235, 0.25);
+            color: #93c5fd;
+        }
+        body.dark-mode .tutorial-category-crm {
+            background: rgba(234, 88, 12, 0.25);
+            color: #fdba74;
+        }
+        body.dark-mode .tutorial-category-chat {
+            background: rgba(13, 148, 136, 0.25);
+            color: #5eead4;
+        }
+        body.dark-mode .tutorial-category-config {
+            background: rgba(100, 116, 139, 0.3);
+            color: #cbd5e1;
+        }
+
+        @media (max-width: 768px) {
+            .tutoriais-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Bloco Falar com Suporte */
+        .suporte-block {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            margin-top: 48px;
+            padding: 28px 32px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            flex-wrap: wrap;
+            box-shadow: var(--shadow-softer);
+        }
+
+        .suporte-block-text {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .suporte-block-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin: 0 0 8px 0;
+        }
+
+        .suporte-block-desc {
+            font-size: 1rem;
+            color: #64748b;
+            margin: 0;
+        }
+
+        .suporte-block-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 24px;
+            background: #__HUB_COR__;
+            color: #fff;
+            border-radius: 9999px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .suporte-block-btn:hover {
+            background: #1eb855;
+            transform: translateY(-1px);
+            box-shadow: 0 8px 25px rgba(__HUB_COR_RGB__, 0.35);
+        }
+
+        body.dark-mode .suporte-block {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(71, 85, 105, 0.4);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        body.dark-mode .suporte-block-title {
+            color: #f8fafc;
+        }
+
+        body.dark-mode .suporte-block-desc {
+            color: #94a3b8;
+        }
+
+        body.dark-mode .suporte-block-btn {
+            background: #__HUB_COR__;
+        }
+
+        body.dark-mode .suporte-block-btn:hover {
+            background: #1eb855;
+        }
+
+        @media (max-width: 600px) {
+            .suporte-block {
+                flex-direction: column;
+                text-align: center;
+                margin-top: 36px;
+                padding: 24px 20px;
+            }
+
+            .suporte-block-text {
+                min-width: 100%;
+            }
+
+            .suporte-block-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* === Dropdowns <select>: fundo branco e texto preto (light e dark) === */
+        body.light-mode select,
+        body.dark-mode select,
+        body:not(.light-mode) select {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            -webkit-text-fill-color: #000000 !important;
+        }
+        body.light-mode select option,
+        body.dark-mode select option,
+        body:not(.light-mode) select option,
+        body.light-mode select optgroup,
+        body.dark-mode select optgroup,
+        body:not(.light-mode) select optgroup {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+        }
+        body.light-mode select[class],
+        body.dark-mode select[class],
+        body:not(.light-mode) select[class] {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            -webkit-text-fill-color: #000000 !important;
+        }
+        body.light-mode select[class] option,
+        body.dark-mode select[class] option,
+        body:not(.light-mode) select[class] option {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+        }
+        body.dark-mode .dropdown-options,
+        body:not(.light-mode) .dropdown-options {
+            background: #ffffff !important;
+            border-color: rgba(0, 0, 0, 0.15) !important;
+        }
+        body.dark-mode .dropdown-option,
+        body:not(.light-mode) .dropdown-option {
+            background: #ffffff !important;
+            color: #000000 !important;
+        }
+        body.dark-mode .dropdown-header,
+        body:not(.light-mode) .dropdown-header {
+            background: #ffffff !important;
+            color: #000000 !important;
+            border-color: rgba(0, 0, 0, 0.15) !important;
+        }
+        body.dark-mode .dropdown-selected,
+        body:not(.light-mode) .dropdown-selected {
+            color: #000000 !important;
+        }
+        body.dark-mode .dropdown-arrow,
+        body:not(.light-mode) .dropdown-arrow {
+            color: #000000 !important;
+        }
+        body.dark-mode .actions-dropdown,
+        body:not(.light-mode) .actions-dropdown {
+            background: #ffffff !important;
+            border: 1px solid rgba(0, 0, 0, 0.15) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        }
+        body.dark-mode .actions-item,
+        body:not(.light-mode) .actions-item {
+            color: #000000 !important;
+            border-bottom-color: rgba(0, 0, 0, 0.1) !important;
+        }
+    </style>
+    <script type="module">
+        // Importar Supabase via CDN ESM
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.0/+esm';
+        
+        // Configuração do Supabase
+        const SUPABASE_URL = '__HUB_SUPABASE_URL__';
+        const SUPABASE_ANON_KEY = '__HUB_SUPABASE_ANON_KEY__';
+        
+        // Criar cliente Supabase e disponibilizar globalmente
+        window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: false
+            }
+        });
+        
+        console.log('✅ Supabase inicializado globalmente');
+    </script>
+    <style>
+        .toast-container{position:fixed!important;top:max(20px,env(safe-area-inset-top,0px))!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;z-index:200100!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:8px!important;width:min(380px,calc(100vw - 28px))!important;pointer-events:none!important;box-sizing:border-box!important}
+        .toast-notification{pointer-events:auto!important;margin:0!important;padding:10px 14px 10px 0!important;border-radius:12px!important;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Helvetica,Arial,sans-serif!important;font-size:13px!important;line-height:1.35!important;letter-spacing:-.01em!important;font-weight:400!important;display:flex!important;align-items:center!important;gap:0!important;opacity:0!important;transform:translateY(-8px) scale(.98)!important;transition:opacity .22s ease,transform .22s ease!important;color:rgba(0,0,0,.88)!important;background:rgba(255,255,255,.76)!important;backdrop-filter:saturate(180%) blur(22px)!important;-webkit-backdrop-filter:saturate(180%) blur(22px)!important;border:1px solid rgba(0,0,0,.09)!important;box-shadow:0 4px 16px rgba(0,0,0,.1),0 0 0 .5px rgba(0,0,0,.04) inset!important;max-width:none!important}
+        .toast-notification.show{opacity:1!important;transform:translateY(0) scale(1)!important}
+        .toast-notification::before{content:''!important;align-self:stretch!important;width:4px!important;min-height:2.5em!important;margin:6px 12px 6px 8px!important;border-radius:3px!important;flex-shrink:0!important;background:rgba(0,122,255,.95)!important}
+        .toast-notification.info::before{background:rgba(0,122,255,.95)!important}.toast-notification.success::before{background:rgba(52,199,89,.95)!important}.toast-notification.error::before{background:rgba(255,59,48,.95)!important}
+        .toast-notification .toast-message{flex:1!important;min-width:0!important;word-break:break-word!important;padding-right:4px!important}
+        body.dark-mode .toast-notification{color:rgba(255,255,255,.92)!important;background:rgba(44,44,46,.78)!important;border:1px solid rgba(255,255,255,.12)!important;box-shadow:0 8px 28px rgba(0,0,0,.45),0 0 0 .5px rgba(255,255,255,.06) inset!important}
+        body.dark-mode .toast-notification.info::before{background:rgba(10,132,255,.95)!important}body.dark-mode .toast-notification.success::before{background:rgba(48,209,88,.95)!important}body.dark-mode .toast-notification.error::before{background:rgba(255,69,58,.95)!important}
+    </style>
+    <link rel="stylesheet" href="dropdowns-global.css">
+</head>
+<body>
+    <!-- Tema antes da primeira pintura: evita flash claro (cookie darkMode, mesma lógica que getCookie) -->
+    <script>
+    (function () {
+        var dark = false;
+        try {
+            var s = '; ' + document.cookie;
+            var parts = s.split('; darkMode=');
+            if (parts.length === 2) dark = parts.pop().split(';').shift() === 'true';
+        } catch (e) {}
+        document.body.classList.remove('dark-mode', 'light-mode');
+        document.body.classList.add(dark ? 'dark-mode' : 'light-mode');
+    })();
+    </script>
+    <div class="toast-container" id="toastContainer"></div>
+
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" onclick="toggleMobileMenu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="app-layout">
+        <div class="sidebar">
+            <button class="mobile-close-btn" id="mobileCloseBtn" onclick="closeMobileMenu()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+
+            <div class="sidebar-header">
+                <a href="#" class="sidebar-logo-link" onclick="return false;">
+                    <img class="sidebar-logo-img sidebar-logo-favicon" src="__HUB_FAVICON_URL__" alt="__HUB_NOME__">
+                    <img class="sidebar-logo-img sidebar-logo-full" src="__HUB_LOGO_URL__" alt="__HUB_NOME__" onerror="this.src='__HUB_FAVICON_URL__'">
+                </a>
+            </div>
+            <nav class="sidebar-menu">
+                <a href="#" class="menu-item" data-menu-id="dashboard" onclick="navigateToPage('__HUB_BACK_URL__/dashboard')">
+                    <span class="menu-icon">
+                        <span class="material-symbols-rounded" aria-hidden="true">analytics</span>
+                    </span>
+                    <span class="menu-text">Dashboard</span>
+                </a>
+                <a href="#" class="menu-item" data-menu-id="chat" onclick="navigateToPage('__HUB_BACK_URL__/chat')">
+                    <span class="menu-icon">
+                        <span class="material-symbols-rounded" aria-hidden="true">chat</span>
+                    </span>
+                    <span class="menu-text">Chat</span>
+                </a>
+                <a href="#" class="menu-item" data-menu-id="agentes-ia" onclick="navigateToPage('__HUB_BACK_URL__/agentes-ia')">
+                    <span class="menu-icon">
+                        <span class="material-symbols-rounded" aria-hidden="true">network_intel_node</span>
+                    </span>
+                    <span class="menu-text">Agentes IA</span>
+                </a>
+                <a href="#" class="menu-item" data-menu-id="crm" onclick="navigateToPage('__HUB_BACK_URL__/crm')">
+                    <span class="menu-icon">
+                        <span class="material-symbols-rounded" aria-hidden="true">view_kanban</span>
+                    </span>
+                    <span class="menu-text">CRM</span>
+                </a>
+                <a href="#" class="menu-item" data-menu-id="conexoes" onclick="navigateToPage('__HUB_BACK_URL__/conexoes')">
+                    <span class="menu-icon">
+                        <span class="material-symbols-rounded" aria-hidden="true">qr_code</span>
+                    </span>
+                    <span class="menu-text">Conexões</span>
+                </a>
+                <a href="#" class="menu-item" data-menu-id="disparos" onclick="navigateToPage('__HUB_BACK_URL__/disparos')">
+                    <span class="menu-icon">
+                        <span class="material-symbols-rounded" aria-hidden="true">send</span>
+                    </span>
+                    <span class="menu-text">Disparos</span>
+                </a>
+                <a href="#" class="menu-item" data-menu-id="contatos" onclick="navigateToPage('__HUB_BACK_URL__/contatos')">
+                    <span class="menu-icon">
+                        <span class="material-symbols-rounded" aria-hidden="true">contacts</span>
+                    </span>
+                    <span class="menu-text">Contatos</span>
+                </a>
+                <div class="sidebar-nav-divider"></div>
+                <a href="#" class="menu-item active" data-menu-id="ajuda" onclick="navigateToPage('__HUB_BACK_URL__/ajuda')">
+                    <span class="menu-icon">
+                        <span class="material-symbols-rounded" aria-hidden="true">help</span>
+                    </span>
+                    <span class="menu-text">Ajuda</span>
+                </a>
+                <a href="#" class="menu-item" data-menu-id="configuracoes" onclick="navigateToPage('__HUB_BACK_URL__/configuracoes')">
+                    <span class="menu-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </span>
+                    <span class="menu-text">Configurações</span>
+                </a>
+                <a href="#" id="menu-item-admin" class="menu-item menu-item-admin" style="display: none;" onclick="if(typeof navigateToPage==='function'){navigateToPage('__HUB_BACK_URL__/adminpannel');return false;}">
+                    <span class="menu-icon">
+                        <span class="material-symbols-rounded" aria-hidden="true">admin_panel_settings</span>
+                    </span>
+                    <span class="menu-text">Administração</span>
+                    <span class="menu-badge-admin">Admin</span>
+                </a>
+            </nav>
+            <div class="version-text" id="versaoAtualTexto">Versão atual: -</div>
+            <div class="sidebar-footer">
+                <div class="menu-item theme-toggle-item" onclick="event.stopPropagation();">
+                    <span class="menu-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                    </span>
+                    <span class="menu-text" id="themeToggleText">Modo Claro</span>
+                    <label class="theme-switch">
+                        <input type="checkbox" id="darkModeToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <a href="#" class="menu-item logout-item" onclick="logout()">
+                    <span class="menu-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16,17 21,12 16,7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                    </span>
+                    <span class="menu-text">Sair</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <div class="header-info">
+                    <h1>Central de ajuda</h1>
+                    <p>Tutoriais em vídeo para aproveitar ao máximo a plataforma</p>
+                </div>
+            </div>
+
+            <!-- Vídeos tutoriais carregados de SAAS_VideosAjuda (Supabase) -->
+            <div class="tutoriais-grid" id="tutoriais-grid">
+                <p class="tutorial-description" id="tutoriais-loading" style="grid-column: 1 / -1;">Carregando tutoriais...</p>
+            </div>
+
+            <!-- Bloco Falar com Suporte -->
+            <div class="suporte-block">
+                <div class="suporte-block-text">
+                    <h3 class="suporte-block-title">Ainda precisa de ajuda?</h3>
+                    <p class="suporte-block-desc">Nossa equipe de suporte técnico está pronta para te atender.</p>
+                </div>
+                <a href="https://wa.me/__HUB_TELEFONE_SUPORTE__" target="_blank" rel="noopener noreferrer" class="suporte-block-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M2 12h20"></path>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    </svg>
+                    Falar com Suporte
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variáveis globais
+        let secureUserId = null;
+        let disparosList = [];
+        let disparosOriginais = []; // Para manter os dados originais para filtragem
+
+        // 🍪 Funções para gerenciar cookies
+        function setCookie(name, value, days = 7) {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+            document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Strict`;
+        }
+
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for(let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+            }
+            return null;
+        }
+
+        function deleteCookie(name) {
+            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
+        }
+
+        // Flag global para indicar que o status está bloqueado (evita toasts)
+        let statusBloqueado = false;
+        let hasRedirected = false;
+
+        // Função padrao para obter contaId e verificar status (padrao dashboard/chat)
+        async function obterUserIdComStatus() {
+            let contaId = null;
+            if (window.supabase) {
+                try {
+                    const { data: { user }, error: userError } = await window.supabase.auth.getUser();
+                    if (!userError && user && user.id) {
+                        const { data: usuarioData, error: usuarioError } = await window.supabase
+                            .from('SAAS_Usuarios')
+                            .select('contaId, SAAS_Contas(status)')
+                            .eq('auth_user_id', user.id)
+                            .single();
+                        if (!usuarioError && usuarioData && usuarioData.contaId) {
+                            const status = usuarioData?.SAAS_Contas?.status;
+                            if (status === false) {
+                                // Redirecionar imediatamente (nao aguardar)
+                                logoutAndRedirectAcessoBloqueado();
+                                // Lançar erro especial que será ignorado nos catch blocks
+                                throw new Error('STATUS_BLOQUEADO');
+                            }
+                            contaId = usuarioData.contaId;
+                            setCookie('userId', contaId, 7);
+                        }
+                    }
+                } catch (error) {
+                    // Se for erro de status bloqueado, re-lançar
+                    if (error.message === 'STATUS_BLOQUEADO') {
+                        throw error;
+                    }
+                    console.error('Erro ao obter usuário do Supabase:', error);
+                }
+            }
+            if (!contaId) {
+                const cookieUserId = getCookie('userId');
+                if (cookieUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cookieUserId)) {
+                    contaId = cookieUserId;
+                }
+            }
+            return contaId;
+        }
+
+        function getSecureUserId() {
+            const contaId = getCookie('userId');
+            if (contaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contaId)) {
+                return contaId;
+            }
+            return null;
+        }
+
+        function logoutAndRedirectAcessoBloqueado() {
+            // Marcar flag imediatamente para evitar toasts
+            statusBloqueado = true;
+            
+            // Limpar dados imediatamente
+            document.cookie = 'userId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            document.cookie = 'idLista=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            document.cookie = 'idConexao=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            document.cookie = 'idDisparo=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            sessionStorage.clear();
+            localStorage.clear();
+            
+            // Redirecionar imediatamente (nao aguardar signOut)
+            window.location.replace('__HUB_BACK_URL__/acesso-bloqueado');
+            
+            // Fazer signOut em background (nao bloqueia o redirecionamento)
+            if (window.supabase) {
+                window.supabase.auth.signOut().catch(() => {
+                    // Ignorar erros no signOut
+                });
+            }
+        }
+
+        async function carregarVersao() {
+            const el = document.getElementById('versaoAtualTexto');
+            if (!el || !window.supabase) return;
+            try {
+                const { data, error } = await window.supabase
+                    .from('SAAS_Versao')
+                    .select('versaoAtual')
+                    .order('ultimaAtualizacao', { ascending: false })
+                    .limit(1);
+                if (!error && data && data[0] && data[0].versaoAtual) {
+                    el.textContent = 'Versao atual: ' + data[0].versaoAtual;
+                }
+            } catch (e) {
+                console.warn('Nao foi possível carregar a versao:', e);
+            }
+        }
+
+        async function checkAuth() {
+            if (hasRedirected) {
+                return;
+            }
+            if (window.supabase) {
+                try {
+                    const { data: { session }, error } = await window.supabase.auth.getSession();
+                    if (error) {
+                        console.error('Erro ao verificar sessão:', error);
+                        return;
+                    }
+                    if (!session || !session.access_token) {
+                        hasRedirected = true;
+                        window.location.replace('__HUB_BACK_URL__/login');
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Erro ao verificar sessão:', error);
+                    return;
+                }
+            } else {
+                hasRedirected = true;
+                window.location.replace('__HUB_BACK_URL__/login');
+                return;
+            }
+        }
+
+        function navigateToPage(url) {
+            window.location.href = url;
+        }
+
+        // Funções do dropdown personalizado para filtros
+        function toggleDropdown(dropdownId) {
+            const dropdown = document.getElementById(dropdownId);
+            const header = dropdown.querySelector('.dropdown-header');
+            const options = dropdown.querySelector('.dropdown-options');
+            
+            // Fecha outros dropdowns
+            document.querySelectorAll('.dropdown-options').forEach(opt => {
+                if (opt !== options) {
+                    opt.classList.remove('show');
+                    opt.closest('.custom-dropdown').querySelector('.dropdown-header').classList.remove('active');
+                }
+            });
+            
+            // Toggle do dropdown atual
+            const isOpen = options.classList.contains('show');
+            if (isOpen) {
+                options.classList.remove('show');
+                header.classList.remove('active');
+            } else {
+                options.classList.add('show');
+                header.classList.add('active');
+            }
+        }
+
+        function selectDropdownOption(dropdownId, value, text) {
+            const dropdown = document.getElementById(dropdownId);
+            const header = dropdown.querySelector('.dropdown-header');
+            const options = dropdown.querySelector('.dropdown-options');
+            const selectedSpan = dropdown.querySelector('.dropdown-selected');
+            const hiddenInput = dropdown.querySelector('input[type="hidden"]');
+            
+            // Atualiza o texto selecionado
+            selectedSpan.textContent = text;
+            
+            // Atualiza o input hidden
+            hiddenInput.value = value;
+            
+            // Remove selecao anterior
+            options.querySelectorAll('.dropdown-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            // Adiciona selecao ao item clicado
+            const selectedOption = options.querySelector(`[data-value="${value}"]`);
+            if (selectedOption) {
+                selectedOption.classList.add('selected');
+            }
+            
+            // Fecha o dropdown
+            options.classList.remove('show');
+            header.classList.remove('active');
+            
+            // Dispara evento de change para aplicar filtros
+            hiddenInput.dispatchEvent(new Event('change'));
+            
+            // Aplica os filtros se for um filtro
+            if (dropdownId === 'tipoFilterDropdown' || dropdownId === 'statusFilterDropdown') {
+                aplicarFiltros();
+            }
+        }
+
+        // Fecha dropdowns ao clicar fora
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.custom-dropdown')) {
+                document.querySelectorAll('.dropdown-options').forEach(options => {
+                    options.classList.remove('show');
+                    options.closest('.custom-dropdown').querySelector('.dropdown-header').classList.remove('active');
+                });
+            }
+        });
+
+        // Funções de UI
+        function showError(message) {
+            // Nao exibir toast se o status estiver bloqueado (ja foi redirecionado)
+            if (statusBloqueado) {
+                return;
+            }
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+            setTimeout(() => {
+                errorEl.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const successEl = document.getElementById('successMessage');
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+            setTimeout(() => {
+                successEl.style.display = 'none';
+            }, 3000);
+        }
+
+        function showConfirmDialog(message) {
+            return new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:100000;padding:16px;';
+                const box = document.createElement('div');
+                box.style.cssText = 'width:100%;max-width:460px;background:#fff;border-radius:16px;padding:20px;box-shadow:0 20px 45px rgba(2,6,23,.3);';
+                box.innerHTML = `
+                    <h3 style="margin:0 0 10px 0;font-size:18px;font-weight:700;color:#0f172a;">Confirmar ação</h3>
+                    <p style="margin:0 0 18px 0;font-size:14px;line-height:1.6;color:#334155;">${String(message || '').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>
+                    <div style="display:flex;justify-content:flex-end;gap:10px;">
+                        <button type="button" data-cancel style="border:1px solid #cbd5e1;background:#fff;color:#334155;padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer;">Cancelar</button>
+                        <button type="button" data-confirm style="border:0;background:#dc2626;color:#fff;padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer;">Confirmar</button>
+                    </div>
+                `;
+                overlay.appendChild(box);
+                document.body.appendChild(overlay);
+                const close = (value) => {
+                    overlay.remove();
+                    resolve(value);
+                };
+                overlay.addEventListener('click', (event) => {
+                    if (event.target === overlay) close(false);
+                });
+                box.querySelector('[data-cancel]').addEventListener('click', () => close(false));
+                box.querySelector('[data-confirm]').addEventListener('click', () => close(true));
+            });
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingContainer').style.display = 'none';
+        }
+
+        function showTable() {
+            document.getElementById('tableContainer').style.display = 'block';
+        }
+
+        function showEmptyState() {
+            document.getElementById('emptyState').style.display = 'block';
+        }
+
+        function hideEmptyState() {
+            document.getElementById('emptyState').style.display = 'none';
+        }
+
+        function showFilters() {
+            document.getElementById('filtersContainer').style.display = 'flex';
+        }
+
+        function hideTable() {
+            document.getElementById('tableContainer').style.display = 'none';
+        }
+
+        // Simular dados para demonstração (apenas no ambiente Claude)
+        function setupDemoData() {
+            const isClaudeEnvironment = window.location.hostname.includes('claude.ai') || 
+                                      window.location.hostname.includes('anthropic') ||
+                                      window.location.protocol === 'blob:';
+                                      
+            if (isClaudeEnvironment) {
+                console.log('Ambiente de demonstração detectado - configurando dados simulados');
+                
+                // Dados de exemplo válidos (sem objetos vazios)
+                const demoDisparos = [
+                    {
+                        id: 1,
+                        data: '2025-06-20T14:30:00Z',
+                        tipo: 'Individual',
+                        totalContatos: 150,
+                        enviados: 150,
+                        status: 'Finalizado'
+                    },
+                    {
+                        id: 2,
+                        data: '2025-06-20T10:15:00Z',
+                        tipo: 'Grupos',
+                        totalContatos: 50,
+                        enviados: 32,
+                        status: 'Em andamento'
+                    },
+                    {
+                        id: 3,
+                        data: '2025-06-19T16:45:00Z',
+                        tipo: 'Individual',
+                        totalContatos: 80,
+                        enviados: 80,
+                        status: 'Enviado'
+                    },
+                    {
+                        id: 4,
+                        data: '2025-06-21T09:00:00Z',
+                        tipo: 'Grupos',
+                        totalContatos: 25,
+                        enviados: 0,
+                        status: 'Aguardando'
+                    },
+                    {
+                        id: 5,
+                        data: '2025-06-18T13:20:00Z',
+                        tipo: 'Individual',
+                        totalContatos: 200,
+                        enviados: 45,
+                        status: 'Pausado'
+                    }
+                ];
+                
+                return demoDisparos;
+            }
+            
+            return null;
+        }
+
+        // Carregar disparos
+        async function carregarDisparos() {
+            console.log('=== INICIANDO CARREGAMENTO DE DISPAROS ===');
+            
+            let contaId;
+            try {
+                contaId = await obterUserIdComStatus();
+            } catch (error) {
+                if (error.message === 'STATUS_BLOQUEADO') {
+                    return;
+                }
+                throw error;
+            }
+            if (!contaId) {
+                console.log('ERRO: UserId nao encontrado');
+                hideLoading();
+                showError('Sessão inválida. Faça login novamente.');
+                return;
+            }
+
+            console.log('UserId obtido:', contaId);
+
+            try {
+                // Verificar se é ambiente de demo
+                const demoData = setupDemoData();
+                if (demoData) {
+                    console.log('=== MODO DEMONSTRAÇÃO ===');
+                    console.log('Simulando carregamento...');
+                    
+                    // Simular delay de loading
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    console.log('Dados de demo carregados:', demoData);
+                    
+                    // CRÍTICO: Salvar dados originais IMEDIATAMENTE  
+                    disparosOriginais = [...demoData];
+                    
+                    // Ordenar dados demo por data (mais recente primeiro)
+                    disparosList = [...demoData].sort((a, b) => {
+                        const dataA = new Date(a.data);
+                        const dataB = new Date(b.data);
+                        return dataB - dataA;
+                    });
+                    
+                    console.log('Dados originais salvos (demo):', disparosOriginais.length, disparosOriginais);
+                    
+                    hideLoading();
+                    
+                    if (disparosList.length === 0) {
+                        hideTable();
+                        showEmptyState();
+                    } else {
+                        hideEmptyState();
+                        showFilters();
+                        renderDisparos();
+                        showTable();
+                        // CONFIGURAR FILTROS APÓS CARREGAR DADOS
+                        setupFiltros();
+                    }
+                    return;
+                }
+                
+                console.log('=== MODO PRODUÇÃO ===');
+                console.log('Buscando disparos no Supabase...');
+                
+                // Busca direta na tabela SAAS_Disparos via Supabase
+                const { data: dataDisparos, error: errorDisparos } = await window.supabase
+                    .from('SAAS_Disparos')
+                    .select('id, created_at, TipoDisparo, TotalDisparos, MensagensDisparadas, StatusDisparo, contaId')
+                    .eq('contaId', contaId)
+                    .order('created_at', { ascending: false });
+
+                if (errorDisparos) {
+                    throw new Error(errorDisparos.message || 'Erro ao carregar disparos');
+                }
+
+                const processedDisparos = Array.isArray(dataDisparos) ? dataDisparos : [];
+                console.log('Disparos recebidos do Supabase:', processedDisparos.length);
+
+                // Mapear os campos para o formato esperado
+                disparosList = processedDisparos.map(disparo => ({
+                    id: disparo.id,
+                    data: disparo.created_at,
+                    tipo: disparo.TipoDisparo || 'Individual',
+                    totalContatos: disparo.TotalDisparos || 0,
+                    enviados: disparo.MensagensDisparadas || 0,
+                    status: disparo.StatusDisparo || 'Em andamento',
+                    contaId: disparo.contaId
+                }));
+                
+                console.log('Disparos processados:', disparosList);
+                
+                hideLoading();
+                
+                if (disparosList.length === 0) {
+                    hideTable();
+                    showEmptyState();
+                } else {
+                    hideEmptyState();
+                    showFilters();
+                    renderDisparos();
+                    showTable();
+                    // CONFIGURAR FILTROS APÓS CARREGAR DADOS
+                    setupFiltros();
+                }
+
+            } catch (error) {
+                // Ignorar erro de status bloqueado (ja foi redirecionado)
+                if (error.message === 'STATUS_BLOQUEADO') {
+                    return;
+                }
+                console.error('ERRO ao carregar disparos:', error);
+                hideLoading();
+                showError('Erro ao carregar disparos: ' + error.message);
+            }
+        }
+
+        // Renderizar disparos na tabela
+        function renderDisparos() {
+            console.log('=== RENDERIZANDO DISPAROS ===');
+            console.log('Disparos para renderizar:', disparosList.length, disparosList);
+            
+            const tableBody = document.getElementById('disparosTableBody');
+            tableBody.innerHTML = '';
+
+            // Validação antes de renderizar
+            if (!disparosList || disparosList.length === 0) {
+                console.log('Lista de disparos vazia - nao renderizando nada');
+                return;
+            }
+
+            // Ordenar por data (mais recente primeiro)
+            const disparosOrdenados = [...disparosList].sort((a, b) => {
+                const dataA = new Date(a.data);
+                const dataB = new Date(b.data);
+                return dataB - dataA; // Ordem decrescente (mais recente primeiro)
+            });
+
+            console.log('Renderizando disparos ordenados por data (mais recente primeiro):', disparosOrdenados.length);
+
+            let linhasRenderizadas = 0;
+            disparosOrdenados.forEach((disparo, index) => {
+                const row = createDisparoRow(disparo);
+                if (row) { // Só adiciona se a linha foi criada com sucesso
+                    tableBody.appendChild(row);
+                    linhasRenderizadas++;
+                } else {
+                    console.warn(`Linha ${index} nao foi criada (disparo inválido):`, disparo);
+                }
+            });
+            
+            console.log(`Renderização concluída: ${linhasRenderizadas} linhas criadas de ${disparosOrdenados.length} disparos`);
+            
+            // Se nenhuma linha foi criada, algo está errado
+            if (linhasRenderizadas === 0) {
+                console.error('ERRO: Nenhuma linha foi renderizada mesmo tendo disparos na lista!');
+                console.log('Forçando empty state...');
+                document.getElementById('tableContainer').style.display = 'none';
+                document.getElementById('emptyState').style.display = 'block';
+            }
+
+            // Configurar indicador de scroll após renderizar
+            setupScrollIndicator();
+        }
+
+        // Criar linha da tabela
+        function createDisparoRow(disparo) {
+            console.log('Criando linha para disparo:', disparo);
+            
+            // VALIDAÇÃO CRÍTICA: Verificar se disparo tem dados válidos
+            if (!disparo || !disparo.id || disparo.id === 0 || disparo.id === undefined) {
+                console.error('ERRO: Tentativa de criar linha com disparo inválido:', disparo);
+                return null; // Nao criar linha para dados inválidos
+            }
+            
+            const row = document.createElement('tr');
+            
+            // Formatar data com validação
+            let dataFormatada = 'Data inválida';
+            let horaFormatada = '';
+            
+            try {
+                const data = new Date(disparo.data);
+                if (!isNaN(data.getTime())) {
+                    dataFormatada = data.toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                    });
+                    horaFormatada = data.toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                }
+            } catch (error) {
+                console.warn('Erro ao formatar data:', disparo.data, error);
+            }
+
+            // Determinar classe do tipo
+            const tipo = disparo.tipo || 'Individual';
+            const tipoClass = tipo.toLowerCase() === 'individual' ? 'pill-individual' : 'pill-grupos';
+
+            // Calcular progresso com validação
+            const total = parseInt(disparo.totalContatos) || 0;
+            const enviados = parseInt(disparo.enviados) || 0;
+            const progresso = total > 0 ? Math.round((enviados / total) * 100) : 0;
+
+            // Determinar classe do status
+            const status = disparo.status || 'Desconhecido';
+            const statusClass = getStatusClass(status);
+
+            // Determinar ações disponíveis baseado no status
+            let actions = [];
+            
+            // Sempre incluir "Ver detalhes" como primeira opcao
+            actions.push({
+                text: 'Ver detalhes',
+                action: `verDetalhes(${disparo.id})`,
+                class: ''
+            });
+            
+            // Adicionar ações específicas baseado no status
+            if (status === 'Aguardando' || status === 'Em andamento') {
+                actions.push({
+                    text: 'Pausar',
+                    action: `pausarDisparo(${disparo.id})`,
+                    class: 'warning'
+                });
+            } else if (status === 'Pausado') {
+                actions.push({
+                    text: 'Retomar',
+                    action: `retomarDisparo(${disparo.id})`,
+                    class: 'success'
+                });
+                actions.push({
+                    text: 'Excluir',
+                    action: `excluirDisparo(${disparo.id})`,
+                    class: 'danger'
+                });
+            } else if (status === 'Cancelado' || status === 'Finalizado') {
+                actions.push({
+                    text: 'Excluir',
+                    action: `excluirDisparo(${disparo.id})`,
+                    class: 'danger'
+                });
+            }
+            
+            // Gerar HTML do menu dropdown
+            const actionsHtml = actions.map(action => 
+                `<button class="actions-item ${action.class}" onclick="${action.action}">${action.text}</button>`
+            ).join('');
+            
+            const acaoHtml = `
+                <div class="actions-menu">
+                    <button class="actions-trigger" onclick="toggleActionsMenu(this)">⋯</button>
+                    <div class="actions-dropdown">
+                        ${actionsHtml}
+                    </div>
+                </div>
+            `;
+
+            row.innerHTML = `
+                <td class="date-cell">
+                    ${dataFormatada}
+                    <span class="date-time">${horaFormatada}</span>
+                </td>
+                <td>
+                    <span class="pill ${tipoClass}">${tipo}</span>
+                </td>
+                <td class="count-cell">${total.toLocaleString('pt-BR')}</td>
+                <td class="count-cell">${enviados.toLocaleString('pt-BR')}</td>
+                <td>
+                    <div class="progress-container">
+                        <div class="progress-bar" style="width: ${progresso}%"></div>
+                    </div>
+                    <div class="progress-text">${progresso}%</div>
+                </td>
+                <td>
+                    <span class="pill ${statusClass}">${status}</span>
+                </td>
+                <td>
+                    ${acaoHtml}
+                </td>
+            `;
+
+            return row;
+        }
+
+        // Determinar classe CSS para o status
+        function getStatusClass(status) {
+            const statusLower = status.toLowerCase();
+            
+            if (statusLower.includes('aguardando')) return 'pill-em-andamento';
+            if (statusLower.includes('andamento')) return 'pill-em-andamento';
+            if (statusLower.includes('agendado')) return 'pill-agendado';
+            if (statusLower.includes('enviado')) return 'pill-enviado';
+            if (statusLower.includes('finalizado') || statusLower.includes('concluído')) return 'pill-finalizado';
+            if (statusLower.includes('cancelado')) return 'pill-cancelado';
+            if (statusLower.includes('pausado')) return 'pill-pausado';
+            
+            return 'pill-em-andamento'; // Default
+        }
+
+        // Pausar disparo
+        async function pausarDisparo(idDisparo) {
+            if (!await showConfirmDialog('Tem certeza que deseja pausar este disparo?')) {
+                return;
+            }
+
+            let contaId;
+            try {
+                contaId = await obterUserIdComStatus();
+            } catch (error) {
+                if (error.message === 'STATUS_BLOQUEADO') {
+                    return;
+                }
+                throw error;
+            }
+            if (!contaId) {
+                showError('Sessão inválida. Faça login novamente.');
+                return;
+            }
+
+            try {
+                console.log('Pausando disparo:', idDisparo);
+                
+                const { error } = await window.supabase.rpc('pause_disparo', {
+                    p_disparo_id: idDisparo,
+                    p_user_id: contaId
+                });
+
+                if (error) {
+                    throw new Error(error.message || 'Erro ao pausar disparo');
+                }
+
+                showSuccess('Disparo pausado com sucesso!');
+                
+                // Atualizar o status localmente nos dados originais e na lista atual
+                disparosOriginais = disparosOriginais.map(disparo => 
+                    disparo.id === idDisparo ? { ...disparo, status: 'Pausado' } : disparo
+                );
+                
+                disparosList = disparosList.map(disparo => 
+                    disparo.id === idDisparo ? { ...disparo, status: 'Pausado' } : disparo
+                );
+                
+                console.log('Status atualizado localmente para Pausado');
+                
+                // Re-renderizar a tabela para mostrar as mudanças
+                renderDisparos();
+
+            } catch (error) {
+                // Ignorar erro de status bloqueado (ja foi redirecionado)
+                if (error.message === 'STATUS_BLOQUEADO') {
+                    return;
+                }
+                console.error('Erro ao pausar disparo:', error);
+                showError('Erro ao pausar disparo: ' + error.message);
+            }
+        }
+
+        // Excluir disparo
+        async function excluirDisparo(idDisparo) {
+            if (!await showConfirmDialog('Tem certeza que deseja excluir este disparo? Esta ação nao pode ser desfeita.')) {
+                return;
+            }
+
+            let contaId;
+            try {
+                contaId = await obterUserIdComStatus();
+            } catch (error) {
+                if (error.message === 'STATUS_BLOQUEADO') {
+                    return;
+                }
+                throw error;
+            }
+            if (!contaId) {
+                showError('Sessão inválida. Faça login novamente.');
+                return;
+            }
+
+            try {
+                console.log('Excluindo disparo:', idDisparo);
+                
+                const { error } = await window.supabase.rpc('delete_disparo', {
+                    p_disparo_id: idDisparo,
+                    p_user_id: contaId
+                });
+
+                if (error) {
+                    throw new Error(error.message || 'Erro ao excluir disparo');
+                }
+
+                showSuccess('Disparo excluído com sucesso!');
+                
+                // Remover o disparo dos dados originais e da lista atual
+                disparosOriginais = disparosOriginais.filter(disparo => disparo.id !== idDisparo);
+                disparosList = disparosList.filter(disparo => disparo.id !== idDisparo);
+                
+                console.log('Disparo removido localmente');
+                
+                // Re-renderizar a tabela para mostrar as mudanças
+                renderDisparos();
+
+            } catch (error) {
+                // Ignorar erro de status bloqueado (ja foi redirecionado)
+                if (error.message === 'STATUS_BLOQUEADO') {
+                    return;
+                }
+                console.error('Erro ao excluir disparo:', error);
+                showError('Erro ao excluir disparo: ' + error.message);
+            }
+        }
+
+        // Retomar disparo
+        async function retomarDisparo(idDisparo) {
+            if (!await showConfirmDialog('Tem certeza que deseja retomar este disparo?')) {
+                return;
+            }
+
+            let contaId;
+            try {
+                contaId = await obterUserIdComStatus();
+            } catch (error) {
+                if (error.message === 'STATUS_BLOQUEADO') {
+                    return;
+                }
+                throw error;
+            }
+            if (!contaId) {
+                showError('Sessão inválida. Faça login novamente.');
+                return;
+            }
+
+            try {
+                console.log('Retomando disparo:', idDisparo);
+                
+                const { error } = await window.supabase.rpc('resume_disparo', {
+                    p_disparo_id: idDisparo,
+                    p_user_id: contaId
+                });
+
+                if (error) {
+                    throw new Error(error.message || 'Erro ao retomar disparo');
+                }
+
+                showSuccess('Disparo retomado com sucesso!');
+                
+                // Atualizar o status localmente nos dados originais e na lista atual
+                disparosOriginais = disparosOriginais.map(disparo => 
+                    disparo.id === idDisparo ? { ...disparo, status: 'Em andamento' } : disparo
+                );
+                
+                disparosList = disparosList.map(disparo => 
+                    disparo.id === idDisparo ? { ...disparo, status: 'Em andamento' } : disparo
+                );
+                
+                console.log('Status atualizado localmente para Em andamento');
+                
+                // Re-renderizar a tabela para mostrar as mudanças
+                renderDisparos();
+
+            } catch (error) {
+                // Ignorar erro de status bloqueado (ja foi redirecionado)
+                if (error.message === 'STATUS_BLOQUEADO') {
+                    return;
+                }
+                console.error('Erro ao retomar disparo:', error);
+                showError('Erro ao retomar disparo: ' + error.message);
+            }
+        }
+
+        // Ver detalhes do disparo
+        function verDetalhes(idDisparo) {
+            console.log('Ver detalhes do disparo:', idDisparo);
+            
+            // Redirecionar para pagina de detalhes com id na URL
+            window.location.href = '__HUB_BACK_URL__/detalhes-disparo?id=' + idDisparo;
+        }
+
+        // Toggle menu de ações
+        function toggleActionsMenu(trigger) {
+            // Fechar todos os outros menus primeiro
+            const allDropdowns = document.querySelectorAll('.actions-dropdown');
+            allDropdowns.forEach(dropdown => {
+                if (dropdown !== trigger.nextElementSibling) {
+                    dropdown.classList.remove('show');
+                }
+            });
+            
+            // Toggle do menu atual
+            const dropdown = trigger.nextElementSibling;
+            dropdown.classList.toggle('show');
+        }
+
+        // Fechar menus quando clicar fora
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.actions-menu')) {
+                const allDropdowns = document.querySelectorAll('.actions-dropdown');
+                allDropdowns.forEach(dropdown => {
+                    dropdown.classList.remove('show');
+                });
+            }
+        });
+
+        // Aplicar filtros
+        function aplicarFiltros() {
+            console.log('=== APLICANDO FILTROS - INÍCIO ===');
+            console.log('Função aplicarFiltros foi chamada!');
+            
+            // VERIFICAÇÃO CRÍTICA: Se nao há dados originais, nao pode filtrar
+            if (!disparosOriginais || disparosOriginais.length === 0) {
+                console.error('ERRO: Nao há dados originais para filtrar!');
+                console.log('disparosOriginais:', disparosOriginais);
+                console.log('disparosList length:', disparosList ? disparosList.length : 'undefined');
+                
+                if (disparosList && disparosList.length > 0) {
+                    console.log('Usando disparosList como backup...');
+                    disparosOriginais = [...disparosList];
+                    console.log('Backup realizado. Dados originais agora:', disparosOriginais.length);
+                } else {
+                    console.error('ERRO CRÍTICO: Nem disparosList nem disparosOriginais têm dados!');
+                    return;
+                }
+            }
+
+            const filtroTipo = document.getElementById('filtroTipo').value;
+            const filtroStatus = document.getElementById('filtroStatus').value;
+
+            console.log('Valores dos filtros:', {
+                tipo: filtroTipo,
+                status: filtroStatus
+            });
+            console.log('Dados originais para filtrar:', disparosOriginais.length);
+
+            // Sempre começar com uma cópia limpa dos dados originais
+            let disparosFiltrados = [...disparosOriginais];
+            console.log('Cópia inicial criada:', disparosFiltrados.length);
+
+            // Filtrar por tipo se selecionado
+            if (filtroTipo && filtroTipo !== '') {
+                console.log('Aplicando filtro de tipo:', filtroTipo);
+                const antesLength = disparosFiltrados.length;
+                disparosFiltrados = disparosFiltrados.filter(disparo => {
+                    const match = disparo.tipo === filtroTipo;
+                    if (match) console.log(`✓ Mantendo: ${disparo.tipo}`);
+                    return match;
+                });
+                console.log(`Filtro tipo: ${antesLength} → ${disparosFiltrados.length}`);
+            }
+
+            // Filtrar por status se selecionado
+            if (filtroStatus && filtroStatus !== '') {
+                console.log('Aplicando filtro de status:', filtroStatus);
+                const antesLength = disparosFiltrados.length;
+                disparosFiltrados = disparosFiltrados.filter(disparo => {
+                    const match = disparo.status === filtroStatus;
+                    if (match) console.log(`✓ Mantendo: ${disparo.status}`);
+                    return match;
+                });
+                console.log(`Filtro status: ${antesLength} → ${disparosFiltrados.length}`);
+            }
+
+            console.log('Resultado final dos filtros:', disparosFiltrados.length);
+
+            // Atualizar a lista de exibição
+            disparosList = disparosFiltrados;
+            console.log('disparosList atualizado');
+            
+            // Renderizar a tabela
+            console.log('Chamando renderDisparos...');
+            renderDisparos();
+
+            // Controlar visibilidade da tabela e empty state
+            const tableContainer = document.getElementById('tableContainer');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (disparosList.length === 0) {
+                console.log('Nenhum resultado - mostrando empty state');
+                tableContainer.style.display = 'none';
+                emptyState.style.display = 'block';
+            } else {
+                console.log('Resultados encontrados - mostrando tabela');
+                emptyState.style.display = 'none';
+                tableContainer.style.display = 'block';
+            }
+            
+            console.log('=== APLICANDO FILTROS - FIM ===');
+        }
+
+        // Limpar filtros
+        function limparFiltros() {
+            console.log('=== LIMPANDO FILTROS ===');
+            console.log('Dados originais antes de limpar:', disparosOriginais.length);
+            
+            // Limpar os dropdowns customizados
+            const tipoDropdown = document.getElementById('tipoFilterDropdown');
+            const statusDropdown = document.getElementById('statusFilterDropdown');
+            
+            if (tipoDropdown) {
+                const selectedSpan = tipoDropdown.querySelector('.dropdown-selected');
+                const hiddenInput = tipoDropdown.querySelector('input[type="hidden"]');
+                const options = tipoDropdown.querySelector('.dropdown-options');
+                const header = tipoDropdown.querySelector('.dropdown-header');
+                
+                selectedSpan.textContent = 'Todos os tipos';
+                hiddenInput.value = '';
+                options.classList.remove('show');
+                header.classList.remove('active');
+                
+                // Remove selecao das opcoes
+                options.querySelectorAll('.dropdown-option').forEach(option => {
+                    option.classList.remove('selected');
+                });
+            }
+            
+            if (statusDropdown) {
+                const selectedSpan = statusDropdown.querySelector('.dropdown-selected');
+                const hiddenInput = statusDropdown.querySelector('input[type="hidden"]');
+                const options = statusDropdown.querySelector('.dropdown-options');
+                const header = statusDropdown.querySelector('.dropdown-header');
+                
+                selectedSpan.textContent = 'Todos os status';
+                hiddenInput.value = '';
+                options.classList.remove('show');
+                header.classList.remove('active');
+                
+                // Remove selecao das opcoes
+                options.querySelectorAll('.dropdown-option').forEach(option => {
+                    option.classList.remove('selected');
+                });
+            }
+            
+            // Restaurar todos os dados originais
+            disparosList = [...disparosOriginais];
+            console.log('Dados restaurados:', disparosList.length, disparosList);
+            
+            // Renderizar tudo novamente
+            renderDisparos();
+            
+            // Mostrar a tabela
+            const tableContainer = document.getElementById('tableContainer');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (disparosList.length === 0) {
+                console.log('Nenhum dado original - mostrando empty state');
+                tableContainer.style.display = 'none';
+                emptyState.style.display = 'block';
+            } else {
+                console.log('Dados restaurados - mostrando tabela');
+                emptyState.style.display = 'none';
+                tableContainer.style.display = 'block';
+            }
+        }
+
+        // Atualizar dados
+        async function atualizarDisparos() {
+            const btnAtualizar = document.getElementById('btnAtualizar');
+            btnAtualizar.disabled = true;
+            btnAtualizar.innerHTML = '<span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23,4 23,10 17,10"></polyline><polyline points="1,20 1,14 7,14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg></span> Atualizando...';
+
+            try {
+                // Limpar filtros antes de atualizar
+                limparFiltros();
+                
+                await carregarDisparos();
+                showSuccess('Dados atualizados com sucesso!');
+            } catch (error) {
+                showError('Erro ao atualizar dados: ' + error.message);
+            } finally {
+                btnAtualizar.disabled = false;
+                btnAtualizar.innerHTML = '<span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23,4 23,10 17,10"></polyline><polyline points="1,20 1,14 7,14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg></span> Atualizar';
+            }
+        }
+
+        // Event listeners para botões
+        function setupNavigation() {
+            // Event listener para botao atualizar
+            const btnAtualizar = document.getElementById('btnAtualizar');
+            if (btnAtualizar) {
+                btnAtualizar.addEventListener('click', atualizarDisparos);
+            }
+        }
+
+        // Configurar indicador de scroll horizontal
+        function setupScrollIndicator() {
+            const tableContainer = document.getElementById('tableContainer');
+            const scrollIndicator = document.getElementById('scrollIndicator');
+            
+            if (!tableContainer || !scrollIndicator) return;
+            
+            // Só mostrar em mobile
+            if (window.innerWidth > 768) {
+                scrollIndicator.style.display = 'none';
+                return;
+            }
+            
+            // Verificar se há scroll horizontal disponível
+            const hasHorizontalScroll = tableContainer.scrollWidth > tableContainer.clientWidth;
+            
+            if (hasHorizontalScroll) {
+                scrollIndicator.style.display = 'flex';
+                
+                // Esconder após 3 segundos ou quando o usuário começar a fazer scroll
+                const hideTimer = setTimeout(() => {
+                    scrollIndicator.style.opacity = '0';
+                    setTimeout(() => {
+                        scrollIndicator.style.display = 'none';
+                    }, 300);
+                }, 3000);
+                
+                // Esconder quando o usuário fizer scroll
+                const hideOnScroll = () => {
+                    clearTimeout(hideTimer);
+                    scrollIndicator.style.opacity = '0';
+                    setTimeout(() => {
+                        scrollIndicator.style.display = 'none';
+                    }, 300);
+                    tableContainer.removeEventListener('scroll', hideOnScroll);
+                };
+                
+                tableContainer.addEventListener('scroll', hideOnScroll, { once: true });
+            } else {
+                scrollIndicator.style.display = 'none';
+            }
+        }
+
+        // Configurar filtros (chamado APÓS carregar dados)
+        function setupFiltros() {
+            console.log('=== CONFIGURANDO FILTROS ===');
+            console.log('Dados originais disponíveis para filtros:', disparosOriginais.length);
+            
+            // Event listeners para filtros com bind direto
+            const filtroTipo = document.getElementById('filtroTipo');
+            const filtroStatus = document.getElementById('filtroStatus');
+            const btnLimparFiltros = document.getElementById('btnLimparFiltros');
+
+            console.log('Elementos encontrados:', {
+                filtroTipo: !!filtroTipo,
+                filtroStatus: !!filtroStatus,
+                btnLimparFiltros: !!btnLimparFiltros
+            });
+
+            if (filtroTipo) {
+                filtroTipo.onchange = function() {
+                    console.log('EVENTO: Filtro tipo mudou para:', this.value);
+                    console.log('Dados originais no momento:', disparosOriginais.length);
+                    aplicarFiltros();
+                };
+                console.log('Event listener adicionado ao filtroTipo');
+            }
+
+            if (filtroStatus) {
+                filtroStatus.onchange = function() {
+                    console.log('EVENTO: Filtro status mudou para:', this.value);
+                    console.log('Dados originais no momento:', disparosOriginais.length);
+                    aplicarFiltros();
+                };
+                console.log('Event listener adicionado ao filtroStatus');
+            }
+
+            if (btnLimparFiltros) {
+                btnLimparFiltros.onclick = function() {
+                    console.log('EVENTO: Botao limpar clicado');
+                    console.log('Dados originais no momento:', disparosOriginais.length);
+                    limparFiltros();
+                };
+                console.log('Event listener adicionado ao btnLimparFiltros');
+            }
+
+            // Garantir que todos os dropdowns comecem fechados
+            document.querySelectorAll('.dropdown-options').forEach(options => {
+                options.classList.remove('show');
+            });
+            document.querySelectorAll('.dropdown-header').forEach(header => {
+                header.classList.remove('active');
+            });
+
+            console.log('=== FILTROS CONFIGURADOS ===');
+        }
+
+        // Inicialização
+        // Função de logout
+        async function logout() {
+            console.log('🚪 Iniciando logout...');
+            
+            try {
+                // Fazer logout do Supabase Auth
+                if (window.supabase) {
+                    const { error } = await window.supabase.auth.signOut();
+                    if (error) {
+                        console.error('Erro ao fazer logout do Supabase:', error);
+                    } else {
+                        console.log('✅ Logout do Supabase realizado com sucesso');
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao fazer logout:', error);
+            }
+            
+            // Limpar todos os cookies
+            document.cookie = 'userId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            document.cookie = 'idLista=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            document.cookie = 'idConexao=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            document.cookie = 'idDisparo=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            if (typeof clearMenuOcultarCache === 'function') clearMenuOcultarCache();
+            
+            // Limpar sessionStorage e localStorage
+            sessionStorage.clear();
+            localStorage.clear();
+            
+            console.log('🧹 Cookies, sessionStorage e localStorage limpos');
+            console.log('🔄 Redirecionando para login...');
+            
+            // Redirecionar para pagina de login
+            window.location.href = '__HUB_BACK_URL__/login';
+        }
+
+        // ===== FUNÇÕES DE MENSAGENS DE FEEDBACK =====
+        function showToast(message, type = 'info') {
+            if (typeof statusBloqueado !== 'undefined' && statusBloqueado) return;
+            const toastContainer = document.getElementById('toastContainer');
+            if (!toastContainer) return;
+            const cleanMessage = String(message || '').replace(/^(\u2705|\u274C|\u2139\uFE0F?|\u26A0\uFE0F?)\s*/, '');
+            const safeType = type === 'success' || type === 'error' ? type : 'info';
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification ' + safeType;
+            toast.setAttribute('role', safeType === 'error' ? 'alert' : 'status');
+            toast.setAttribute('aria-live', safeType === 'error' ? 'assertive' : 'polite');
+            const messageSpan = document.createElement('span');
+            messageSpan.className = 'toast-message';
+            messageSpan.textContent = cleanMessage;
+            toast.appendChild(messageSpan);
+            toastContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    if (toast.parentNode) toast.parentNode.removeChild(toast);
+                }, 300);
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            showToast(message, 'success');
+        }
+
+        function showError(message) {
+            // Nao exibir toast se o status estiver bloqueado (ja foi redirecionado)
+            if (statusBloqueado) {
+                return;
+            }
+            showToast(message, 'error');
+        }
+
+        (function() {
+            var sidebarCollapseTimer = null;
+            var SIDEBAR_EDGE = 70;
+            var SIDEBAR_EXPANDED_WIDTH = 250;
+            var COLLAPSE_DELAY_MS = 120;
+            var lastMove = 0;
+            var THROTTLE_MS = 80;
+            function onMouseMove(e) {
+                if (window.matchMedia('(max-width: 768px)').matches) return;
+                var sidebar = document.querySelector('.sidebar');
+                if (!sidebar || sidebar.classList.contains('mobile-open')) return;
+                var now = Date.now();
+                if (now - lastMove < THROTTLE_MS) return;
+                lastMove = now;
+                var x = e.clientX;
+                if (x < SIDEBAR_EDGE) {
+                    if (sidebarCollapseTimer) { clearTimeout(sidebarCollapseTimer); sidebarCollapseTimer = null; }
+                    sidebar.classList.add('sidebar-expanded');
+                } else if (x > SIDEBAR_EXPANDED_WIDTH) {
+                    if (sidebarCollapseTimer) return;
+                    sidebarCollapseTimer = setTimeout(function() {
+                        sidebar.classList.remove('sidebar-expanded');
+                        sidebarCollapseTimer = null;
+                    }, COLLAPSE_DELAY_MS);
+                } else {
+                    if (sidebarCollapseTimer) { clearTimeout(sidebarCollapseTimer); sidebarCollapseTimer = null; }
+                }
+            }
+            document.addEventListener('mousemove', onMouseMove, { passive: true });
+        })();
+
+        function toggleMobileMenu() {
+            const sidebar = document.querySelector('.sidebar');
+            if (sidebar.classList.contains('mobile-open')) {
+                closeMobileMenu();
+            } else {
+                openMobileMenu();
+            }
+        }
+
+        function openMobileMenu() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.add('mobile-open');
+            overlay.classList.add('active');
+            overlay.style.display = '';
+            overlay.style.pointerEvents = '';
+            document.body.style.overflow = 'hidden';
+            sidebar.style.pointerEvents = 'auto';
+        }
+
+        function closeMobileMenu() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (sidebar) {
+                sidebar.classList.remove('mobile-open');
+                sidebar.style.pointerEvents = '';
+            }
+            if (overlay) {
+                overlay.classList.remove('active');
+                overlay.style.display = 'none';
+                overlay.style.pointerEvents = 'none';
+            }
+            document.body.style.overflow = '';
+        }
+
+        function initMobileMenu() {
+            var resizeTimer;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(function() {
+                    if (window.innerWidth > 768) closeMobileMenu();
+                }, 120);
+            });
+
+            function handleMenuAction(originalOnclick) {
+                if (!originalOnclick) return;
+                closeMobileMenu();
+                if (originalOnclick.includes('navigateToPage')) {
+                    var urlMatch = originalOnclick.match(/navigateToPage\('([^']+)'\)/);
+                    if (urlMatch && urlMatch[1]) window.location.href = urlMatch[1];
+                } else if (originalOnclick.includes('window.open')) {
+                    var openMatch = originalOnclick.match(/window\.open\('([^']+)'/);
+                    if (openMatch && openMatch[1]) window.open(openMatch[1], '_blank');
+                } else if (originalOnclick.includes('logout') && typeof logout === 'function') {
+                    logout();
+                }
+            }
+            var sidebarEl = document.querySelector('.sidebar');
+            if (sidebarEl) {
+                sidebarEl.addEventListener('touchend', function(e) {
+                    if (window.innerWidth > 768) return;
+                    var item = e.target.closest('.menu-item');
+                    if (item) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleMenuAction(item.getAttribute('onclick'));
+                    }
+                }, { passive: false });
+                sidebarEl.addEventListener('click', function(e) {
+                    if (window.innerWidth > 768) return;
+                    var item = e.target.closest('.menu-item');
+                    if (item) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleMenuAction(item.getAttribute('onclick'));
+                    }
+                }, { capture: true });
+            }
+
+            var overlay = document.getElementById('sidebarOverlay');
+            if (overlay) {
+                overlay.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const sidebar = document.querySelector('.sidebar');
+                    if (sidebar) {
+                        sidebar.classList.remove('mobile-open');
+                        sidebar.style.pointerEvents = '';
+                    }
+                    overlay.classList.remove('active');
+                    overlay.style.display = 'none';
+                    overlay.style.pointerEvents = 'none';
+                    document.body.style.overflow = '';
+                });
+            }
+        }
+
+        async function verificarMostrarMenuAdmin() {
+            const el = document.getElementById('menu-item-admin');
+            if (!el || !window.supabase) return;
+            try {
+                const { data: { user } } = await window.supabase.auth.getUser();
+                if (!user) return;
+                const { data } = await window.supabase.from('SAAS_Usuarios').select('super_admin').eq('auth_user_id', user.id).limit(1);
+                if (data && data.length > 0 && data[0].super_admin === true) {
+                    el.style.display = '';
+                }
+            } catch (e) { console.warn('Erro ao verificar super_admin:', e); }
+        }
+
+        function normalizeMenuOcultarId(id) {
+            const raw = String(id || '').trim().toLowerCase();
+            if (!raw) return '';
+            const aliasMap = {
+                conexoes: 'conexoes',
+                configuracoes: 'configuracoes',
+                'agentes ia': 'agentes-ia',
+                agentes_ia: 'agentes-ia',
+                agentesia: 'agentes-ia'
+            };
+            return aliasMap[raw] || raw;
+        }
+
+        function applyMenuOcultarClasses(ids) {
+            if (!Array.isArray(ids)) return;
+            const normalizedIds = [...new Set(ids.map(normalizeMenuOcultarId).filter(Boolean))];
+            normalizedIds.forEach(id => document.body.classList.add('menu-oculta-' + id));
+        }
+
+        async function initMenuOcultar() {
+            const CACHE_KEY = 'menuOcultarCache';
+            const TTL_MS = 30 * 60 * 1000;
+            const cached = typeof getCookie === 'function' ? getCookie(CACHE_KEY) : null;
+            if (cached) {
+                try {
+                    const obj = JSON.parse(decodeURIComponent(cached));
+                    if (obj && Array.isArray(obj.arr) && obj.exp && Date.now() < obj.exp) {
+                        applyMenuOcultarClasses(obj.arr);
+                        return;
+                    }
+                } catch (e) { /* cache inválido */ }
+            }
+            if (!window.supabase) return;
+            try {
+                const { data: { user } } = await window.supabase.auth.getUser();
+                if (!user) return;
+                const { data: usuario } = await window.supabase.from('SAAS_Usuarios').select('contaId').eq('auth_user_id', user.id).limit(1).maybeSingle();
+                if (!usuario?.contaId) return;
+                const { data: conta } = await window.supabase.from('SAAS_Contas').select('plano').eq('id', usuario.contaId).limit(1).maybeSingle();
+                if (!conta?.plano) return;
+                const { data: plano } = await window.supabase.from('SAAS_Planos').select('menu_ocultar').eq('id', conta.plano).limit(1).maybeSingle();
+                const arr = Array.isArray(plano?.menu_ocultar) ? plano.menu_ocultar : [];
+                const arrNormalized = [...new Set(arr.map(normalizeMenuOcultarId).filter(Boolean))];
+                applyMenuOcultarClasses(arrNormalized);
+                if (typeof setCookie === 'function') setCookie(CACHE_KEY, encodeURIComponent(JSON.stringify({arr: arrNormalized, exp: Date.now() + TTL_MS})), 1/48);
+            } catch (e) { console.warn('initMenuOcultar:', e); }
+        }
+        function clearMenuOcultarCache() {
+            document.cookie = 'menuOcultarCache=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        }
+
+        function escapeHtmlAjuda(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function categoriaCssAjuda(categoriaCss) {
+            const map = {
+                config: 'tutorial-category-config',
+                ia: 'tutorial-category-ia',
+                disparos: 'tutorial-category-disparos',
+                crm: 'tutorial-category-crm',
+                chat: 'tutorial-category-chat'
+            };
+            return map[categoriaCss] || 'tutorial-category-config';
+        }
+
+        async function carregarVideosAjuda() {
+            const grid = document.getElementById('tutoriais-grid');
+            if (!grid || !window.supabase) return;
+
+            try {
+                const { data, error } = await window.supabase
+                    .from('SAAS_VideosAjuda')
+                    .select('titulo, descricao, categoria, categoriaCss, urlVideo, ordem')
+                    .eq('ativo', true)
+                    .order('ordem', { ascending: true });
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    grid.innerHTML = '<p class="tutorial-description" style="grid-column: 1 / -1;">Nenhum tutorial disponível no momento.</p>';
+                    return;
+                }
+
+                grid.innerHTML = data.map((video) => {
+                    const titulo = escapeHtmlAjuda(video.titulo);
+                    const descricao = escapeHtmlAjuda(video.descricao || '');
+                    const categoria = escapeHtmlAjuda(video.categoria || '');
+                    const url = escapeHtmlAjuda(video.urlVideo || '');
+                    const catClass = categoriaCssAjuda(video.categoriaCss);
+                    return `
+                <div class="tutorial-card">
+                    <div class="video-placeholder">
+                        <iframe src="${url}" title="${titulo}" allowfullscreen loading="lazy"></iframe>
+                    </div>
+                    <div class="tutorial-card-content">
+                        <span class="tutorial-category ${catClass}">${categoria}</span>
+                        <h3 class="tutorial-title">${titulo}</h3>
+                        <p class="tutorial-description">${descricao}</p>
+                    </div>
+                </div>`;
+                }).join('');
+            } catch (e) {
+                console.error('Erro ao carregar vídeos da ajuda:', e);
+                grid.innerHTML = '<p class="tutorial-description" style="grid-column: 1 / -1;">Não foi possível carregar os tutoriais.</p>';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await checkAuth();
+            await carregarVersao();
+            verificarMostrarMenuAdmin();
+            initMenuOcultar();
+            initMobileMenu();
+            initDarkMode();
+            await carregarVideosAjuda();
+        });
+
+        // ===== DARK MODE / LIGHT MODE =====
+        function initDarkMode() {
+            const darkMode = getCookie('darkMode');
+            const isDarkMode = darkMode === 'true';
+            applyTheme(isDarkMode);
+            const toggle = document.getElementById('darkModeToggle');
+            if (toggle) {
+                toggle.checked = isDarkMode;
+                toggle.addEventListener('change', function() {
+                    const newMode = this.checked;
+                    applyTheme(newMode);
+                    setCookie('darkMode', newMode ? 'true' : 'false', 365);
+                });
+            }
+        }
+
+        function applyTheme(isDarkMode) {
+            const themeText = document.getElementById('themeToggleText');
+            if (isDarkMode) {
+                document.body.classList.remove('light-mode');
+                document.body.classList.add('dark-mode');
+                if (themeText) themeText.textContent = 'Modo Escuro';
+            } else {
+                document.body.classList.remove('dark-mode');
+                document.body.classList.add('light-mode');
+                if (themeText) themeText.textContent = 'Modo Claro';
+            }
+        }
+
+    </script>
+
+    </body>
+</html>

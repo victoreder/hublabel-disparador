@@ -12,7 +12,9 @@
     "start:inbound": "node src/inbound.js",
     "dev": "node --watch src/index.js",
     "dev:evolution": "node --watch src/workers/evolution.js",
-    "dev:inbound": "node --watch src/inbound.js"
+    "dev:inbound": "node --watch src/inbound.js",
+    "test": "node --test",
+    "extrair-telas": "node scripts/extract-n8n-pages.mjs"
   },
   "engines": {
     "node": ">=22"

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Definir Super Admin - __HUB_NOME__</title>
+    <link rel="icon" type="image/png" href="__HUB_FAVICON_URL__">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 420px;
+            width: 100%;
+        }
+        .card h1 {
+            font-size: 1.35rem;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+        .card p {
+            color: #999;
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+            line-height: 1.45;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #bbb;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 1rem;
+        }
+        .form-group input::placeholder { color: #666; }
+        .form-group input:focus {
+            outline: none;
+            border-color: #__HUB_COR__;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-primary {
+            background: #__HUB_COR__;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+        .btn-primary:hover:not(:disabled) { opacity: 0.95; }
+        .btn-secondary {
+            background: transparent;
+            color: #888;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.06); color: #ccc; }
+        .msg {
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+        }
+        .msg.error { background: rgba(220,53,69,0.2); border: 1px solid rgba(220,53,69,0.4); color: #f88; }
+        .msg.success { background: rgba(37,211,102,0.15); border: 1px solid rgba(37,211,102,0.3); color: #6f6; }
+
+        /* === Dropdowns <select>: fundo branco e texto preto (light e dark) === */
+        body.light-mode select,
+        body.dark-mode select,
+        body:not(.light-mode) select {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            -webkit-text-fill-color: #000000 !important;
+        }
+        body.light-mode select option,
+        body.dark-mode select option,
+        body:not(.light-mode) select option,
+        body.light-mode select optgroup,
+        body.dark-mode select optgroup,
+        body:not(.light-mode) select optgroup {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+        }
+        body.light-mode select[class],
+        body.dark-mode select[class],
+        body:not(.light-mode) select[class] {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            -webkit-text-fill-color: #000000 !important;
+        }
+        body.light-mode select[class] option,
+        body.dark-mode select[class] option,
+        body:not(.light-mode) select[class] option {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+        }
+    </style>
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.0/+esm';
+        const SUPABASE_URL = '__HUB_SUPABASE_URL__';
+        const SUPABASE_ANON_KEY = '__HUB_SUPABASE_ANON_KEY__';
+        window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+        });
+    </script>
+    <link rel="stylesheet" href="dropdowns-global.css">
+</head>
+<body>
+    <div class="card">
+        <h1>Definir primeiro Super Admin</h1>
+        <p>Use esta página apenas quando ainda não existir nenhum super admin no sistema. Você precisa estar logado. Ao clicar no botão, esta conta será definida como super admin.</p>
+        <div id="msg" class="msg" style="display: none;"></div>
+        <form id="form" autocomplete="off">
+            <button type="submit" class="btn btn-primary" id="btnSubmit">Tornar-me Super Admin</button>
+            <button type="button" class="btn btn-secondary" id="btnVoltar">Voltar ao Dashboard</button>
+        </form>
+    </div>
+    <script>
+        const LOGIN_URL = '__HUB_BACK_URL__/login';
+        const DASHBOARD_URL = '__HUB_BACK_URL__/dashboard';
+        const ADMIN_URL = '__HUB_BACK_URL__/adminpannel';
+
+        function showMsg(text, type) {
+            const el = document.getElementById('msg');
+            el.textContent = text;
+            el.className = 'msg ' + (type || 'error');
+            el.style.display = 'block';
+        }
+        function hideMsg() {
+            document.getElementById('msg').style.display = 'none';
+        }
+
+        document.getElementById('btnVoltar').addEventListener('click', function() {
+            window.location.href = DASHBOARD_URL;
+        });
+
+        document.getElementById('form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            hideMsg();
+            if (!window.supabase) {
+                showMsg('Erro de configuração. Tente recarregar a página.', 'error');
+                return;
+            }
+            const btn = document.getElementById('btnSubmit');
+            btn.disabled = true;
+            try {
+                const { data, error } = await window.supabase.rpc('promover_primeiro_super_admin');
+                if (error) {
+                    showMsg(error.message || 'Erro ao promover.', 'error');
+                    btn.disabled = false;
+                    return;
+                }
+                const res = data;
+                if (res && res.ok === true) {
+                    showMsg('Conta definida como Super Admin. Redirecionando...', 'success');
+                    setTimeout(function() { window.location.href = ADMIN_URL; }, 1200);
+                    return;
+                }
+                showMsg((res && res.erro) ? res.erro : 'Não foi possível promover.', 'error');
+            } catch (err) {
+                showMsg(err.message || 'Erro inesperado.', 'error');
+            }
+            btn.disabled = false;
+        });
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            if (!window.supabase) return;
+            try {
+                const { data: { session } } = await window.supabase.auth.getSession();
+                if (!session || !session.access_token) {
+                    window.location.replace(LOGIN_URL);
+                    return;
+                }
+            } catch (_) {
+                window.location.replace(LOGIN_URL);
+            }
+        });
+    </script>
+</body>
+</html>
