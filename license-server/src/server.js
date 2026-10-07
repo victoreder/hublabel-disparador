@@ -13,7 +13,8 @@ const adminToken = required('ADMIN_TOKEN');
 // Tolerância que o cliente ganha a cada validação para continuar rodando se este servidor cair.
 const graceHours = Number.parseInt(process.env.GRACE_HOURS || '72', 10);
 const privateKey = createPrivateKey(Buffer.from(required('LICENSE_PRIVATE_KEY'), 'base64').toString('utf8'));
-const db = createClient(required('SUPABASE_URL'), required('SUPABASE_SERVICE_ROLE_KEY'), {
+// Supabase EXCLUSIVO do vendedor (só a tabela de licenças). Nunca o Supabase de um cliente.
+const db = createClient(required('LICENCAS_SUPABASE_URL'), required('LICENCAS_SUPABASE_SERVICE_ROLE_KEY'), {
   auth: { persistSession: false },
 });
 

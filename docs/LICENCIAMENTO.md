@@ -57,9 +57,24 @@ Ele imprime duas linhas base64:
   cópia em local seguro (gerenciador de senhas). Se perder, terá de gerar outro par, e todas as imagens já
   distribuídas param de validar até o cliente atualizar a imagem.
 
-### 2. Criar as tabelas no SEU Supabase
+### 2. Criar um Supabase só para as licenças
 
-Use o seu Supabase, não o de um cliente. No SQL Editor, rode `license-server/sql/001_licencas.sql`.
+Existem **dois tipos de Supabase** neste sistema:
+
+| Supabase | De quem | Para quê | Quem acessa |
+|----------|---------|----------|-------------|
+| **Do cliente** | cada cliente tem o seu | dados do sistema (contatos, disparos, chat...) | os containers do cliente (`SUPABASE_URL`) |
+| **De licenças** | **seu**, separado, um só | tabela `licencas` (quem comprou) | **somente** o servidor de licenças (`LICENCAS_SUPABASE_URL`) |
+
+1. Em supabase.com, crie um **projeto novo**, por exemplo `hublabel-licencas` (o plano gratuito basta). Não use o
+   projeto do seu próprio sistema nem o de um cliente.
+2. No SQL Editor **desse projeto**, rode `license-server/sql/001_licencas.sql`.
+3. Em Project Settings → API, copie a **URL** e a **service_role key** desse projeto. Elas vão em
+   `LICENCAS_SUPABASE_URL` e `LICENCAS_SUPABASE_SERVICE_ROLE_KEY` na stack do servidor de licenças (passo 4).
+
+O sistema do cliente **nunca** se conecta a esse Supabase e não recebe as credenciais dele. Ele só
+chama a URL do servidor de licenças, e quem consulta a tabela é o servidor.
+Este SQL também não faz parte da instalação do cliente: não envie a pasta `license-server/`.
 
 ### 3. Variáveis no GitHub
 
@@ -77,8 +92,8 @@ Repositório → **Settings → Secrets and variables → Actions → aba Variab
 1. Faça merge na `main` → o workflow **Build License Server Image** publica `ghcr.io/victoreder/hublabel-licenca`.
 2. GitHub → seu perfil → **Packages → hublabel-licenca** → confirme que está **Private**.
 3. Portainer → **Registries** → adicione `ghcr.io` com seu usuário GitHub e um token com `read:packages`.
-4. Crie a stack com `license-server/portainer-stack.example.yml` (ajuste domínio, Supabase,
-   `LICENSE_PRIVATE_KEY` e `ADMIN_TOKEN`).
+4. Crie a stack com `license-server/portainer-stack.example.yml` (ajuste domínio, Supabase de licenças
+   do passo 2, `LICENSE_PRIVATE_KEY` e `ADMIN_TOKEN`).
 5. Teste: `https://licenca.seudominio/health` → `{"ok":true}`.
 
 ### 5. Deixar o repositório privado e manter a imagem pública

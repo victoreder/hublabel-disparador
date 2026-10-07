@@ -9,9 +9,10 @@ services:
     image: ghcr.io/victoreder/hublabel-licenca:latest
 
     environment:
-      # SEU Supabase (do vendedor), com as tabelas de license-server/sql/001_licencas.sql
-      SUPABASE_URL: https://SEU-PROJETO.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_SUA_SERVICE_ROLE_KEY
+      # Supabase SEPARADO, só seu, criado só para as licenças (rode nele license-server/sql/001_licencas.sql).
+      # NÃO é o Supabase de nenhum cliente nem o do seu próprio sistema.
+      LICENCAS_SUPABASE_URL: https://SEU-PROJETO-DE-LICENCAS.supabase.co
+      LICENCAS_SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_A_SERVICE_ROLE_DO_PROJETO_DE_LICENCAS
       # Saída de "node scripts/gerar-chaves.js" (linha da chave PRIVADA)
       LICENSE_PRIVATE_KEY: COLE_AQUI_A_CHAVE_PRIVADA_BASE64
       # Senha das rotas /admin (gere uma longa: openssl rand -hex 32)

@@ -1,4 +1,6 @@
--- Rode no SEU Supabase (o do vendedor), não no dos clientes.
+-- USO INTERNO DO VENDEDOR — NÃO faz parte da instalação do cliente.
+-- Rode SOMENTE no Supabase separado de licenças (o mesmo de LICENCAS_SUPABASE_URL do servidor de licenças).
+-- Não rode no Supabase de clientes nem envie este arquivo a eles.
 
 create table if not exists public.licencas (
   id               bigint generated always as identity primary key,
