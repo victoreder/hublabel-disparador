@@ -1,0 +1,12 @@
+{
+  "name": "hublabel-motion",
+  "private": true,
+  "type": "module",
+  "description": "Vídeos de motion graphic renderizados em código (Playwright + ffmpeg).",
+  "scripts": {
+    "render:agente-ia": "python3 sons_agente-ia.py && node render.mjs anuncio-agente-ia.html hublabel-agente-ia.mp4 --audio sons_agente-ia.wav"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.1"
+  }
+}
