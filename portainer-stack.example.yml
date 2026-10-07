@@ -1,33 +1,50 @@
 version: "3.7"
 
-## BACK_URL com path opcional (ex.: .../webhook). Telas e rotas ficam em BACK_URL/<slug>
-## (ex.: https://webhook2.victoreder.com.br/webhook/login). O inbound remove o prefixo sozinho.
+## =============================================================================
+## HubLabel — stack completa (Portainer / Docker Swarm)
+## Guia passo a passo: docs/DEPLOY.md
+##
+## Troque tudo que está em MAIÚSCULAS (SEU-PROJETO, COLE_AQUI_..., SEU-DOMINIO).
+## Os 3 serviços usam a MESMA imagem; muda só o comando.
+##   disparador-meta       → fila de disparos da API Oficial (Meta)
+##   disparador-evolution  → fila de disparos Evolution (individual/grupos) + e-mail
+##   disparador-inbound    → telas do sistema, ações, webhooks (Meta/Evolution), agente IA
+##
+## Pré-requisitos na VPS: Traefik com entrypoint "websecure" e certresolver
+## "letsencryptresolver", rede overlay "RedeVictor" e um Redis acessível em REDIS_URL.
+## =============================================================================
+
+## Variáveis repetidas nos 3 serviços (âncora YAML — edite só aqui).
+x-supabase-env: &supabase-env
+  SUPABASE_URL: https://SEU-PROJETO.supabase.co
+  SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_SUA_SERVICE_ROLE_KEY
+  NODE_ENV: production
+
+x-evolution-env: &evolution-env
+  EVOLUTION_BASE_URL: https://evolution2.victoreder.com.br
+  EVOLUTION_API_KEY: COLE_AQUI_SUA_APIKEY_EVOLUTION
+
+x-deploy-padrao: &deploy-padrao
+  placement:
+    constraints:
+      - node.role == manager
+  resources:
+    limits:
+      cpus: "1"
+      memory: 512M
+  restart_policy:
+    condition: any
+    delay: 5s
 
 services:
 
   disparador-meta:
     image: ghcr.io/victoreder/hublabel-disparador:latest
-
     environment:
-      SUPABASE_URL: https://SEU-PROJETO.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_SUA_SERVICE_ROLE_KEY
-      NODE_ENV: production
-
+      <<: *supabase-env
     networks:
       - RedeVictor
-
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
-      resources:
-        limits:
-          cpus: "1"
-          memory: 512M
-      restart_policy:
-        condition: any
-        delay: 5s
-
+    deploy: *deploy-padrao
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3080/health"]
       interval: 30s
@@ -38,69 +55,68 @@ services:
   disparador-evolution:
     image: ghcr.io/victoreder/hublabel-disparador:latest
     command: ["node", "src/workers/evolution.js"]
-
     environment:
-      SUPABASE_URL: https://SEU-PROJETO.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_SUA_SERVICE_ROLE_KEY
-      EVOLUTION_BASE_URL: https://evolution2.victoreder.com.br
-      EVOLUTION_API_KEY: COLE_AQUI_SUA_APIKEY_EVOLUTION
-      NODE_ENV: production
-
+      <<: [*supabase-env, *evolution-env]
     networks:
       - RedeVictor
-
-    deploy:
-      placement:
-        constraints:
-          - node.role == manager
-      resources:
-        limits:
-          cpus: "1"
-          memory: 512M
-      restart_policy:
-        condition: any
-        delay: 5s
-
+    deploy: *deploy-padrao
     healthcheck:
       disable: true
 
   disparador-inbound:
     image: ghcr.io/victoreder/hublabel-disparador:latest
     command: ["node", "src/inbound.js"]
-
     environment:
-      SUPABASE_URL: https://SEU-PROJETO.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_SUA_SERVICE_ROLE_KEY
-      ## Anon key pública do Supabase (a mesma que as telas usam no navegador).
+      <<: [*supabase-env, *evolution-env]
+
+      ## ---- Obrigatórias ----------------------------------------------------
+      ## Anon key pública do Supabase (Settings → API). Vai para as telas e valida o login.
       SUPABASE_ANON_KEY: COLE_AQUI_SUA_ANON_KEY
-      BACK_URL: https://webhook2.victoreder.com.br/webhook
+      ## URL pública do sistema. As telas ficam em BACK_URL/<tela> (ex.: .../webhook/login).
+      BACK_URL: https://SEU-DOMINIO/webhook
+      ## S3/MinIO para uploads e mídias.
       S3_ENDPOINT: https://s32.victoreder.com.br
       S3_ACCESS_KEY_ID: COLE_S3_ACCESS_KEY
       S3_SECRET_ACCESS_KEY: COLE_S3_SECRET_KEY
       S3_PUBLIC_BASE_URL: https://s32.victoreder.com.br/n8n
+      S3_BUCKET: n8n
+      ## Redis: agente IA + contadores de segurança (bloqueio de login, bans).
       REDIS_URL: redis://redis:6379
-      NODE_ENV: production
+
+      ## ---- Segurança (opcionais — valores abaixo são os padrões) -----------
+      ## Chave para integrações externas chamarem rotas de admin (header x-api-key).
+      ## Deixe vazia se ninguém chama /criar-usuario ou /excluir-conta fora das telas.
+      # HUB_API_KEY: GERE_UMA_CHAVE_LONGA_ALEATORIA
+      # LOGIN_MAX_FALHAS: "5"
+      # LOGIN_BLOQUEIO_MIN: "15"
+      # JAIL_LIMITE_PONTOS: "30"
+      # JAIL_BAN_MIN: "60"
+      # API_LIMITE_MINUTO: "300"
+      ## IPs que nunca são limitados/banidos (ex.: seu escritório). Rede interna já é liberada.
+      # SEGURANCA_IPS_LIBERADOS: 1.2.3.4
+      ## Só se houver Cloudflare (proxy laranja) na frente do domínio:
+      # CLIENT_IP_HEADER: cf-connecting-ip
+      ## Cadastro grátis (/cadastrar): "false" desliga.
+      # CADASTRO_GRATIS_ATIVO: "true"
+      # PLANO_GRATIS_ID: "2"
+      # PLANO_GRATIS_DIAS: "2"
 
     networks:
       - RedeVictor
 
     deploy:
-      placement:
-        constraints:
-          - node.role == manager
+      <<: *deploy-padrao
       resources:
         limits:
           cpus: "1"
-          memory: 512M
-      restart_policy:
-        condition: any
-        delay: 5s
+          ## Telas em cache + uploads (até 50 MB, 3 simultâneos) + agente IA.
+          memory: 1024M
       labels:
         - traefik.enable=true
         - traefik.docker.network=RedeVictor
-        ## O domínio inteiro vai para o inbound (telas, ações e webhooks — sem n8n).
-        ## O próprio app remove o prefixo do BACK_URL (/webhook), então não precisa de StripPrefix.
-        - traefik.http.routers.disparador_inbound.rule=Host(`webhook2.victoreder.com.br`)
+        ## O domínio inteiro vai para o inbound (telas, ações e webhooks).
+        ## Sem StripPrefix e sem roteamento por caminho: o app trata o /webhook sozinho.
+        - traefik.http.routers.disparador_inbound.rule=Host(`SEU-DOMINIO`)
         - traefik.http.routers.disparador_inbound.entrypoints=websecure
         - traefik.http.routers.disparador_inbound.tls.certresolver=letsencryptresolver
         - traefik.http.routers.disparador_inbound.service=disparador_inbound

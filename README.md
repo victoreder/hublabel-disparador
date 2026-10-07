@@ -250,6 +250,9 @@ Contadores e bans ficam no Redis (`REDIS_URL`), valendo entre réplicas e após 
 
 ### Implantação
 
+Guia completo (Portainer e EasyPanel, todas as variáveis): **[docs/DEPLOY.md](docs/DEPLOY.md)**. Resumo:
+
+
 1. Rodar `scripts/migracao-n8n-telas-acoes.sql` no SQL Editor do Supabase (uma vez).
 2. Na stack, adicionar `SUPABASE_ANON_KEY` ao `disparador-inbound` e apontar o domínio inteiro para ele (veja `portainer-stack.example.yml` — um único router `Host(...)`, sem StripPrefix).
 3. Remover o router do n8n desse domínio (senão os dois disputam o mesmo `Host`).
