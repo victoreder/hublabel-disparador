@@ -13,7 +13,7 @@ services:
       # NÃO é o Supabase de nenhum cliente nem o do seu próprio sistema.
       LICENCAS_SUPABASE_URL: https://SEU-PROJETO-DE-LICENCAS.supabase.co
       LICENCAS_SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_A_SERVICE_ROLE_DO_PROJETO_DE_LICENCAS
-      # Saída de "node scripts/gerar-chaves.js" (linha da chave PRIVADA)
+      # Valor PRIVADA gerado no passo 1 do docs/LICENCIAMENTO.md
       LICENSE_PRIVATE_KEY: COLE_AQUI_A_CHAVE_PRIVADA_BASE64
       # Senha das rotas /admin (gere uma longa: openssl rand -hex 32)
       ADMIN_TOKEN: COLE_AQUI_UM_TOKEN_LONGO

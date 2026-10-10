@@ -1,4 +1,4 @@
-import { createPrivateKey, randomBytes, sign, timingSafeEqual } from 'node:crypto';
+import { createPrivateKey, sign, timingSafeEqual } from 'node:crypto';
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 
@@ -28,18 +28,11 @@ function signed(payload) {
   return { payload: data.toString('base64'), assinatura: sign(null, data, privateKey).toString('base64') };
 }
 
-function gerarChave() {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const bytes = randomBytes(16);
-  const chars = [...bytes].map((b) => alphabet[b % alphabet.length]).join('');
-  return `HL-${chars.match(/.{4}/g).join('-')}`;
-}
-
 function clientIp(req) {
   return String(req.ip || req.socket.remoteAddress || '');
 }
 
-// Limite simples por IP contra tentativa de adivinhar chaves.
+// Limite simples por IP contra tentativa de adivinhar e-mails de licença.
 const hits = new Map();
 function rateLimited(ip) {
   const now = Date.now();
@@ -70,7 +63,6 @@ async function registrarEvento(licencaId, tipo, info, detalhe) {
 }
 
 async function validar(body, ip) {
-  const chave = String(body.chave || '').trim().toUpperCase();
   const email = String(body.email || '').trim().toLowerCase();
   const fingerprint = String(body.fingerprint || '');
   const info = {
@@ -82,13 +74,11 @@ async function validar(body, ip) {
 
   const recusa = (motivo) => ({ ok: false, motivo });
 
-  if (!chave || !email || !/^[a-f0-9]{64}$/.test(fingerprint)) return { resultado: recusa('dados de licença incompletos') };
+  if (!email || !/^[a-f0-9]{64}$/.test(fingerprint)) return { resultado: recusa('dados de licença incompletos') };
 
-  const { data: licenca, error } = await db.from('licencas').select('*').eq('chave', chave).maybeSingle();
+  const { data: licenca, error } = await db.from('licencas').select('*').eq('email', email).maybeSingle();
   if (error) throw error;
-  if (!licenca || licenca.email.toLowerCase() !== email) {
-    return { resultado: recusa('chave ou e-mail de licença inválidos') };
-  }
+  if (!licenca) return { resultado: recusa('e-mail sem licença cadastrada') };
   if (licenca.status !== 'ativa') {
     await registrarEvento(licenca.id, 'recusada', info, `status ${licenca.status}`);
     return { resultado: recusa(`licença ${licenca.status}`) };
@@ -113,7 +103,7 @@ async function validar(body, ip) {
     if (!ativada) return validar(body, ip);
     licenca.fingerprint = fingerprint;
     await registrarEvento(licenca.id, 'ativacao', info);
-    log('INFO', 'Licença ativada', { chave, instalacao: info.instalacao });
+    log('INFO', 'Licença ativada', { email, instalacao: info.instalacao });
   }
 
   if (licenca.fingerprint !== fingerprint) {
@@ -195,7 +185,6 @@ admin.post('/licencas', async (req, res) => {
   const { data, error } = await db
     .from('licencas')
     .insert({
-      chave: gerarChave(),
       email,
       cliente: req.body?.cliente ?? null,
       expira_em: req.body?.expira_em ?? null,
@@ -204,17 +193,17 @@ admin.post('/licencas', async (req, res) => {
     .select('*')
     .single();
   if (error) return res.status(500).json({ ok: false, error: error.message });
-  log('INFO', 'Licença criada', { chave: data.chave, email });
+  log('INFO', 'Licença criada', { email });
   res.status(201).json({ ok: true, licenca: data });
 });
 
 // Libera a licença para ser ativada em outra instalação (troca de VPS/Supabase do cliente).
-admin.post('/licencas/:chave/resetar', async (req, res) => {
+admin.post('/licencas/:email/resetar', async (req, res) => {
   const { data, error } = await db
     .from('licencas')
     .update({ fingerprint: null, instalacao: null, ativada_em: null })
-    .eq('chave', req.params.chave.toUpperCase())
-    .select('id, chave')
+    .eq('email', req.params.email.trim().toLowerCase())
+    .select('id, email')
     .maybeSingle();
   if (error) return res.status(500).json({ ok: false, error: error.message });
   if (!data) return res.status(404).json({ ok: false, error: 'licenca nao encontrada' });
@@ -222,7 +211,7 @@ admin.post('/licencas/:chave/resetar', async (req, res) => {
   res.json({ ok: true, licenca: data });
 });
 
-admin.post('/licencas/:chave/status', async (req, res) => {
+admin.post('/licencas/:email/status', async (req, res) => {
   const status = String(req.body?.status || '');
   if (!['ativa', 'suspensa', 'revogada'].includes(status)) {
     return res.status(400).json({ ok: false, error: 'status deve ser ativa, suspensa ou revogada' });
@@ -230,8 +219,8 @@ admin.post('/licencas/:chave/status', async (req, res) => {
   const { data, error } = await db
     .from('licencas')
     .update({ status })
-    .eq('chave', req.params.chave.toUpperCase())
-    .select('id, chave, status')
+    .eq('email', req.params.email.trim().toLowerCase())
+    .select('id, email, status')
     .maybeSingle();
   if (error) return res.status(500).json({ ok: false, error: error.message });
   if (!data) return res.status(404).json({ ok: false, error: 'licenca nao encontrada' });

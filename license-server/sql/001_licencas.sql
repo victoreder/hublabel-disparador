@@ -4,8 +4,8 @@
 
 create table if not exists public.licencas (
   id               bigint generated always as identity primary key,
-  chave            text not null unique,
-  email            text not null,
+  -- E-mail da compra: é a licença. O cliente informa só ele (LICENCA_EMAIL) na stack.
+  email            text not null unique,
   cliente          text,
   status           text not null default 'ativa' check (status in ('ativa', 'suspensa', 'revogada')),
   -- Instalação à qual a licença está presa (hash do host do Supabase do cliente). Null = ainda não ativada.
@@ -32,6 +32,17 @@ create table if not exists public.licenca_eventos (
   detalhe     text,
   criado_em   timestamptz not null default now()
 );
+
+-- Guarda o e-mail sempre em minúsculo/sem espaços (cadastro manual ou automático pelo checkout).
+create or replace function public.licencas_normaliza_email() returns trigger language plpgsql as $$
+begin
+  new.email := lower(trim(new.email));
+  return new;
+end $$;
+
+drop trigger if exists licencas_normaliza_email on public.licencas;
+create trigger licencas_normaliza_email before insert or update of email on public.licencas
+  for each row execute function public.licencas_normaliza_email();
 
 create index if not exists licenca_eventos_licenca_idx on public.licenca_eventos (licenca_id, criado_em desc);
 

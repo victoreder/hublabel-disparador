@@ -4,7 +4,7 @@ Você vai precisar de:
 
 - VPS com **Docker Swarm + Portainer + Traefik** já funcionando
 - Seu projeto **Supabase** (URL e `service_role` key)
-- A **chave de licença** (`HL-XXXX-XXXX-XXXX-XXXX`) e o **e-mail** da compra
+- O **e-mail usado na compra** (ele é a sua licença)
 
 > A licença vale para **uma instalação**. Ela fica vinculada ao seu Supabase na primeira vez que o
 > sistema sobe. Para mudar de Supabase, fale com o suporte.
@@ -20,8 +20,7 @@ Em **cada um dos 3 serviços** (`disparador-meta`, `disparador-evolution`, `disp
     environment:
       SUPABASE_URL: https://SEU-PROJETO.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: sua_service_role_key
-      LICENCA_CHAVE: HL-XXXX-XXXX-XXXX-XXXX     # recebida na compra
-      LICENCA_EMAIL: seu-email@da-compra.com    # o mesmo e-mail da compra
+      LICENCA_EMAIL: seu-email@da-compra.com    # o e-mail usado na compra
 ```
 
 Ajuste também:
@@ -44,9 +43,9 @@ Clique em **Deploy the stack**. Nos logs de cada serviço (Portainer → Service
 
 | Mensagem no log | O que fazer |
 |-----------------|-------------|
-| `defina LICENCA_CHAVE e LICENCA_EMAIL` | Faltou alguma das duas variáveis em algum dos 3 serviços. |
-| `chave ou e-mail de licença inválidos` | Confira a chave e use exatamente o e-mail da compra. |
-| `licença já ativada em outra instalação` | A chave já está em uso com outro Supabase. Fale com o suporte para transferir. |
+| `defina LICENCA_EMAIL` | Faltou a variável em algum dos 3 serviços. |
+| `e-mail sem licença cadastrada` | Use exatamente o e-mail da compra. Se estiver certo, fale com o suporte. |
+| `licença já ativada em outra instalação` | A licença já está em uso com outro Supabase. Fale com o suporte para transferir. |
 | `licença suspensa` / `revogada` / `expirada` | Fale com o suporte. |
 | `Servidor de licenças indisponível — nova tentativa em 30s` | A VPS precisa acessar a internet (HTTPS de saída). O sistema tenta de novo sozinho. |
 

@@ -11,7 +11,7 @@ import { logger } from './logger.js';
  * e a verificação é desligada — o fonte fica só no repositório privado.
  *
  * A licença fica presa à instalação do cliente: fingerprint = hash do host do SUPABASE_URL.
- * O sistema inteiro depende desse banco, então a mesma chave não serve para outra instalação.
+ * O sistema inteiro depende desse banco, então a mesma licença não serve para outra instalação.
  */
 
 /* global __HUBLABEL_LICENSE_PUBKEY__, __HUBLABEL_LICENSE_SERVER__, __HUBLABEL_VERSION__ */
@@ -81,14 +81,11 @@ export function verifySignedLicense(response, { publicKeyPem, fingerprint, nonce
 }
 
 function readLicenseEnv() {
-  const chave = process.env.LICENCA_CHAVE?.trim();
   const email = process.env.LICENCA_EMAIL?.trim().toLowerCase();
-  if (!chave || !email) {
-    throw new LicenseRejectedError(
-      'defina LICENCA_CHAVE e LICENCA_EMAIL nas variáveis de ambiente da stack (recebidas na compra)',
-    );
+  if (!email) {
+    throw new LicenseRejectedError('defina LICENCA_EMAIL (e-mail da compra) nas variáveis de ambiente da stack');
   }
-  return { chave, email };
+  return { email };
 }
 
 function readCache(fingerprint) {
@@ -110,7 +107,7 @@ function writeCache(response) {
 }
 
 async function requestValidation(service) {
-  const { chave, email } = readLicenseEnv();
+  const { email } = readLicenseEnv();
   const supabaseUrl = process.env.SUPABASE_URL;
   const fingerprint = computeFingerprint(supabaseUrl);
   const nonce = randomBytes(16).toString('hex');
@@ -121,7 +118,6 @@ async function requestValidation(service) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        chave,
         email,
         fingerprint,
         nonce,

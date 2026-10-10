@@ -114,7 +114,7 @@ ghcr.io/victoreder/hublabel-disparador:latest
 
 Atualizada automaticamente a cada push na `main`. O **repositório é privado**. O **package da imagem é
 público**, mas a imagem contém só o código empacotado e ofuscado, e não roda sem licença válida
-(`LICENCA_CHAVE` + `LICENCA_EMAIL` nas variáveis da stack).
+(`LICENCA_EMAIL` nas variáveis da stack).
 
 - Guia do vendedor (setup, criar/revogar/transferir licenças): [`docs/LICENCIAMENTO.md`](docs/LICENCIAMENTO.md)
 - Guia de instalação para o cliente: [`docs/INSTALACAO-CLIENTE.md`](docs/INSTALACAO-CLIENTE.md)
@@ -124,7 +124,6 @@ público**, mas a imagem contém só o código empacotado e ofuscado, e não rod
 
 | Variável | Descrição |
 |----------|-----------|
-| `LICENCA_CHAVE` | Chave recebida na compra (`HL-XXXX-XXXX-XXXX-XXXX`) |
 | `LICENCA_EMAIL` | E-mail da compra |
 
 Rodando do fonte (`npm start`, `npm test`) a licença não é exigida.

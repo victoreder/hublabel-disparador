@@ -3,163 +3,141 @@
 ## Como funciona
 
 ```
-Repositório GitHub (PRIVADO)  ── só você vê o código-fonte
-        │ push na main
-        ▼
-GitHub Actions: bundle + ofuscação + chave pública/URL de licença embutidas
-        │
-        ▼
-ghcr.io/victoreder/hublabel-disparador:latest (package PÚBLICO)
-        │ cliente puxa a imagem sem token, mas ela não roda sem licença
-        ▼
-VPS do cliente ──► POST /v1/validar ──► Servidor de licenças (SEU, licenca.seudominio)
-   LICENCA_CHAVE + LICENCA_EMAIL          confere chave + e-mail + instalação
-                                          responde ASSINADO (Ed25519)
+Stack do CLIENTE ──(LICENCA_EMAIL)──► licenca.seudominio ──consulta──► Supabase de LICENÇAS
+(usa o Supabase dele)                 (stack no SEU Portainer)          (seu, separado: tabela licencas)
+                 ◄──── "liberado" / "bloqueado" (resposta assinada) ────
 ```
 
-- **Repositório privado:** ninguém vê nem clona o fonte. A imagem contém só o código empacotado e ofuscado.
-- **Package da imagem público:** o cliente instala no Portainer sem token do GitHub. A visibilidade do
-  package é independente da do repositório.
-- **1 licença = 1 instalação.** Na primeira validação, a licença é amarrada ao **Supabase do cliente**
-  (hash do host do `SUPABASE_URL`). Qualquer outra instalação com a mesma chave é recusada:
-  *"licença já ativada em outra instalação"*. O sistema inteiro depende desse banco, então
-  copiar a chave para outro servidor com outro Supabase não funciona.
-- **Respostas assinadas:** a imagem só aceita respostas assinadas com a sua chave privada. Apontar
-  para um servidor falso ou adulterar a resposta não funciona.
-- **Revalidação a cada 6h.** Se você revogar ou suspender a licença, os containers do cliente param
-  na próxima revalidação (ou no próximo restart).
-- **Tolerância:** se o *seu* servidor de licenças cair, o cliente segue rodando por até `GRACE_HOURS`
-  (padrão 72h) desde a última validação. Ele não cai por causa de uma queda sua.
+- **Repositório privado:** ninguém vê o código-fonte. A imagem só tem código empacotado e ofuscado.
+- **Package da imagem público:** o cliente instala no Portainer sem token do GitHub.
+- **Licença = e-mail da compra.** O cliente coloca só `LICENCA_EMAIL` na stack. Se o e-mail estiver na
+  tabela `licencas` do seu Supabase de licenças, o sistema libera.
+- **1 licença = 1 instalação.** Na primeira validação, a licença fica presa ao **Supabase do cliente**.
+  O mesmo e-mail em outra instalação é recusado: *"licença já ativada em outra instalação"*.
+- **O link do servidor de licenças vai numa variável do GitHub** (`LICENSE_SERVER_URL`) e fica gravado
+  na imagem durante o build. O cliente não configura isso.
+- **Revalida a cada 6h.** Revogou, o sistema do cliente para. Se o *seu* servidor de licenças cair,
+  o cliente continua rodando por até 72h.
 
-> **Limite honesto:** nenhuma proteção em JavaScript é inquebrável. Com tempo e conhecimento, alguém
-> pode desofuscar o código e remover a trava. O objetivo é tornar a cópia trabalhosa demais para
-> valer a pena, e saber quem está usando o quê (tabela `licenca_eventos`). O contrato de licença
-> com o cliente continua sendo a proteção jurídica.
+> **Limites:** nenhuma proteção em JavaScript é inquebrável: alguém experiente pode desofuscar e remover
+> a trava. E como o e-mail não é segredo, alguém que saiba o e-mail de um comprador poderia ativar a
+> licença antes dele; nesse caso você usa o *reset* (abaixo) e o comprador ativa de novo.
 
 ---
 
 ## Configuração (uma vez só, nesta ordem)
 
-> ⚠️ **Antes de fazer merge disto na `main`:** a próxima imagem `latest` passa a exigir licença.
-> As **suas próprias** instalações também. Siga os passos 1 a 6 antes de atualizar as suas stacks.
+### 1. Gerar as chaves de segurança
 
-### 1. Gerar o par de chaves
+No terminal da sua VPS:
 
 ```bash
-cd license-server
-node scripts/gerar-chaves.js
+docker run --rm node:22-alpine node -e 'const c=require("crypto");const k=c.generateKeyPairSync("ed25519");console.log("PUBLICA:\n"+Buffer.from(k.publicKey.export({type:"spki",format:"pem"})).toString("base64")+"\n\nPRIVADA:\n"+Buffer.from(k.privateKey.export({type:"pkcs8",format:"pem"})).toString("base64")+"\n\nADMIN_TOKEN:\n"+c.randomBytes(32).toString("hex"))'
 ```
 
-Ele imprime duas linhas base64:
+Guarde os 3 valores (**PUBLICA**, **PRIVADA**, **ADMIN_TOKEN**) num lugar seguro. Não troque depois de
+vender: a PUBLICA vai gravada nas imagens.
 
-- **LICENSE_PUBLIC_KEY** → vai para o GitHub (passo 3)
-- **LICENSE_PRIVATE_KEY** → vai **somente** para a stack do servidor de licenças (passo 4). Guarde uma
-  cópia em local seguro (gerenciador de senhas). Se perder, terá de gerar outro par, e todas as imagens já
-  distribuídas param de validar até o cliente atualizar a imagem.
+### 2. Criar o Supabase de licenças
 
-### 2. Criar um Supabase só para as licenças
+1. supabase.com → **New project** (ex.: `hublabel-licencas`). Projeto **novo**, só para isso.
+2. **SQL Editor** → cole o conteúdo de `license-server/sql/001_licencas.sql` → **Run**.
+3. **Project Settings → API** → copie a **Project URL** e a **service_role key** (usadas no passo 5).
 
-Existem **dois tipos de Supabase** neste sistema:
+### 3. Variáveis no GitHub (antes do merge)
 
-| Supabase | De quem | Para quê | Quem acessa |
-|----------|---------|----------|-------------|
-| **Do cliente** | cada cliente tem o seu | dados do sistema (contatos, disparos, chat...) | os containers do cliente (`SUPABASE_URL`) |
-| **De licenças** | **seu**, separado, um só | tabela `licencas` (quem comprou) | **somente** o servidor de licenças (`LICENCAS_SUPABASE_URL`) |
-
-1. Em supabase.com, crie um **projeto novo**, por exemplo `hublabel-licencas` (o plano gratuito basta). Não use o
-   projeto do seu próprio sistema nem o de um cliente.
-2. No SQL Editor **desse projeto**, rode `license-server/sql/001_licencas.sql`.
-3. Em Project Settings → API, copie a **URL** e a **service_role key** desse projeto. Elas vão em
-   `LICENCAS_SUPABASE_URL` e `LICENCAS_SUPABASE_SERVICE_ROLE_KEY` na stack do servidor de licenças (passo 4).
-
-O sistema do cliente **nunca** se conecta a esse Supabase e não recebe as credenciais dele. Ele só
-chama a URL do servidor de licenças, e quem consulta a tabela é o servidor.
-Este SQL também não faz parte da instalação do cliente: não envie a pasta `license-server/`.
-
-### 3. Variáveis no GitHub
-
-Repositório → **Settings → Secrets and variables → Actions → aba Variables → New repository variable**:
+Repositório → **Settings** (aba no topo) → menu lateral **Secrets and variables → Actions** →
+aba **Variables** → **New repository variable**. Crie duas:
 
 | Nome | Valor |
 |------|-------|
-| `LICENSE_PUBLIC_KEY` | linha da chave pública do passo 1 |
-| `LICENSE_SERVER_URL` | URL pública do servidor de licenças, ex.: `https://licenca.victoreder.com.br` |
+| `LICENSE_SERVER_URL` | `https://licenca.SEUDOMINIO.com.br` (o subdomínio que você vai usar no passo 4) |
+| `LICENSE_PUBLIC_KEY` | a **PUBLICA** do passo 1 |
 
-> A `LICENSE_SERVER_URL` fica gravada dentro das imagens vendidas. Escolha um domínio que você vai manter.
+### 4. Merge do PR e subdomínio
 
-### 4. Subir o servidor de licenças
+1. Faça o merge do PR. O GitHub gera **sozinho** as duas imagens: a dos clientes (já com o link e a
+   chave pública dentro) e a do servidor de licenças (`ghcr.io/victoreder/hublabel-licenca`).
+   Acompanhe na aba **Actions** do repositório (bolinha verde = pronto).
+2. No seu DNS, crie um registro **A**: `licenca` → IP da sua VPS.
 
-1. Faça merge na `main` → o workflow **Build License Server Image** publica `ghcr.io/victoreder/hublabel-licenca`.
-2. GitHub → seu perfil → **Packages → hublabel-licenca** → confirme que está **Private**.
-3. Portainer → **Registries** → adicione `ghcr.io` com seu usuário GitHub e um token com `read:packages`.
-4. Crie a stack com `license-server/portainer-stack.example.yml` (ajuste domínio, Supabase de licenças
-   do passo 2, `LICENSE_PRIVATE_KEY` e `ADMIN_TOKEN`).
-5. Teste: `https://licenca.seudominio/health` → `{"ok":true}`.
+> ⚠️ Não atualize as **suas** stacks do disparador ainda: a imagem nova já exige licença (passo 6).
 
-### 5. Deixar o repositório privado e manter a imagem pública
+### 5. Stack do servidor de licenças no Portainer
 
-1. GitHub → repositório **hublabel-disparador** → **Settings → General → Danger Zone → Change visibility → Private**.
-2. GitHub → **Packages → hublabel-disparador → Package settings → Danger Zone → Change visibility → Public**.
-   Confira se continua **Public** depois do passo anterior.
-3. Opcional, mas recomendado: o fonte já ficou exposto enquanto o repositório era público, então
-   versões antigas da imagem (sem trava) continuam baixáveis por tag/sha. Em **Packages →
-   hublabel-disparador → Manage versions**, apague as versões anteriores a esta.
+**Stacks → Add stack** → nome `hublabel-licenca` → cole `license-server/portainer-stack.example.yml`,
+troque domínio, rede, e preencha:
 
-### 6. Criar a licença das SUAS instalações e atualizar as suas stacks
+| Variável | Valor |
+|----------|-------|
+| `LICENCAS_SUPABASE_URL` | Project URL do passo 2 |
+| `LICENCAS_SUPABASE_SERVICE_ROLE_KEY` | service_role do passo 2 |
+| `LICENSE_PRIVATE_KEY` | **PRIVADA** do passo 1 |
+| `ADMIN_TOKEN` | **ADMIN_TOKEN** do passo 1 |
 
-Crie uma licença para cada instalação sua (passo abaixo) e adicione `LICENCA_CHAVE` / `LICENCA_EMAIL`
-nos 3 serviços das suas stacks **antes** de atualizar para a nova imagem.
+Deploy. Teste: `https://licenca.SEUDOMINIO.com.br/health` → `{"ok":true,...}`.
+
+Se o Portainer não conseguir baixar a imagem: GitHub → **Packages → hublabel-licenca → Package settings →
+Change visibility → Public** (não há segredo nela; os segredos ficam nas variáveis da stack).
+
+### 6. Liberar as SUAS instalações
+
+1. Supabase de licenças → **Table Editor → licencas → Insert row** → `email`: o seu e-mail → Save.
+   (Uma linha por instalação; cada instalação precisa de um e-mail diferente.)
+2. Nas suas stacks do disparador, adicione nos 3 serviços `LICENCA_EMAIL: seu@email.com`.
+3. Atualize com **Re-pull image**. No log: `Licença validada`.
+
+### 7. Fechar o repositório
+
+1. GitHub → **Settings → General → Danger Zone → Change visibility → Private**.
+2. **Packages → hublabel-disparador → Package settings** → confirme que continua **Public**.
+3. Recomendado: em **Manage versions**, apague as versões antigas da imagem (sem trava).
 
 ---
 
-## Operação do dia a dia
+## Dia a dia
 
-As rotas de administração exigem `Authorization: Bearer SEU_ADMIN_TOKEN`.
+### Vender (manual ou automático)
 
-### Vender: criar licença
+Insira uma linha na tabela `licencas` com o `email` do comprador. Só isso. O e-mail é salvo sempre em
+minúsculo, então maiúsculas não atrapalham.
 
-```bash
-curl -X POST https://licenca.seudominio/admin/licencas \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"email":"cliente@empresa.com","cliente":"Empresa X","observacao":"pedido #123"}'
-```
-
-Retorna a `chave` (ex.: `HL-7K3M-...`). Envie ao cliente a **chave + o e-mail** e o
-`docs/INSTALACAO-CLIENTE.md`. Licença com prazo: inclua `"expira_em":"2027-12-31T23:59:59Z"`.
-
-Também dá para criar direto no Table Editor do Supabase (tabela `licencas`). Só a chave precisa
-ser única, e o formato é livre.
-
-### Cliente trocou de VPS ou de Supabase
+Para automatizar pelo checkout (Hotmart, Kiwify, n8n...), faça um `insert` na tabela `licencas`
+pela API do Supabase de licenças, ou chame:
 
 ```bash
-curl -X POST https://licenca.seudominio/admin/licencas/HL-XXXX-XXXX-XXXX-XXXX/resetar \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
+curl -X POST https://licenca.SEUDOMINIO.com.br/admin/licencas \
+  -H "Authorization: Bearer SEU_ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"email":"cliente@empresa.com","cliente":"Empresa X"}'
 ```
 
-A próxima instalação que validar a chave fica com ela.
-No Supabase: limpe `fingerprint`, `instalacao` e `ativada_em`.
+Campos opcionais: `cliente`, `observacao`, `expira_em` (ex.: `"2027-12-31T23:59:59Z"`; vazio = vitalícia).
 
-> Trocar só de VPS mantendo o mesmo Supabase **não** precisa de reset: a licença segue o Supabase.
+### Cliente trocou de Supabase (ou alguém ativou antes dele)
 
-### Suspender, revogar ou reativar (ex.: chargeback, inadimplência)
+No Table Editor, limpe `fingerprint`, `instalacao` e `ativada_em` da linha dele. Ou:
 
 ```bash
-curl -X POST https://licenca.seudominio/admin/licencas/HL-XXXX-XXXX-XXXX-XXXX/status \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"status":"revogada"}'      # ou "suspensa" / "ativa"
+curl -X POST https://licenca.SEUDOMINIO.com.br/admin/licencas/cliente@empresa.com/resetar \
+  -H "Authorization: Bearer SEU_ADMIN_TOKEN"
 ```
 
-### Listar e auditar
+Trocar só de VPS, mantendo o mesmo Supabase, não precisa de nada.
+
+### Suspender, revogar ou reativar
+
+Mude a coluna `status` para `suspensa`, `revogada` ou `ativa`. Ou:
 
 ```bash
-curl https://licenca.seudominio/admin/licencas -H "Authorization: Bearer $ADMIN_TOKEN"
+curl -X POST https://licenca.SEUDOMINIO.com.br/admin/licencas/cliente@empresa.com/status \
+  -H "Authorization: Bearer SEU_ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"status":"revogada"}'
 ```
 
-- Na tabela `licencas`: `ultimo_check_em`, `ultimo_ip`, `ultimo_hostname`, `versao` e `instalacao`.
-- Na tabela `licenca_eventos`: ativações, recusas (inclusive tentativas de usar a chave em outra
-  instalação, com IP) e mudanças de IP. Muitas recusas com IPs diferentes indicam que a chave
-  foi compartilhada.
+### Auditar
+
+- `licencas`: `ultimo_check_em`, `ultimo_ip`, `ultimo_hostname`, `versao`, `instalacao`.
+- `licenca_eventos`: ativações, recusas (tentativas em outra instalação, com IP) e mudanças de IP.
 
 ---
 
@@ -167,11 +145,5 @@ curl https://licenca.seudominio/admin/licencas -H "Authorization: Bearer $ADMIN_
 
 - `npm start`, `npm run dev*` e `npm test` rodam o fonte direto, **sem** licença.
 - `npm run build` gera `dist/` ofuscado (precisa de `LICENSE_PUBLIC_KEY` e `LICENSE_SERVER_URL` no ambiente).
-- `docker build` local precisa dos build args:
-
-```bash
-docker build \
-  --build-arg LICENSE_PUBLIC_KEY="..." \
-  --build-arg LICENSE_SERVER_URL="https://licenca.seudominio" \
-  -t hublabel-disparador .
-```
+- Para gerar a imagem de novo sem novo commit: aba **Actions** → **Build and Push Docker Image** (lista
+  à esquerda) → botão **Run workflow** (à direita) → **Run workflow**.
