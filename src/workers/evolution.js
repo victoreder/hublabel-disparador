@@ -1,10 +1,12 @@
 import { getEvolutionConfig } from '../config.js';
+import { ensureLicense } from '../license.js';
 import { logger } from '../logger.js';
 import { validateSupabaseConnection } from '../supabase.js';
 import { createDisparadorEvolution } from '../evolution/disparador.js';
 
 async function main() {
   const config = getEvolutionConfig();
+  await ensureLicense('evolution');
   await validateSupabaseConnection();
 
   const disparador = createDisparadorEvolution(config);

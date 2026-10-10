@@ -3,6 +3,10 @@ name: Build and Push Docker Image
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'license-server/**'
+      - 'docs/**'
+      - '**.md'
   workflow_dispatch:
 
 env:
@@ -19,6 +23,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # A imagem distribuída exige licença; sem estas variáveis o build não pode sair.
+      - name: Check license variables
+        env:
+          LICENSE_PUBLIC_KEY: ${{ vars.LICENSE_PUBLIC_KEY }}
+          LICENSE_SERVER_URL: ${{ vars.LICENSE_SERVER_URL }}
+        run: |
+          if [ -z "$LICENSE_PUBLIC_KEY" ] || [ -z "$LICENSE_SERVER_URL" ]; then
+            echo "::error::Defina as variáveis LICENSE_PUBLIC_KEY e LICENSE_SERVER_URL em Settings → Secrets and variables → Actions → Variables (ver docs/LICENCIAMENTO.md)."
+            exit 1
+          fi
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -43,3 +58,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            LICENSE_PUBLIC_KEY=${{ vars.LICENSE_PUBLIC_KEY }}
+            LICENSE_SERVER_URL=${{ vars.LICENSE_SERVER_URL }}

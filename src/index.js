@@ -1,6 +1,7 @@
 import express from 'express';
 import { config } from './config.js';
 import { createEmailWorker } from './email/worker.js';
+import { ensureLicense } from './license.js';
 import { logger } from './logger.js';
 import { getSupabaseKeyInfo, validateSupabaseConnection } from './supabase.js';
 import { createWorker } from './worker.js';
@@ -25,6 +26,7 @@ app.get('/', (_req, res) => {
 });
 
 async function main() {
+  await ensureLicense('meta');
   await validateSupabaseConnection();
   logger.info('Supabase conectado', getSupabaseKeyInfo());
 

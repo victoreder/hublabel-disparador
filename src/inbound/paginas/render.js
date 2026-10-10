@@ -1,12 +1,26 @@
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { config } from '../../config.js';
 import { logger } from '../../logger.js';
 import { buildAuthScript, injectAuthScript } from './authScript.js';
 import { corParaRgb, getPersonalizacao } from './personalizacao.js';
 
-export const PAGES_DIR = new URL('../../../public/pages/', import.meta.url);
+/**
+ * Procura public/pages subindo a partir deste arquivo. Na imagem distribuída o código vira um
+ * bundle em src/inbound.js, então a profundidade do caminho relativo muda.
+ */
+function findPagesDir() {
+  let dir = new URL('./', import.meta.url);
+  for (let i = 0; i < 6; i += 1) {
+    const candidate = new URL('public/pages/', dir);
+    if (existsSync(candidate)) return candidate;
+    dir = new URL('../', dir);
+  }
+  return new URL('../../../public/pages/', import.meta.url);
+}
+
+export const PAGES_DIR = findPagesDir();
 
 /** Páginas que não são telas do sistema (servidas por rotas próprias). */
 const PAGINAS_ESPECIAIS = new Set(['pv']);

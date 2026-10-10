@@ -13,7 +13,8 @@
     "dev": "node --watch src/index.js",
     "dev:evolution": "node --watch src/workers/evolution.js",
     "dev:inbound": "node --watch src/inbound.js",
-    "test": "node --test",
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.js",
     "extrair-telas": "node scripts/extract-n8n-pages.mjs"
   },
   "engines": {
@@ -29,5 +30,9 @@
     "nodemailer": "^7.0.13",
     "pdf-parse": "^1.1.1",
     "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "javascript-obfuscator": "^5.9.0"
   }
 }

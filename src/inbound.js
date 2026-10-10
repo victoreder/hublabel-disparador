@@ -12,6 +12,7 @@ import { registerSyncTemplatesRoutes } from './inbound/routes/syncTemplates.js';
 import { registerAcoesRoutes } from './inbound/routes/acoes.js';
 import { registerPaginasRoutes } from './inbound/routes/paginas.js';
 import { aplicarSeguranca, registrar404 } from './inbound/seguranca/middlewares.js';
+import { ensureLicense } from './license.js';
 import { logger } from './logger.js';
 import { getSupabaseKeyInfo, validateSupabaseConnection, fetchOpenAIApiKey } from './supabase.js';
 
@@ -31,6 +32,7 @@ async function main() {
     logger.error('[inbound] uncaughtException', { message: error.message, stack: error.stack });
   });
 
+  await ensureLicense('inbound');
   await validateSupabaseConnection();
 
   try {

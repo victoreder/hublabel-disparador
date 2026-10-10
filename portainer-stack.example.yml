@@ -1,5 +1,8 @@
 version: "3.7"
 
+## LICENCA_EMAIL: o e-mail usado na compra. Igual nos 3 serviços.
+## A licença fica presa ao SUPABASE_URL desta instalação.
+
 ## BACK_URL com path opcional (ex.: .../webhook). Telas e rotas ficam em BACK_URL/<slug>
 ## (ex.: https://webhook2.victoreder.com.br/webhook/login). O inbound remove o prefixo sozinho.
 
@@ -11,6 +14,7 @@ services:
     environment:
       SUPABASE_URL: https://SEU-PROJETO.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_SUA_SERVICE_ROLE_KEY
+      LICENCA_EMAIL: email-da-compra@exemplo.com
       NODE_ENV: production
 
     networks:
@@ -42,6 +46,7 @@ services:
     environment:
       SUPABASE_URL: https://SEU-PROJETO.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_SUA_SERVICE_ROLE_KEY
+      LICENCA_EMAIL: email-da-compra@exemplo.com
       EVOLUTION_BASE_URL: https://evolution2.victoreder.com.br
       EVOLUTION_API_KEY: COLE_AQUI_SUA_APIKEY_EVOLUTION
       NODE_ENV: production
@@ -71,6 +76,7 @@ services:
     environment:
       SUPABASE_URL: https://SEU-PROJETO.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: COLE_AQUI_SUA_SERVICE_ROLE_KEY
+      LICENCA_EMAIL: email-da-compra@exemplo.com
       ## Anon key pública do Supabase (a mesma que as telas usam no navegador).
       SUPABASE_ANON_KEY: COLE_AQUI_SUA_ANON_KEY
       BACK_URL: https://webhook2.victoreder.com.br/webhook
