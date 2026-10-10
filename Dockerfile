@@ -24,6 +24,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=build /build/dist/src ./src
+COPY public ./public
 
 ENV NODE_ENV=production
 ENV PORT=3080

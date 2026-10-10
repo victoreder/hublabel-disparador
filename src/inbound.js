@@ -9,6 +9,9 @@ import { registerMetaApiRoutes, startMetaTokenRenewalCron } from './inbound/rout
 import { registerRagRoutes } from './inbound/routes/rag.js';
 import { registerGerarEmailRoutes } from './inbound/routes/gerarEmail.js';
 import { registerSyncTemplatesRoutes } from './inbound/routes/syncTemplates.js';
+import { registerAcoesRoutes } from './inbound/routes/acoes.js';
+import { registerPaginasRoutes } from './inbound/routes/paginas.js';
+import { aplicarSeguranca, registrar404 } from './inbound/seguranca/middlewares.js';
 import { ensureLicense } from './license.js';
 import { logger } from './logger.js';
 import { getSupabaseKeyInfo, validateSupabaseConnection, fetchOpenAIApiKey } from './supabase.js';
@@ -45,6 +48,22 @@ async function main() {
 
   const app = express();
   app.disable('x-powered-by');
+
+  // Com o domínio inteiro apontando para este serviço, o prefixo do BACK_URL
+  // (ex.: /webhook) é removido aqui mesmo — funciona com ou sem StripPrefix no Traefik.
+  const basePath = inboundConfig.basePath;
+  if (basePath) {
+    app.use((req, _res, next) => {
+      if (req.url === basePath || req.url.startsWith(`${basePath}/`) || req.url.startsWith(`${basePath}?`)) {
+        req.url = req.url.slice(basePath.length) || '/';
+        if (req.url.startsWith('?')) req.url = `/${req.url}`;
+      }
+      next();
+    });
+  }
+
+  // Ban (jail), varredura, cabeçalhos, sobrecarga e limite global por IP.
+  aplicarSeguranca(app, { inboundConfig });
 
   app.use((req, res, next) => {
     const startedAt = Date.now();
@@ -96,7 +115,7 @@ async function main() {
   app.get('/health', healthHandler);
 
   app.get('/', (_req, res) => {
-    res.redirect('/health');
+    res.redirect(`${inboundConfig.backUrl}/login`);
   });
 
   registerEventsMetaRoutes(app, {
@@ -129,6 +148,9 @@ async function main() {
     parentPath: inboundConfig.evolutionWebhookPath,
   });
 
+  registerPaginasRoutes(app, { inboundConfig });
+  registerAcoesRoutes(app, { inboundConfig });
+
   logger.info('[inbound] rotas Meta registradas', inboundConfig.metaApiPaths);
   logger.info('[inbound] rota RAG registrada', {
     path: inboundConfig.ragPath,
@@ -151,6 +173,7 @@ async function main() {
   }, inboundConfig.agentPollMs);
 
   app.use((req, res) => {
+    registrar404(req);
     logger.warn('[inbound] rota nao encontrada', {
       method: req.method,
       path: req.path,
@@ -175,13 +198,14 @@ async function main() {
     }
 
     const status = err?.statusCode || err?.status || 500;
+    // Erro inesperado não expõe detalhes internos (mensagem completa fica no log).
     res.status(status).json({
       ok: false,
-      error: err instanceof Error ? err.message : 'Erro interno',
+      error: status < 500 && err instanceof Error ? err.message : 'Erro interno',
     });
   });
 
-  app.listen(inboundConfig.port, () => {
+  const server = app.listen(inboundConfig.port, () => {
     logger.info('Inbound server ouvindo', {
       port: inboundConfig.port,
       backUrl: inboundConfig.backUrl,
@@ -195,6 +219,11 @@ async function main() {
       traefikPaths: inboundConfig.traefikPaths,
     });
   });
+
+  // Conexões lentas/presas não seguram recursos para sempre.
+  server.requestTimeout = 120_000;
+  server.headersTimeout = 30_000;
+  server.keepAliveTimeout = 65_000;
 
   const shutdown = async () => {
     await drainAgentQueue(processAgentJob);

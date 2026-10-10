@@ -14,7 +14,8 @@
     "dev:evolution": "node --watch src/workers/evolution.js",
     "dev:inbound": "node --watch src/inbound.js",
     "build": "node scripts/build.mjs",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "extrair-telas": "node scripts/extract-n8n-pages.mjs"
   },
   "engines": {
     "node": ">=22"

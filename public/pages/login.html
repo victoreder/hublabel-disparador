@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - __HUB_NOME__</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="__HUB_FAVICON_URL__">
+    <link rel="shortcut icon" type="image/png" href="__HUB_FAVICON_URL__">
+    <link rel="apple-touch-icon" href="__HUB_FAVICON_URL__">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: 'rgba(__HUB_COR_RGB__, 0.1)',
+                            100: 'rgba(__HUB_COR_RGB__, 0.16)',
+                            200: 'rgba(__HUB_COR_RGB__, 0.28)',
+                            400: '#5ee99a',
+                            500: '#__HUB_COR__',
+                            600: '#1eb85a',
+                            700: '#178a45',
+                            900: '#0d4d28',
+                        },
+                        success: {
+                            50: '#f0fdf4',
+                            200: '#bbf7d0',
+                            500: '#__HUB_COR__',
+                            600: '#1eb85a',
+                            700: '#__HUB_COR__',
+                            800: '#178a45',
+                        },
+                    },
+                    boxShadow: {
+                        soft: '0 8px 32px rgba(0, 0, 0, 0.03)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #ffffff; }
+        .success-message, .error-message { display: none; }
+        .success-message.show, .error-message.show { display: block; }
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin-login 1s linear infinite;
+            display: none;
+        }
+        .login-btn.loading .loading-spinner { display: block; }
+        /* Verde marca fixo (#__HUB_COR__) — garante mesmo tom no CDN Tailwind */
+        button.login-btn,
+        #submitForgotPasswordBtn {
+            background-color: #__HUB_COR__;
+        }
+        button.login-btn:hover:not(:disabled),
+        #submitForgotPasswordBtn:hover:not(:disabled) {
+            background-color: color-mix(in srgb, #__HUB_COR__ 85%, black);
+        }
+        button.login-btn {
+            box-shadow: 0 4px 20px rgba(__HUB_COR_RGB__, 0.4);
+        }
+        #forgotPasswordBtn,
+        #createAccountBtn {
+            color: #__HUB_COR__;
+        }
+        #forgotPasswordBtn:hover,
+        #createAccountBtn:hover {
+            color: #__HUB_COR__;
+            opacity: 0.85;
+        }
+        .login-robot-badge {
+            background-color: #__HUB_COR__;
+            border-color: #__HUB_COR__;
+            box-shadow: 0 0 20px rgba(__HUB_COR_RGB__, 0.4);
+        }
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            pointer-events: none;
+        }
+        .toast-notification {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #__HUB_COR__;
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 350px;
+            transform: translateX(400px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            pointer-events: auto;
+        }
+        .toast-notification.show { transform: translateX(0); opacity: 1; }
+        .toast-notification.success {
+            background: #f0fdf4;
+            border-color: #22c55e;
+            color: #22c55e;
+        }
+        .toast-notification.error {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #b91c1c;
+        }
+        .toast-notification.info {
+            background: #fffbeb;
+            border-color: #fde68a;
+            color: #b45309;
+        }
+        @keyframes spin-login {
+            to { transform: rotate(360deg); }
+        }
+        .bg-pattern {
+            background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        /* === Dropdowns <select>: fundo branco e texto preto (light e dark) === */
+        body.light-mode select,
+        body.dark-mode select,
+        body:not(.light-mode) select {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            -webkit-text-fill-color: #000000 !important;
+        }
+        body.light-mode select option,
+        body.dark-mode select option,
+        body:not(.light-mode) select option,
+        body.light-mode select optgroup,
+        body.dark-mode select optgroup,
+        body:not(.light-mode) select optgroup {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+        }
+        body.light-mode select[class],
+        body.dark-mode select[class],
+        body:not(.light-mode) select[class] {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            -webkit-text-fill-color: #000000 !important;
+        }
+        body.light-mode select[class] option,
+        body.dark-mode select[class] option,
+        body:not(.light-mode) select[class] option {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+        }
+</style>
+    <style>
+        .toast-container{position:fixed!important;top:max(20px,env(safe-area-inset-top,0px))!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;z-index:200100!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:8px!important;width:min(380px,calc(100vw - 28px))!important;pointer-events:none!important;box-sizing:border-box!important}
+        .toast-notification{pointer-events:auto!important;margin:0!important;padding:10px 14px 10px 0!important;border-radius:12px!important;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Helvetica,Arial,sans-serif!important;font-size:13px!important;line-height:1.35!important;letter-spacing:-.01em!important;font-weight:400!important;display:flex!important;align-items:center!important;gap:0!important;opacity:0!important;transform:translateY(-8px) scale(.98)!important;transition:opacity .22s ease,transform .22s ease!important;color:rgba(0,0,0,.88)!important;background:rgba(255,255,255,.76)!important;backdrop-filter:saturate(180%) blur(22px)!important;-webkit-backdrop-filter:saturate(180%) blur(22px)!important;border:1px solid rgba(0,0,0,.09)!important;box-shadow:0 4px 16px rgba(0,0,0,.1),0 0 0 .5px rgba(0,0,0,.04) inset!important;max-width:none!important}
+        .toast-notification.show{opacity:1!important;transform:translateY(0) scale(1)!important}
+        .toast-notification::before{content:''!important;align-self:stretch!important;width:4px!important;min-height:2.5em!important;margin:6px 12px 6px 8px!important;border-radius:3px!important;flex-shrink:0!important;background:rgba(0,122,255,.95)!important}
+        .toast-notification.info::before{background:rgba(0,122,255,.95)!important}.toast-notification.success::before{background:rgba(52,199,89,.95)!important}.toast-notification.error::before{background:rgba(255,59,48,.95)!important}
+        .toast-notification .toast-message{flex:1!important;min-width:0!important;word-break:break-word!important;padding-right:4px!important}
+        body.dark-mode .toast-notification{color:rgba(255,255,255,.92)!important;background:rgba(44,44,46,.78)!important;border:1px solid rgba(255,255,255,.12)!important;box-shadow:0 8px 28px rgba(0,0,0,.45),0 0 0 .5px rgba(255,255,255,.06) inset!important}
+        body.dark-mode .toast-notification.info::before{background:rgba(10,132,255,.95)!important}body.dark-mode .toast-notification.success::before{background:rgba(48,209,88,.95)!important}body.dark-mode .toast-notification.error::before{background:rgba(255,69,58,.95)!important}
+    </style>
+    <link rel="stylesheet" href="dropdowns-global.css">
+</head>
+<body class="font-sans antialiased min-h-screen flex selection:bg-brand-500 selection:text-white text-slate-900">
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="flex flex-1 w-full min-h-screen">
+        <div class="w-full lg:w-1/2 flex flex-col items-center justify-center p-8 sm:p-12 relative">
+            <div class="w-full max-w-md mx-auto flex flex-col justify-center min-h-full py-8 lg:py-12">
+
+                <div class="mb-10 text-center">
+                    <img src="__HUB_LOGO_URL__" alt="__HUB_NOME__" class="h-12 sm:h-14 w-auto max-w-[min(100%,320px)] object-contain object-center mx-auto" width="320" height="112" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="flex items-center justify-center gap-3" style="display: none;">
+                        <div class="w-10 h-10 rounded-xl bg-brand-500 text-white flex items-center justify-center text-xl font-bold shadow-[0_4px_14px_rgba(37,211,102,0.35)] shrink-0">D</div>
+                        <span class="font-extrabold text-2xl tracking-tight text-slate-900">__HUB_NOME__</span>
+                    </div>
+                </div>
+
+                <h1 class="text-3xl font-extrabold text-slate-900 mb-2 tracking-tight text-center">Bem-vindo de volta! 👋</h1>
+                <p class="text-slate-500 font-medium mb-8 text-center">Digite suas credenciais para acessar sua conta.</p>
+
+                <form id="loginForm" class="space-y-5 w-full">
+                    <div class="success-message rounded-xl border border-success-200 bg-success-50 text-success-800 text-sm font-semibold text-center py-3 px-4" id="successMessage"></div>
+                    <div class="error-message rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm font-semibold text-center py-3 px-4" id="errorMessage"></div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2" for="email">E-mail <span class="text-brand-500">*</span></label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                                <i class="fa-regular fa-envelope text-slate-400 text-sm"></i>
+                            </div>
+                            <input type="email" id="email" name="email" placeholder="seu@email.com" required autocomplete="email"
+                                class="w-full bg-white border border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all shadow-sm">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2" for="password">Senha <span class="text-brand-500">*</span></label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                                <i class="fa-solid fa-lock text-slate-400 text-sm"></i>
+                            </div>
+                            <input type="password" id="password" name="password" placeholder="Digite sua senha" required autocomplete="current-password"
+                                class="w-full bg-white border border-slate-200 rounded-xl pl-11 pr-12 py-3.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all shadow-sm">
+                            <button type="button" class="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-slate-600 transition-colors" id="togglePassword" aria-label="Mostrar ou ocultar senha">
+                                <span class="eye-icon flex items-center justify-center">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end -mt-2">
+                        <button type="button" id="forgotPasswordBtn" class="text-sm font-bold text-[#__HUB_COR__] hover:underline bg-transparent border-0 cursor-pointer p-0">
+                            Esqueci minha senha
+                        </button>
+                    </div>
+
+                    <button type="submit" class="login-btn w-full bg-[#__HUB_COR__] disabled:hover:bg-[#__HUB_COR__] text-white font-extrabold py-4 rounded-xl transition-all hover:-translate-y-0.5 disabled:transform-none mt-2 flex items-center justify-center gap-2 disabled:opacity-70" id="loginBtn">
+                        <div class="loading-spinner"></div>
+                        <span id="btnText" class="inline-flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                            Entrar na Plataforma
+                        </span>
+                    </button>
+
+                    <div class="flex items-start gap-2 bg-brand-50 border border-brand-100 rounded-lg p-3">
+                        <i class="fa-solid fa-shield-halved text-brand-500 text-sm mt-0.5 shrink-0"></i>
+                        <span class="text-xs font-bold text-brand-800 leading-snug">Os seus dados estão protegidos com criptografia de ponta a ponta.</span>
+                    </div>
+                </form>
+
+                <div class="mt-8 text-center">
+                    <p class="text-sm font-medium text-slate-500">Ainda não tem uma conta?
+                        <button type="button" id="createAccountBtn" class="text-[#__HUB_COR__] font-extrabold hover:underline bg-transparent border-0 cursor-pointer p-0 font-inherit">Crie uma conta grátis</button>
+                    </p>
+                </div>
+            </div>
+
+            <div class="w-full text-center mt-auto pt-8 pb-4">
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">© 2026 • Plataforma segura e confiável</p>
+            </div>
+        </div>
+
+        <div class="hidden lg:flex w-1/2 bg-slate-900 relative overflow-hidden items-center justify-center p-12">
+            <div class="absolute inset-0 bg-pattern opacity-10"></div>
+            <div class="absolute -top-40 -right-40 w-[600px] h-[600px] bg-brand-500 rounded-full blur-[120px] opacity-20 animate-pulse"></div>
+            <div class="absolute -bottom-40 -left-40 w-[600px] h-[600px] bg-blue-600 rounded-full blur-[120px] opacity-20"></div>
+
+            <div class="relative z-10 w-full max-w-lg text-left">
+                <div class="flex gap-4 mb-8">
+                    <div class="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shadow-xl">
+                        <i class="fa-brands fa-whatsapp text-2xl"></i>
+                    </div>
+                    <div class="login-robot-badge w-12 h-12 rounded-xl flex items-center justify-center text-white border transform -translate-y-2">
+                        <i class="fa-solid fa-robot text-xl"></i>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shadow-xl">
+                        <i class="fa-solid fa-chart-line text-xl"></i>
+                    </div>
+                </div>
+
+                <h2 class="text-4xl font-black text-white leading-tight mb-6">
+                    Automatize o seu WhatsApp e <span class="text-brand-500">escale as suas vendas.</span>
+                </h2>
+                <p class="text-lg text-slate-300 font-medium leading-relaxed">
+                    Transforme mensagens em receitas com a plataforma completa de CRM, Disparos e Agentes IA. Tudo o que precisa para vender mais e melhor.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div id="forgotPasswordModal" class="fixed inset-0 z-[10001] hidden items-center justify-center bg-slate-900/60 p-4">
+        <div class="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 p-6">
+            <div class="flex items-start justify-between gap-4 mb-4">
+                <div>
+                    <h3 class="text-xl font-extrabold text-slate-900">Redefinir senha</h3>
+                    <p class="text-sm text-slate-500 mt-1">Digite o e-mail da conta para receber o link de redefinição.</p>
+                </div>
+                <button type="button" id="closeForgotPasswordModalBtn" class="text-slate-400 hover:text-slate-600 text-lg leading-none bg-transparent border-0 cursor-pointer" aria-label="Fechar popup">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form id="forgotPasswordForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2" for="forgotPasswordEmail">E-mail</label>
+                    <input type="email" id="forgotPasswordEmail" placeholder="seu@email.com" required autocomplete="email"
+                        class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all shadow-sm">
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-1">
+                    <button type="button" id="cancelForgotPasswordBtn" class="px-4 py-2.5 rounded-lg border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="submitForgotPasswordBtn" class="px-4 py-2.5 rounded-lg bg-[#__HUB_COR__] text-white text-sm font-extrabold transition-colors">
+                        Redefinir senha
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        // Importar Supabase via CDN ESM
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.0/+esm';
+        
+        // Configuração do Supabase
+        const SUPABASE_URL = '__HUB_SUPABASE_URL__';
+        const SUPABASE_ANON_KEY = '__HUB_SUPABASE_ANON_KEY__';
+        
+        /**
+         * Inicializa o cliente Supabase global (window.supabase)
+         * Esta função deve ser chamada uma vez no carregamento da pagina
+         */
+        function initSupabase() {
+            if (window.supabase) {
+                console.log('✅ Supabase ja inicializado, reutilizando cliente existente');
+                return window.supabase;
+            }
+            
+            console.log('🔧 Inicializando Supabase Client...');
+            window.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                auth: {
+                    persistSession: true,
+                    autoRefreshToken: true,
+                    detectSessionInUrl: true,
+                    storage: window.localStorage
+                }
+            });
+            
+            console.log('✅ Supabase Client inicializado e salvo em window.supabase');
+            return window.supabase;
+        }
+        
+        // Inicializar Supabase imediatamente
+        const supabase = initSupabase();
+
+        // Elementos do DOM
+        const loginForm = document.getElementById('loginForm');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const togglePassword = document.getElementById('togglePassword');
+        const loginBtn = document.getElementById('loginBtn');
+        const btnText = document.getElementById('btnText');
+        const successMessage = document.getElementById('successMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const createAccountBtn = document.getElementById('createAccountBtn');
+        const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+        const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+        const closeForgotPasswordModalBtn = document.getElementById('closeForgotPasswordModalBtn');
+        const cancelForgotPasswordBtn = document.getElementById('cancelForgotPasswordBtn');
+        const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+        const forgotPasswordEmailInput = document.getElementById('forgotPasswordEmail');
+        const submitForgotPasswordBtn = document.getElementById('submitForgotPasswordBtn');
+
+        // 🍪 Função para salvar cookies
+        function setCookie(name, value, days = 7) {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+            document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Strict`;
+        }
+
+        // Funções de feedback
+        function showSuccessMessage(message) {
+            successMessage.textContent = message;
+            successMessage.classList.add('show');
+            errorMessage.classList.remove('show');
+            setTimeout(() => {
+                successMessage.classList.remove('show');
+            }, 5000);
+        }
+
+        function showErrorMessage(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+            successMessage.classList.remove('show');
+            
+            // Resetar campo de senha quando erro
+            passwordInput.value = '';
+            passwordInput.focus();
+            
+            setTimeout(() => {
+                errorMessage.classList.remove('show');
+            }, 5000);
+        }
+
+        function setLoading(loading) {
+            if (loading) {
+                loginBtn.classList.add('loading');
+                loginBtn.disabled = true;
+                btnText.textContent = 'Verificando...';
+            } else {
+                loginBtn.classList.remove('loading');
+                loginBtn.disabled = false;
+                btnText.innerHTML = `
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                    Entrar na Plataforma
+                `;
+            }
+        }
+
+        // Validação em tempo real
+        function validateEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        function openForgotPasswordModal() {
+            forgotPasswordModal.classList.remove('hidden');
+            forgotPasswordModal.classList.add('flex');
+            forgotPasswordEmailInput.value = emailInput.value.trim();
+            forgotPasswordEmailInput.focus();
+        }
+
+        function closeForgotPasswordModal() {
+            forgotPasswordModal.classList.add('hidden');
+            forgotPasswordModal.classList.remove('flex');
+            forgotPasswordForm.reset();
+        }
+
+        async function solicitarRedefinicaoSenha(email) {
+            if (!email) {
+                showToastError('Digite um e-mail para redefinir a senha.');
+                return;
+            }
+
+            if (!validateEmail(email)) {
+                showToastError('Digite um e-mail válido.');
+                return;
+            }
+
+            submitForgotPasswordBtn.disabled = true;
+            submitForgotPasswordBtn.textContent = 'Enviando...';
+
+            try {
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: '__HUB_BACK_URL__/redefinir-senha',
+                });
+
+                if (error) {
+                    showToastError(`Erro ao enviar e-mail: ${error.message}`);
+                    return;
+                }
+
+                showToastSuccess(`E-mail de redefinição enviado para ${email}`);
+                closeForgotPasswordModal();
+            } catch (error) {
+                showToastError('Erro ao enviar e-mail de redefinição. Tente novamente.');
+                console.error('Erro ao solicitar redefinição de senha:', error);
+            } finally {
+                submitForgotPasswordBtn.disabled = false;
+                submitForgotPasswordBtn.textContent = 'Redefinir senha';
+            }
+        }
+
+        function validateForm() {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+            
+            if (!email) {
+                showErrorMessage('Por favor, digite seu e-mail.');
+                emailInput.focus();
+                return false;
+            }
+            
+            if (!validateEmail(email)) {
+                showErrorMessage('Por favor, digite um e-mail válido.');
+                emailInput.focus();
+                return false;
+            }
+            
+            if (!password) {
+                showErrorMessage('Por favor, digite sua senha.');
+                passwordInput.focus();
+                return false;
+            }
+            
+            if (password.length < 6) {
+                showErrorMessage('A senha deve ter pelo menos 6 caracteres.');
+                passwordInput.focus();
+                return false;
+            }
+            
+            return true;
+        }
+
+
+
+        async function loginPeloServidor(email, password) {
+            let resp;
+            try {
+                resp = await fetch('__HUB_BACK_URL__/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email, password: password })
+                });
+            } catch (e) {
+                return { data: null, error: { message: 'Não foi possível conectar. Verifique sua internet.', doServidor: true } };
+            }
+            const body = await resp.json().catch(() => ({}));
+            if (!resp.ok || !body.session) {
+                return { data: null, error: { message: body.error || 'Erro ao fazer login.', doServidor: true } };
+            }
+            const { data, error } = await supabase.auth.setSession({
+                access_token: body.session.access_token,
+                refresh_token: body.session.refresh_token
+            });
+            return { data: data, error: error };
+        }
+
+        // Submissão do formulário
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Verificar se ja está logado antes de processar o formulário
+            if (await checkExistingLogin()) {
+                return; // Se ja está logado, nao processar o formulário
+            }
+            
+            // Limpar mensagens anteriores
+            successMessage.classList.remove('show');
+            errorMessage.classList.remove('show');
+            
+            // Validar formulário
+            if (!validateForm()) {
+                return;
+            }
+            
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+            
+            setLoading(true);
+            
+            try {
+                console.log('Enviando requisição de login via Supabase Auth...');
+                
+                // Login pelo servidor (conta tentativas erradas e bloqueia após o limite);
+                // a sessão devolvida é gravada no supabase-js como antes.
+                const { data, error } = await loginPeloServidor(email, password);
+                
+                if (error) {
+                    console.error('Erro no login:', error);
+                    
+                    if (error.doServidor) {
+                        showErrorMessage('❌ ' + error.message);
+                        return;
+                    }
+                    
+                    // Tratar erros específicos do Supabase
+                    if (error.message.includes('Invalid login credentials') || 
+                        error.message.includes('Email not confirmed') ||
+                        error.message.includes('User not found')) {
+                        showErrorMessage('❌ E-mail ou senha incorretos. Tente novamente.');
+                    } else {
+                        showErrorMessage(`❌ Erro ao fazer login: ${error.message}`);
+                    }
+                    return;
+                }
+                
+                if (data && data.session) {
+                    console.log('✅ Login realizado com sucesso!', data.session);
+                    console.log('✅ Sessão salva automaticamente no localStorage');
+                    
+                    // Verificar se a sessão foi salva
+                    const { data: { session: verifySession } } = await supabase.auth.getSession();
+                    if (verifySession && verifySession.access_token) {
+                        console.log('✅ Sessão verificada e access_token presente:', verifySession.access_token.substring(0, 20) + '...');
+                    } else {
+                        console.warn('⚠️ Sessão nao encontrada após login');
+                    }
+                    
+                    // Buscar o usuário do Supabase Auth para pegar o auth_user_id
+                    const { data: { user }, error: userError } = await supabase.auth.getUser();
+                    
+                    if (userError || !user) {
+                        console.error('Erro ao buscar usuário:', userError);
+                        showErrorMessage('❌ Erro ao buscar informacoes do usuário. Tente novamente.');
+                        return;
+                    }
+                    
+                    console.log('🔍 Buscando usuário na tabela SAAS_Usuarios com auth_user_id:', user.id);
+                    
+                    // Consultar a tabela SAAS_Usuarios usando auth_user_id (id e status)
+                    const { data: usuarioData, error: usuarioError } = await supabase
+                        .from('SAAS_Usuarios')
+                        .select('contaId, SAAS_Contas(status)')
+                        .eq('auth_user_id', user.id)
+                        .single();
+                    
+                    if (usuarioError) {
+                        console.error('Erro ao buscar usuário na tabela SAAS_Usuarios:', usuarioError);
+                        showErrorMessage('❌ Erro ao buscar informacoes do usuário. Tente novamente.');
+                        return;
+                    }
+                    
+                    if (!usuarioData || !usuarioData.contaId) {
+                        console.error('Usuário nao encontrado na tabela SAAS_Usuarios');
+                        showErrorMessage('❌ Usuário nao encontrado. Entre em contato com o suporte.');
+                        return;
+                    }
+                    
+                    // Se status for false, fazer logout e redirecionar para acesso-bloqueado
+                    const status = usuarioData?.SAAS_Contas?.status;
+                    if (status === false) {
+                        console.warn('⚠️ Usuário com status inativo. Redirecionando para acesso-bloqueado.');
+                        
+                        // Fazer logout do Supabase
+                        try {
+                            await supabase.auth.signOut();
+                        } catch (e) {
+                            console.warn('Erro ao fazer signOut:', e);
+                        }
+                        
+                        // Limpar todos os cookies
+                        document.cookie = 'userId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                        document.cookie = 'idLista=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                        document.cookie = 'idConexao=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                        document.cookie = 'idDisparo=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                        
+                        // Limpar storage
+                        sessionStorage.clear();
+                        localStorage.clear();
+                        
+                        // Redirecionar para pagina de acesso bloqueado
+                        window.location.replace('__HUB_BACK_URL__/acesso-bloqueado');
+                        return;
+                    }
+                    
+                    console.log('✅ Usuário encontrado na tabela SAAS_Usuarios. contaId:', usuarioData.contaId);
+                    
+                    // Salvar o contaId nos cookies como userId (compatibilidade)
+                    setCookie('userId', usuarioData.contaId, 7); // 7 dias de duração
+                    console.log('✅ contaId salvo nos cookies:', usuarioData.contaId);
+                    
+                    // Redirecionar para o dashboard
+                    window.location.href = '__HUB_BACK_URL__/dashboard';
+                } else {
+                    showErrorMessage('❌ Erro: Sessão nao criada. Tente novamente.');
+                }
+                
+            } catch (error) {
+                console.error('Erro no login:', error);
+                showErrorMessage(`❌ Erro ao fazer login: ${error.message}`);
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // Funcionalidade do botao de mostrar/ocultar senha
+        togglePassword.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            
+            // Trocar ícone
+            const eyeIcon = togglePassword.querySelector('.eye-icon');
+            if (type === 'password') {
+                eyeIcon.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                `;
+            } else {
+                eyeIcon.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                `;
+            }
+        });
+
+        // Limpar mensagens quando o usuário começar a digitar
+        emailInput.addEventListener('input', function() {
+            if (errorMessage.classList.contains('show')) {
+                errorMessage.classList.remove('show');
+            }
+        });
+
+        passwordInput.addEventListener('input', function() {
+            if (errorMessage.classList.contains('show')) {
+                errorMessage.classList.remove('show');
+            }
+        });
+
+        forgotPasswordBtn.addEventListener('click', openForgotPasswordModal);
+        closeForgotPasswordModalBtn.addEventListener('click', closeForgotPasswordModal);
+        cancelForgotPasswordBtn.addEventListener('click', closeForgotPasswordModal);
+
+        forgotPasswordModal.addEventListener('click', function(event) {
+            if (event.target === forgotPasswordModal) {
+                closeForgotPasswordModal();
+            }
+        });
+
+        forgotPasswordForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const email = forgotPasswordEmailInput.value.trim();
+            await solicitarRedefinicaoSenha(email);
+        });
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && !forgotPasswordModal.classList.contains('hidden')) {
+                closeForgotPasswordModal();
+            }
+        });
+
+        // Enter para submeter
+        passwordInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                loginForm.dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // Auto focus no email
+        emailInput.focus();
+
+        // ===== VERIFICAÇÃO AUTOMÁTICA DE LOGIN =====
+        async function checkExistingLogin() {
+            try {
+                // Garantir que o Supabase está inicializado
+                if (!window.supabase && !supabase) {
+                    return false;
+                }
+                
+                const supabaseClient = window.supabase || supabase;
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
+                
+                if (error) {
+                    console.error('Erro ao verificar sessão:', error);
+                    return false;
+                }
+                
+                if (!session || !session.access_token) {
+                    return false;
+                }
+                
+                // Verificar na tabela SAAS_Usuarios e SAAS_Contas(status) antes de redirecionar
+                const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+                if (userError || !user) {
+                    return false;
+                }
+                
+                const { data: usuarioData, error: usuarioError } = await supabaseClient
+                    .from('SAAS_Usuarios')
+                    .select('contaId, SAAS_Contas(status)')
+                    .eq('auth_user_id', user.id)
+                    .single();
+                
+                if (usuarioError || !usuarioData || !usuarioData.contaId) {
+                    await supabaseClient.auth.signOut();
+                    return false;
+                }
+                
+                if (usuarioData?.SAAS_Contas?.status === false) {
+                    await supabaseClient.auth.signOut();
+                    document.cookie = 'userId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                    sessionStorage.clear();
+                    localStorage.clear();
+                    window.location.replace('__HUB_BACK_URL__/acesso-bloqueado');
+                    return true;
+                }
+                
+                // Sessão válida, usuário existe e conta ativa: redirecionar para o dashboard
+                window.location.replace('__HUB_BACK_URL__/dashboard');
+                return true;
+            } catch (error) {
+                console.error('Erro ao verificar sessão:', error);
+                return false;
+            }
+        }
+
+        // Verificar login existente ao carregar a pagina
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Verificar imediatamente, sem delays
+            await checkExistingLogin();
+        });
+
+
+        // Função para lidar com "Crie uma conta gratuita"
+        createAccountBtn.addEventListener('click', function() {
+            // Redirecionar diretamente para a pagina de cadastro
+            window.location.href = '__HUB_BACK_URL__/cadastrar';
+        });
+
+        console.log('Script de login carregado com sucesso');
+
+        // ===== FUNÇÕES DE MENSAGENS DE FEEDBACK =====
+        function showToast(message, type = 'info') {
+            if (typeof statusBloqueado !== 'undefined' && statusBloqueado) return;
+            const toastContainer = document.getElementById('toastContainer');
+            if (!toastContainer) return;
+            const cleanMessage = String(message || '').replace(/^(\u2705|\u274C|\u2139\uFE0F?|\u26A0\uFE0F?)\s*/, '');
+            const safeType = type === 'success' || type === 'error' ? type : 'info';
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification ' + safeType;
+            toast.setAttribute('role', safeType === 'error' ? 'alert' : 'status');
+            toast.setAttribute('aria-live', safeType === 'error' ? 'assertive' : 'polite');
+            const messageSpan = document.createElement('span');
+            messageSpan.className = 'toast-message';
+            messageSpan.textContent = cleanMessage;
+            toast.appendChild(messageSpan);
+            toastContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    if (toast.parentNode) toast.parentNode.removeChild(toast);
+                }, 300);
+            }, 5000);
+        }
+
+        // Funções de toast (usadas apenas para notificações toast, nao para mensagens inline)
+        function showToastSuccess(message) {
+            showToast(message, 'success');
+        }
+
+        function showToastError(message) {
+            showToast(message, 'error');
+        }
+
+    </script>
+
+    </body>
+</html>
+
